@@ -50,7 +50,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 
 ## How a frame happens
 
-1. `web.rs` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`.
+1. `web.rs` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`, and every other key into calls on `keys.rs`.
 2. `game.rs` turns raw pointer movement into verbs: poke, stretch, slice, stir, and so on. It owns the camera, the player's progress, and what the object has learned about them.
 3. The verbs act on `World` in `sim.rs`, which owns the body, its tendrils, ripples and free drops, plus one state machine per transformation.
 4. `render.rs` copies the world into shader uniforms, and `shader.frag` raymarches the scene.
@@ -63,6 +63,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | --- | --- |
 | `src/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast and the count, saving to `localStorage`. |
 | `src/game.rs` | Pointer input to verbs. The header comment lists every gesture. |
+| `src/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
 | `src/meiosis.rs` | Slice it and it divides into two cells; squeeze them back into one. |
 | `src/morula.rs` | Past two: every cell divides, then grain, the eye, cells dying, the stone. |
@@ -72,7 +73,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/landscape.rs` | What the twelve pieces do once they have landed. |
 | `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box). |
 | `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 66 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 74 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
