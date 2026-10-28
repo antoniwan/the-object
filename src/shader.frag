@@ -86,6 +86,96 @@ uniform vec4 uCosmos;    // x liquid→universe 0..1, y how far the galaxy has t
 uniform vec4 uBox;       // x round→box 0..1, y the lid open 0..1, z rattle of a knock, w which way it faces
 const float HALF_SIDE = 0.806;
 
+// ---- the fold (forms/fold.rs) ---------------------------------------------------------------
+// Stirred on past its universe, what it holds gets out: the floor goes, the room folds into
+// mirrors, and it is repeated in every direction, each copy the mirror of its neighbours.
+// Everything here is a change of coordinates or a colour, so it costs scene() one transform and
+// nothing at all until uFold.x leaves zero.
+uniform vec4 uFold;      // x room→folded 0..1, y its own clock (runs back while held), z a new mirror's flash, w running backward 0..1
+uniform vec4 uFold2;     // x mirrors before, y mirrors now, z before→now 0..1
+
+vec2 foldRot(vec2 v, float a) {
+  float c = cos(a), s = sin(a);
+  return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+
+// Its colours, run out: the galaxy's blue and pink, its core's gold, and the dark between.
+vec3 foldPal(float t) {
+  return vec3(0.42, 0.30, 0.55) + vec3(0.48, 0.42, 0.45) * cos(6.2831 * (vec3(1.0, 1.0, 1.0) * t + vec3(0.0, 0.36, 0.62)));
+}
+
+// Space around it, folded: turned on the fold's clock, twisted more the further out, then
+// repeated on a lattice with every other cell mirrored. Copies near the eye shrink out of the
+// way, so it is never inside one. Returns the point in its own copy's frame; `sgn`, `ang` say
+// how that copy is flipped and turned (for directions), `k` which copy it is, `s` its scale.
+vec3 foldSpace(vec3 p, out vec3 sgn, out float ang, out vec3 k, out float s) {
+  sgn = vec3(1.0);
+  ang = 0.0;
+  k = vec3(0.0);
+  s = 1.0;
+  if (uFold.x <= 0.0) return p;
+  float f = smoothstep(0.0, 1.0, uFold.x);
+  vec3 q = p - uBody.xyz;
+  ang = f * (uFold.y * 0.06 + 0.035 * length(q));
+  q.xz = foldRot(q.xz, ang);
+  // the copies come in from far off, at a steady pace to the eye
+  float S = uBody.w * 5.2 * exp(2.6 * (1.0 - f));
+  k = floor(q / S + 0.5);
+  q -= S * k;
+  sgn = 1.0 - 2.0 * mod(k, 2.0);
+  q *= sgn;
+  if (dot(k, k) > 0.0) {
+    // where this copy stands in the room, and how far it is from the line between the eye and
+    // the one in the middle: the ones in the way, and the ones too close, make room
+    vec3 w = S * k;
+    w.xz = foldRot(w.xz, -ang);
+    w += uBody.xyz;
+    vec3 e = uCamPos - uBody.xyz;
+    vec3 we = w - uBody.xyz;
+    float off = length(we - e * clamp(dot(we, e) / dot(e, e), 0.0, 1.2));
+    s = max(min(smoothstep(1.3 * uBody.w, 3.2 * uBody.w, off), smoothstep(1.5 * uBody.w, 4.0 * uBody.w, length(w - uCamPos))), 1e-3);
+  }
+  return uBody.xyz + q / s;
+}
+
+// The sky the room folds into: one sky, cut into mirrored wedges around the vertical and
+// across the horizon, with an orbit-trap fractal in each, drifting on the fold's clock.
+vec3 foldSky(vec3 rd) {
+  float clk = uFold.y;
+  vec3 col = vec3(0.0);
+  // a new mirror count fades in over the old one, through one copy of the loop
+  for (int j = ZERO; j < 2; j++) {
+    float w = j == 0 ? uFold2.z : 1.0 - uFold2.z;
+    if (w < 0.001) continue;
+    float n = j == 0 ? uFold2.y : uFold2.x;
+    float sec = 6.2831 / n;
+    float a = mod(atan(rd.z, rd.x) + clk * 0.025, sec);
+    a = min(a, sec - a);
+    float h = length(rd.xz);
+    vec3 d = vec3(cos(a) * h, abs(rd.y), sin(a) * h);
+    vec3 q = d * 1.15 + vec3(0.11, 0.07 * sin(clk * 0.05), 0.2);
+    vec3 C = vec3(0.56, 0.38, 0.66) + 0.05 * vec3(sin(clk * 0.071), cos(clk * 0.053), sin(clk * 0.037));
+    float last = 0.0, acc = 0.0;
+    vec3 c = vec3(0.0);
+    for (int i = ZERO; i < 11; i++) {
+      q = abs(q) / dot(q, q) - C;
+      float m = length(q);
+      float e = exp(-abs(m - last) * 3.0);
+      c += foldPal(float(i) * 0.07 + m * 0.22 - clk * 0.012) * e * e * 0.26;
+      acc += e;
+      last = m;
+    }
+    // the seams of the mirrors catch the light
+    float seam = exp(-a * h * 90.0) + exp(-abs(rd.y) * 70.0);
+    c += vec3(0.95, 0.85, 1.0) * seam * (0.12 + 0.9 * uFold.z);
+    col += w * c;
+  }
+  col = vec3(0.03, 0.015, 0.07) + col * col * 1.6 * (1.0 + 0.8 * uFold.z);
+  // running backward, the light goes over to the far side of its colours
+  return mix(col, col.zxy * vec3(0.8, 1.05, 1.25), 0.55 * uFold.w);
+}
+// ---- end of the fold -------------------------------------------------------------------------
+
 // Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
 // Order matches Consistency in burst.rs: milk, chrome, glass, jelly, stone, honey,
 // velvet, wax, ice, rubber, obsidian, moss.
@@ -474,7 +564,11 @@ float pillars(vec3 p, out int pid) {
 // Also hands back the body alone, and the nearest piece and its distance, so
 // shade() can use them without compiling bodySurface() and shards() again.
 float scene(vec3 p, out float body, out float piece, out int id) {
-  body = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
+  // the fold repeats the body through mirrored space (forms/fold.rs)
+  vec3 fsg, fk;
+  float fang, fs;
+  vec3 bp = foldSpace(p, fsg, fang, fk, fs);
+  body = uBurst.x > 0.5 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? 0.7 : 1.0);
   float d = body;
   piece = 1e3;
   id = -1;
@@ -711,6 +805,12 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake) {
     // past the marcher's reach the liquid floor still shows, flat
     if (uLake.z > 0.0) bg = mix(bg, lakeFade(lake, p, bg), lakeMask(p.xz));
   }
+  if (uFold.x > 0.0) {
+    // the white comes apart along the sky's own seams
+    vec3 fsky = foldSky(rd);
+    float grow = smoothstep(0.0, 0.25, uFold.x * 1.4 - (1.0 - min(dot(fsky, vec3(0.6)), 1.0)) * 0.9);
+    bg = mix(bg, fsky, max(grow, smoothstep(0.6, 1.0, uFold.x)));
+  }
   if (uNight > 0.001) {
     vec3 sky = nightSky(rd);
     // Free drops glow like small suns at night.
@@ -896,7 +996,18 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
     if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
     if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n), uStone.x);
   }
-  if (uCosmos.x > 0.001) col = mix(col, galaxy(p, rd), uCosmos.x);
+  if (uCosmos.x > 0.001) {
+    // every copy in the fold holds the same galaxy, seen from its own side
+    vec3 fsg, fk;
+    float fang, fs;
+    vec3 gp = foldSpace(p, fsg, fang, fk, fs);
+    vec3 grd = rd;
+    grd.xz = foldRot(grd.xz, fang);
+    grd *= fsg;
+    vec3 gal = galaxy(uBody.xyz + (gp - uBody.xyz) * fs, grd);
+    if (dot(fk, fk) > 0.0) gal *= mix(vec3(1.0), 0.6 + 0.9 * foldPal(hash(fk + 0.5) + uFold.y * 0.01), uFold.x * 0.8);
+    col = mix(col, gal, uCosmos.x);
+  }
   if (uBox.y > 0.0) {
     // inside the open box it is lit from within
     vec3 q = boxLocal(p);
@@ -1075,7 +1186,7 @@ void main() {
   int id = -1;
   int j = 0;
   // the landscape is far bigger than the room, so look further when it exists
-  float tMax = 14.0 + 36.0 * uBurst.w;
+  float tMax = 14.0 + 36.0 * uBurst.w + 18.0 * uFold.x;
   for (int i = ZERO; i < 148; i++) {
     vec3 k = 2.0 * vec3((((j + 3) >> 1) & 1), ((j >> 1) & 1), (j & 1)) - 1.0;
     float h = 0.06 * float(j - 3);
@@ -1114,7 +1225,9 @@ void main() {
   ao = clamp(1.0 - 0.18 * ao, 0.0, 1.0);
 
   vec3 surf = hit || far ? shade(sp, rd, uv, far, n, ao, db, ds, id) : vec3(0.0);
-  vec3 col = hit ? surf : background(ro, rd, uv, surf);
+  // in the fold, the far copies go into the sky
+  float fog = hit ? uFold.x * smoothstep(6.0, tMax, t) : 1.0;
+  vec3 col = fog > 0.0 ? mix(surf, background(ro, rd, uv, surf), fog) : surf;
   if (uBox.y > 0.0) {
     // light rising out of the open box
     vec2 dxz = rd.xz;

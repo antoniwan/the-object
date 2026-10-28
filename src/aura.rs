@@ -21,8 +21,8 @@ pub struct Aura {
 pub fn aura(world: &World, cam: &Camera, w: f32, h: f32) -> Aura {
     let c = world.body.color;
     let mean = (c.x + c.y + c.z) / 3.0;
-    // Pastels become ink: deepen by day, lighten by night.
-    let base = 0.42 + 0.36 * world.night;
+    // Pastels become ink: deepen by day, lighten by night (and in the dark of the fold).
+    let base = 0.42 + 0.36 * world.night.max(world.forms.fold.amount());
     let ink = |v: f32| (base + (v - mean) * 2.6).clamp(0.0, 1.0);
     let unrest = world.agitation.max(world.burst.wounds / FATAL_WOUNDS).clamp(0.0, 1.0);
     // Upset, it flushes; so do its words.

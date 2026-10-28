@@ -36,12 +36,14 @@ pub struct Cosmos {
     told: bool,
     /// A star igniting at the core, 0..1.
     pub flare: f32,
+    /// How fast its time runs: 1, or less and below zero while the fold (fold.rs) runs it backward.
+    pub pace: f32,
     pub(super) events: Vec<Event>,
 }
 
 impl Default for Cosmos {
     fn default() -> Self {
-        Cosmos { phase: Phase::Whole, sense: 1.0, spin: 0.0, spin_vel: 0.0, stirred: 0.0, quiet: 0.0, told: false, flare: 0.0, events: Vec::new() }
+        Cosmos { phase: Phase::Whole, sense: 1.0, spin: 0.0, spin_vel: 0.0, stirred: 0.0, quiet: 0.0, told: false, flare: 0.0, pace: 1.0, events: Vec::new() }
     }
 }
 
@@ -105,7 +107,7 @@ impl Cosmos {
         // It keeps turning on its own, slowly, the way it was stirred.
         let idle = 0.25 * self.sense * self.amount();
         self.spin_vel += (idle - self.spin_vel) * (1.0 - (-0.8 * dt).exp());
-        self.spin += self.spin_vel * dt;
+        self.spin += self.spin_vel * dt * self.pace;
         self.flare *= (-1.6 * dt).exp();
         self.phase = match self.phase {
             Phase::Forming { t } if t + dt >= FORM_SECS => {

@@ -7,6 +7,8 @@
 //!   pluck it; where you pluck decides the harmonic. Hold it still and it winds back.
 //! - stir it (drag a tendril round and round it): the liquid turns and turns
 //!   until it holds a small universe. Stir the other way and it settles.
+//!   Stir the universe on, the same way, and the room folds: it is everywhere at once,
+//!   in mirrors (see fold.rs). Stir the other way and the room folds back up.
 //! - draw a square around it: it takes the corners. Knock on the box and
 //!   something knocks back; knock three times and the lid opens and everything
 //!   inside gets out. When it has all come home, it forgets its corners.
@@ -17,12 +19,14 @@
 pub mod bloom;
 pub mod cosmos;
 pub mod filament;
+pub mod fold;
 pub mod pandora;
 
 use crate::math::*;
 use bloom::Bloom;
 use cosmos::Cosmos;
 use filament::Filament;
+use fold::Fold;
 use pandora::Pandora;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -53,6 +57,14 @@ pub enum Event {
     Lid,
     /// It forgot its corners and is round again.
     Rounded,
+    /// Stirred on past its universe, the room folded and it is everywhere.
+    Everywhere,
+    /// The folded room took another mirror.
+    Facet,
+    /// Held, its time turned round.
+    Backward,
+    /// The room folded back up around one of it.
+    Crease,
 }
 
 #[derive(Default)]
@@ -61,19 +73,32 @@ pub struct Forms {
     pub filament: Filament,
     pub cosmos: Cosmos,
     pub pandora: Pandora,
+    pub fold: Fold,
 }
 
 impl Forms {
     /// True while it is still the liquid it started as (buds alone don't change what it is).
     pub fn whole(&self) -> bool {
-        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole()
+        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole() && self.fold.whole()
     }
 
     pub fn step(&mut self, dt: f32) {
         self.bloom.step(dt);
         self.filament.step(dt);
+        self.fold.step(dt);
+        // in the fold, the universe keeps the fold's time, backward too
+        self.cosmos.pace = if self.fold.whole() { 1.0 } else { self.fold.pace() };
         self.cosmos.step(dt);
         self.pandora.step(dt);
+    }
+
+    /// A stir (in turns, counterclockwise on screen positive): the fold takes it while there
+    /// is one or while the universe is being stirred on, and the universe takes the rest.
+    pub fn stir(&mut self, turns: f32) {
+        let universe = self.cosmos.phase == cosmos::Phase::Cosmos;
+        if !self.fold.stir(turns, self.cosmos.sense, universe) {
+            self.cosmos.stir(turns);
+        }
     }
 
     /// The body's distance `d`, reshaped by whichever form it is taking.
@@ -99,6 +124,7 @@ impl Forms {
         out.append(&mut self.filament.events);
         out.append(&mut self.cosmos.events);
         out.append(&mut self.pandora.events);
+        out.append(&mut self.fold.events);
         out
     }
 }
