@@ -17,6 +17,9 @@ pub enum Discovery {
     Slam,
     Lake,
     Rise,
+    Burst,
+    Shards,
+    Gather,
 }
 
 impl Discovery {
@@ -36,6 +39,9 @@ impl Discovery {
             Discovery::Slam => "slam",
             Discovery::Lake => "lake",
             Discovery::Rise => "rise",
+            Discovery::Burst => "burst",
+            Discovery::Shards => "twelve",
+            Discovery::Gather => "gather",
         }
     }
 
@@ -55,6 +61,9 @@ impl Discovery {
             Discovery::Slam => "it hit the ground and stayed.",
             Discovery::Lake => "the ground remembers.",
             Discovery::Rise => "it was never gone.",
+            Discovery::Burst => "it couldn't hold any more.",
+            Discovery::Shards => "every piece is different.",
+            Discovery::Gather => "it was in pieces, not gone.",
         }
     }
 }

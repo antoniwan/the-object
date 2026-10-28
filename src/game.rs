@@ -11,9 +11,12 @@
 //! - on two cells, hold a squeeze: they rejoin
 //! - stretch it and let go with a fast flick: throw it; thrown hard at the floor it fuses (see fusion.rs)
 //! - on the liquid floor: tap to ripple it, drag up to pull the object back out
+//! - poke it twelve times without letting it heal: it bursts (see burst.rs);
+//!   then tap a piece to feel its material, or hold still on the ground to gather them
 
 use crate::camera::{Camera, FOCAL};
 use crate::math::*;
+use crate::burst;
 use crate::fusion;
 use crate::meiosis::{self, Swipe};
 use crate::progress::{Discovery, Progress};
@@ -31,6 +34,8 @@ enum Gesture {
     Squeezing { start_dist: f32 },
     /// Touching the liquid floor; `at` is where, on the floor.
     Lake { start: (f32, f32), at: (f32, f32) },
+    /// Pressing the empty ground of the landscape; held still long enough, it gathers.
+    Ground { start: (f32, f32), since: f32 },
 }
 
 /// A flick faster than this, in canvas heights per second, throws the object.
@@ -111,6 +116,9 @@ impl Game {
                 if self.world.division.phase == meiosis::Phase::Two {
                     self.discover(Discovery::Twin);
                 }
+                if self.world.division.whole() && self.world.fusion.whole() {
+                    self.world.burst.wound();
+                }
             }
             Gesture::Stretching { handle, .. } => {
                 self.world.release_handle(handle);
@@ -126,7 +134,7 @@ impl Game {
                 }
             }
             Gesture::Squeezing { .. } => self.world.body.squeeze = 0.0,
-            Gesture::Orbiting { .. } | Gesture::Idle => {}
+            Gesture::Orbiting { .. } | Gesture::Ground { .. } | Gesture::Idle => {}
         }
     }
 
@@ -155,6 +163,21 @@ impl Game {
         self.cam.pitch_vel = 0.0;
         self.swipe = Swipe::default();
         self.pvel = (0.0, 0.0);
+        if !self.world.burst.whole() {
+            let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+            self.gesture = match self.world.burst.pick(ro, rd) {
+                Some(i) => {
+                    self.world.burst.poke_shard(i);
+                    self.discover(Discovery::Shards);
+                    Gesture::Idle
+                }
+                None if self.world.burst.phase == burst::Phase::Landscape => {
+                    Gesture::Ground { start: (x, y), since: self.clock }
+                }
+                None => Gesture::Orbiting { last: (x, y) },
+            };
+            return;
+        }
         if !self.world.fusion.whole() {
             // It is in the floor now; the floor is what there is to touch.
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
@@ -221,6 +244,13 @@ impl Game {
                 }
                 self.gesture = Gesture::Orbiting { last: (x, y) };
             }
+            Gesture::Ground { start, .. } => {
+                let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
+                if moved > TAP_SLOP {
+                    self.gesture = Gesture::Orbiting { last: start };
+                    self.pointer_move(id, x, y, dt);
+                }
+            }
             Gesture::Lake { start, .. } => {
                 // Pull up from the floor and it comes back out.
                 if (start.1 - y) / self.h > 0.12 && self.world.fusion.rise() {
@@ -252,7 +282,7 @@ impl Game {
 
     /// Sample the drag segment finely, so a fast flick can't jump over the body.
     fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
-        if !self.world.division.whole() || !self.world.fusion.whole() {
+        if !self.world.division.whole() || !self.world.fusion.whole() || !self.world.burst.whole() {
             return;
         }
         let len = ((to.0 - from.0).powi(2) + (to.1 - from.1).powi(2)).sqrt();
@@ -287,7 +317,7 @@ impl Game {
     fn throw(&mut self) {
         let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
         let speed = (vx * vx + vy * vy).sqrt();
-        if speed < THROW_SPEED || !self.world.division.whole() || !self.world.fusion.whole() {
+        if speed < THROW_SPEED || !self.world.division.whole() || !self.world.fusion.whole() || !self.world.burst.whole() {
             return;
         }
         let b = self.cam.basis();
@@ -333,7 +363,33 @@ impl Game {
         }
 
         let blend = self.world.division.blend();
-        self.cam.dist = Camera::new().dist + (self.cells_dist() - Camera::new().dist) * blend.zoom;
+        let base = Camera::new().dist;
+        let spread = self.world.burst.spread();
+        self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread;
+        if let Gesture::Ground { since, .. } = self.gesture {
+            if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
+                self.discover(Discovery::Gather);
+                self.gesture = Gesture::Idle;
+            }
+        }
+        for e in self.world.burst.drain_events() {
+            match e {
+                burst::Event::Burst => {
+                    self.discover(Discovery::Burst);
+                    self.cam.shake = 0.12;
+                    self.hit_stop = 0.08;
+                    self.gesture = Gesture::Idle;
+                }
+                burst::Event::Gathered => {
+                    self.world.add_ripple(V3::UP, 0.9);
+                    self.world.add_ripple(-V3::UP, 0.9);
+                }
+            }
+        }
+        // Pull back and up so the whole landscape can be seen.
+        if spread > 0.0 && !orbiting {
+            self.cam.pitch += (0.42 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * spread;
+        }
         // The neck snaps: each new cell recoils where they were joined.
         if !self.snapped && blend.split > 0.82 && matches!(self.world.division.phase, meiosis::Phase::Dividing { .. }) {
             self.snapped = true;
@@ -510,6 +566,36 @@ mod tests {
         }
         assert!(g.world.fusion.whole());
         assert!(g.world.body.pos.len() < 0.2, "back home in the middle");
+    }
+
+    #[test]
+    fn poked_to_death_it_bursts_into_a_landscape_and_holding_still_gathers_it() {
+        let mut g = game();
+        for i in 0..12 {
+            g.pointer_down(i, 400.0, 300.0);
+            g.pointer_up(i);
+            for _ in 0..12 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        assert!(g.progress.has(Discovery::Burst), "wounds {}", g.world.burst.wounds);
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.burst.phase, burst::Phase::Landscape);
+        assert!(g.cam.dist > 15.0);
+        assert!(g.pick(400.0, 300.0).is_none(), "the body is gone");
+        // tap the sky (nothing there), hold still on the ground, and the pieces come home
+        g.pointer_down(20, 400.0, 590.0);
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(20);
+        assert!(g.progress.has(Discovery::Gather));
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.burst.whole());
     }
 
     #[test]

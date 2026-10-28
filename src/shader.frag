@@ -34,6 +34,30 @@ uniform vec4 uLakeRip[6]; // x, z, age, amplitude of a touch on the lake
 uniform int uNLR;
 const float FLOOR_Y = -1.45;
 
+// Bursting (burst.rs): twelve pieces that become twelve triangles.
+uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
+uniform vec4 uTri[12];   // xyz where the piece is (on the floor once landed), w height
+uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke
+
+// Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
+// Order matches Consistency in burst.rs: milk, chrome, glass, jelly, stone, honey,
+// velvet, wax, ice, rubber, obsidian, moss.
+const vec2 TA[12] = vec2[12](vec2(-0.5, 0.0), vec2(-0.25, 0.0), vec2(-0.4, 0.0), vec2(-0.6, 0.0), vec2(-0.6, 0.0), vec2(-0.45, 0.0),
+                             vec2(-0.5, 0.0), vec2(-0.4, 0.0), vec2(-0.15, 0.0), vec2(-0.55, 0.0), vec2(-0.35, 0.0), vec2(-0.6, 0.0));
+const vec2 TB[12] = vec2[12](vec2(0.5, 0.0), vec2(0.25, 0.0), vec2(0.45, 0.0), vec2(0.6, 0.0), vec2(0.4, 0.0), vec2(0.45, 0.0),
+                             vec2(0.5, 0.0), vec2(0.4, 0.0), vec2(0.3, 0.0), vec2(0.55, 0.0), vec2(0.5, 0.0), vec2(0.6, 0.0));
+const vec2 TC[12] = vec2[12](vec2(0.0, 0.87), vec2(0.0, 1.0), vec2(-0.4, 0.9), vec2(0.05, 0.55), vec2(0.55, 0.8), vec2(-0.1, 0.8),
+                             vec2(0.3, 0.95), vec2(0.0, 0.7), vec2(-0.05, 1.0), vec2(0.0, 0.6), vec2(-0.2, 1.0), vec2(-0.3, 0.7));
+const float TTHICK[12] = float[12](0.12, 0.08, 0.06, 0.25, 0.2, 0.15, 0.14, 0.3, 0.07, 0.22, 0.1, 0.18);
+const float TROUND[12] = float[12](0.06, 0.01, 0.01, 0.12, 0.02, 0.08, 0.05, 0.1, 0.015, 0.1, 0.005, 0.04);
+// Materials: base colour, then (gloss, reflectivity, translucency, grain).
+const vec3 TCOL[12] = vec3[12](vec3(0.95, 0.94, 0.97), vec3(0.80, 0.82, 0.86), vec3(0.86, 0.96, 0.98), vec3(0.93, 0.22, 0.45),
+                               vec3(0.62, 0.58, 0.53), vec3(0.96, 0.60, 0.14), vec3(0.16, 0.19, 0.56), vec3(0.96, 0.90, 0.78),
+                               vec3(0.80, 0.91, 1.00), vec3(0.95, 0.36, 0.16), vec3(0.05, 0.05, 0.07), vec3(0.36, 0.55, 0.26));
+const vec4 TMAT[12] = vec4[12](vec4(90.0, 0.25, 0.6, 0.0), vec4(300.0, 0.95, 0.0, 0.0), vec4(400.0, 0.6, 0.9, 0.0), vec4(60.0, 0.15, 0.9, 0.0),
+                               vec4(8.0, 0.02, 0.0, 0.35), vec4(120.0, 0.2, 0.85, 0.0), vec4(6.0, 0.0, 0.1, 0.05), vec4(25.0, 0.05, 0.7, 0.03),
+                               vec4(200.0, 0.35, 0.6, 0.12), vec4(15.0, 0.03, 0.05, 0.02), vec4(500.0, 0.55, 0.0, 0.0), vec4(5.0, 0.0, 0.2, 0.45));
+
 const float SEP = 0.95;
 const float CELL_SCALE = 0.7937;
 const float K_JOIN = 0.9;
@@ -64,6 +88,8 @@ float surfaceDisp(vec3 n) {
     float x = a - front;
     disp += 0.055 * A * exp(-1.3 * t) * cos(x * 12.0) * exp(-x * x * 5.0) * smoothstep(0.0, 0.25, t);
   }
+  // Wounds: the more it has been hurt, the more it shivers.
+  disp += uBurst.z * 0.05 * sin(dot(n, vec3(13.0, 17.0, 11.0)) + uTime * 11.0);
   // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
   float c = dot(n, uCut.xyz);
   disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
@@ -117,8 +143,56 @@ float lakeHeight(vec2 xz) {
   return h * m;
 }
 
+float sdTri2(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
+  vec2 e0 = p1 - p0, e1 = p2 - p1, e2 = p0 - p2;
+  vec2 v0 = p - p0, v1 = p - p1, v2 = p - p2;
+  vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+  vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+  vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float s = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+                   vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+                   vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
+
+// One piece: a liquid blob in flight that hardens into its triangle as it lands.
+float shardSdf(vec3 p, int i) {
+  vec3 base = uTri[i].xyz;
+  float size = uTri[i].w;
+  float m = uTriB[i].y;
+  float blobR = 0.437 * uBody.w * mix(1.0, size * 0.5, m * m);
+  float blob = length(p - base - vec3(0.0, blobR, 0.0)) - blobR;
+  if (m <= 0.0) return blob;
+  vec3 q = p - base;
+  float yaw = uTriB[i].x + (1.0 - m) * 5.0;
+  float c = cos(yaw), s = sin(yaw);
+  q = vec3(c * q.x - s * q.z, q.y, s * q.x + c * q.z) / size;
+  // a poke makes it wobble, more or less, by its consistency (burst.rs sets how much)
+  q.x += uTriB[i].z * 0.07 * sin(q.y * 7.0 - uTime * 16.0) * q.y;
+  float d2 = sdTri2(q.xy, TA[i], TB[i], TC[i]);
+  float dz = abs(q.z) - TTHICK[i] * 0.5;
+  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - TROUND[i]) * size;
+  return mix(blob, tri, m);
+}
+
+// Nearest piece and its distance.
+float shards(vec3 p, out int id) {
+  float d = 1e3;
+  id = -1;
+  for (int i = 0; i < 12; i++) {
+    float di = shardSdf(p, i);
+    if (di < d) { d = di; id = i; }
+  }
+  return d;
+}
+
 float scene(vec3 p) {
-  float d = bodySurface(p);
+  float d = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
+  if (uBurst.w > 0.0) {
+    int id;
+    d = min(d, shards(p, id));
+  }
   if (uLake.z > 0.0) {
     // the body melts into the floor through a smooth join
     d = smin(d, (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8, 0.45 * uBody.w);
@@ -173,8 +247,17 @@ vec3 floorMatte(vec3 p, vec3 bg) {
       if (i >= uNH) break;
       occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
     }
+    if (uBurst.x > 0.5) occ = 0.0;
     float fade = exp(-0.05 * dot(p.xz, p.xz));
-    bg *= 1.0 - 0.55 * clamp(occ, 0.0, 1.0) * fade;
+    // the pieces cast their own shadows wherever they stand
+    float socc = 0.0;
+    if (uBurst.w > 0.0) {
+      for (int i = 0; i < 12; i++) {
+        float h = uTri[i].w * mix(0.12, 0.4, uTriB[i].y);
+        socc += sphOcc(p, vec4(uTri[i].xyz + vec3(0.0, h, 0.0), uTri[i].w * mix(0.12, 0.38, uTriB[i].y)));
+      }
+    }
+    bg *= 1.0 - 0.55 * clamp(occ * fade + socc, 0.0, 1.0);
   }
   return bg;
 }
@@ -197,7 +280,11 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv) {
   return bg;
 }
 
-float hash(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.3, 71.7))) * 43758.5453); }
+float hash(vec3 p) {
+  // sin-free, so it stays noise even far from the origin
+  p = fract(p * 0.3183099 + 0.1) * 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
 
 // Ray thickness through a sphere, starting at ro going along rd.
 float sphereThickness(vec3 ro, vec3 rd, vec3 c, float r) {
@@ -249,8 +336,45 @@ vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
   return col;
 }
 
+// One of the twelve, in its own material.
+vec3 shadeShard(vec3 p, vec3 rd, int i) {
+  vec3 n = calcNormal(p);
+  vec3 v = -rd;
+  float ndv = max(dot(n, v), 0.0);
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 base = TCOL[i];
+  vec4 mat = TMAT[i];
+  float wrap = mat.z;
+  float diff = clamp((dot(n, L) + wrap) / (1.0 + wrap), 0.0, 1.0);
+  vec3 col = base * (0.32 + 0.68 * diff);
+  // light passing through the translucent ones, glowing at the thin edges
+  col += base * mat.z * 0.35 * pow(1.0 - ndv, 1.5);
+  if (mat.w > 0.0) col *= 1.0 - mat.w * hash(floor(p * 40.0));
+  if (i == 6) col += base * 1.6 * pow(1.0 - ndv, 3.0); // velvet sheen
+  if (i == 0) {
+    vec3 irid = 0.5 + 0.5 * cos(6.2831 * ((1.0 - ndv) * 1.4 + uTime * 0.02 + vec3(0.0, 0.33, 0.67)));
+    col = mix(col, irid, 0.3 * (1.0 - ndv));
+  }
+  float fres = mat.y + (1.0 - mat.y) * pow(1.0 - ndv, 5.0) * 0.7;
+  col = mix(col, env(reflect(rd, n)) * (i == 1 ? base * 1.15 : vec3(1.0)), clamp(fres, 0.0, 1.0));
+  col += vec3(pow(max(dot(reflect(-L, n), v), 0.0), mat.x)) * min(mat.x / 120.0, 1.0);
+  return col;
+}
+
 vec3 shade(vec3 p, vec3 rd, vec2 uv) {
+  if (uBurst.w > 0.0) {
+    int id;
+    float ds = shards(p, id);
+    float db = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
+    if (id >= 0 && ds < db && ds < 0.02) {
+      // in flight it is still the liquid; it takes on its material as it lands
+      float m = uTriB[id].y;
+      return mix(shadeLiquid(p, rd), shadeShard(p, rd, id), m);
+    }
+  }
   vec3 col = uDiv.z < 0.999 ? shadeLiquid(p, rd) : vec3(0.0);
+  // a body that has been hurt flushes
+  col *= mix(vec3(1.0), vec3(1.0, 0.72, 0.78), uBurst.z * 0.9);
   if (uLake.z > 0.0) {
     // where the floor is hit but hasn't turned liquid yet, it is still the white floor
     float floorness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * (1.0 - lakeMask(p.xz));
@@ -307,15 +431,18 @@ void main() {
 
   float t = 0.0;
   bool hit = false;
-  for (int i = 0; i < 110; i++) {
+  // the landscape is far bigger than the room, so look further when it exists
+  float tMax = 14.0 + 36.0 * uBurst.w;
+  for (int i = 0; i < 140; i++) {
     vec3 p = ro + rd * t;
     float d = scene(p);
     if (d < 0.0012 * t) { hit = true; break; }
     t += d * 0.75;
-    if (t > 14.0) break;
+    if (t > tMax) break;
   }
 
   vec3 col = hit ? shade(ro + rd * t, rd, uv) : background(ro, rd, uv);
+  col = mix(col, vec3(1.0), uBurst.y);
   col = pow(col, vec3(0.97));
   outColor = vec4(col, 1.0);
 }

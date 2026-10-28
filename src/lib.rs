@@ -1,3 +1,4 @@
+pub mod burst;
 pub mod camera;
 pub mod fusion;
 pub mod game;

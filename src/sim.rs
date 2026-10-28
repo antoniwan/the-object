@@ -5,6 +5,7 @@
 //! makes everything read as one liquid. The shader in `render.rs` mirrors `sdf()`.
 
 use crate::math::*;
+use crate::burst::Burst;
 use crate::fusion::Fusion;
 use crate::meiosis::Division;
 
@@ -126,6 +127,8 @@ pub struct World {
     pub division: Division,
     /// Slamming: whether it has fused with the floor.
     pub fusion: Fusion,
+    /// Poking it to death: wounds, and the twelve pieces it bursts into.
+    pub burst: Burst,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -153,6 +156,7 @@ impl World {
             drops: Vec::new(),
             division: Division::default(),
             fusion: Fusion::default(),
+            burst: Burst::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -266,6 +270,7 @@ impl World {
 
         self.division.step(dt, b.squeeze);
         self.fusion.step(dt);
+        self.burst.step(dt);
         self.step_handles(dt);
 
         for r in &mut self.ripples {
@@ -411,7 +416,8 @@ impl World {
         let b = &self.body;
         let r = b.radius();
         let s = b.scale();
-        let mut d = self.division.body_sdf(p, b.pos, r, s);
+        // Once it has burst, there is no body to touch.
+        let mut d = if self.burst.body_gone() { 1e3 } else { self.division.body_sdf(p, b.pos, r, s) };
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }
