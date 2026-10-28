@@ -6,6 +6,8 @@ pub mod game;
 pub mod landscape;
 pub mod math;
 pub mod meiosis;
+pub mod mere;
+pub mod morula;
 pub mod progress;
 pub mod sim;
 
