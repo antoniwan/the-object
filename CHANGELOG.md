@@ -12,6 +12,14 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-10-28
+
+### Changed
+- Sooner on the screen: the words on the first screen carry only the letters it uses, 50 KB of type down to 33 KB, drawn exactly as before.
+- A second visit downloads almost nothing: the object and its type are named by what is in them and kept for a year, so only a change is fetched again.
+- The question it asks after contact checks its old answers only once it has appeared, never while it is still arriving.
+- The icons and the picture for shared links are 31 KB lighter, pixel for pixel the same.
+
 ## [1.8.1] - 2026-10-28
 
 ### Changed
@@ -215,7 +223,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.2...HEAD
+[1.8.2]: https://github.com/antoniwan/the-object/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/antoniwan/the-object/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/antoniwan/the-object/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/antoniwan/the-object/compare/v1.6.0...v1.7.0
