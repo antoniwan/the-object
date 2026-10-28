@@ -61,9 +61,17 @@ pub enum Discovery {
     Knock,
     Lid,
     Round,
+    Regard,
+    Flinch,
+    Echo,
+    Mimic,
+    Initiate,
+    Offer,
+    Answer,
+    Contact,
 }
 
-pub const ALL: [Discovery; 58] = [
+pub const ALL: [Discovery; 66] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -122,6 +130,14 @@ pub const ALL: [Discovery; 58] = [
     Discovery::Knock,
     Discovery::Lid,
     Discovery::Round,
+    Discovery::Regard,
+    Discovery::Flinch,
+    Discovery::Echo,
+    Discovery::Mimic,
+    Discovery::Initiate,
+    Discovery::Offer,
+    Discovery::Answer,
+    Discovery::Contact,
 ];
 
 impl Discovery {
@@ -185,6 +201,14 @@ impl Discovery {
             Discovery::Knock => "knock",
             Discovery::Lid => "lid",
             Discovery::Round => "round",
+            Discovery::Regard => "regard",
+            Discovery::Flinch => "flinch",
+            Discovery::Echo => "echo",
+            Discovery::Mimic => "mimic",
+            Discovery::Initiate => "its turn",
+            Discovery::Offer => "offer",
+            Discovery::Answer => "answer",
+            Discovery::Contact => "you",
         }
     }
 
@@ -248,6 +272,14 @@ impl Discovery {
             Discovery::Knock => "something inside knocks back.",
             Discovery::Lid => "it was never empty. only closed.",
             Discovery::Round => "it forgets its corners last.",
+            Discovery::Regard => "it turns when you move. it did not used to.",
+            Discovery::Flinch => "it moved before you did.",
+            Discovery::Echo => "your rhythm, given back. slower, as if checking.",
+            Discovery::Mimic => "your reach, made again from the inside.",
+            Discovery::Initiate => "you stopped. it did not.",
+            Discovery::Offer => "it held a piece of itself out. toward you.",
+            Discovery::Answer => "it asked. you answered. neither of you knows what.",
+            Discovery::Contact => "⍜ ∴⟡ ☽⊗⌬ ∵ ✶⍟",
         }
     }
 }
@@ -309,7 +341,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Round as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Contact as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

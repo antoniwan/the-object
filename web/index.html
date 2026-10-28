@@ -21,6 +21,8 @@
   #toast { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; transform: translateY(-6px); transition: opacity .6s, transform .6s; }
   #toast.show { opacity: 1; transform: none; }
   #toast b { display: block; font: normal 500 13px/1.4 var(--words); color: #4a4a52; letter-spacing: .5em; margin: 0 0 6px .5em; }
+  /* Its reply at contact: signs, not letters (src/contact.rs). */
+  #toast .alien { font-family: "Glyphs", var(--mono); font-style: normal; letter-spacing: .4em; color: rgb(var(--tint)); text-shadow: 0 0 .6em rgb(var(--tint) / .4); }
   #count { right: 16px; bottom: 14px; font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
   #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font: 400 10px/1.4 var(--mono); z-index: 3; }
 
