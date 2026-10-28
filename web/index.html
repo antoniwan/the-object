@@ -69,6 +69,9 @@
   ]
 }
 </script>
+<!-- Fetch the object while the page is still being read, not after the script asks for it. -->
+<link rel="modulepreload" href="pkg/chaos_object.js">
+<link rel="preload" href="pkg/chaos_object_bg.wasm" as="fetch" type="application/wasm" crossorigin>
 <link rel="preload" href="fonts/cormorant-garamond-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/noto-sans-math-glyphs.woff2" as="font" type="font/woff2" crossorigin>
 <style>
