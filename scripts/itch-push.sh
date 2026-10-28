@@ -11,8 +11,9 @@ if [ "${VERCEL_ENV:-}" != production ] || [ -z "${BUTLER_API_KEY:-}" ] || [ -z "
 fi
 
 tmp=$(mktemp -d)
-# The short commit, as itch shows it on the upload and in `butler status`.
-version=$(printf %s "${VERCEL_GIT_COMMIT_SHA:-unknown}" | cut -c1-7)
+# The version from Cargo.toml and the short commit (1.2.2+abc1234), as itch shows it on the
+# upload and in `butler status`.
+version="$(./scripts/version.sh)+$(printf %s "${VERCEL_GIT_COMMIT_SHA:-unknown}" | cut -c1-7)"
 # Chained with && because set -e does nothing inside a || list.
 ./scripts/itch.sh --dir &&
   curl -sSfL -o "$tmp/butler.zip" https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default &&

@@ -32,6 +32,7 @@ jobs:
           tool: wasm-bindgen-cli@0.2.100
       - run: cargo test
       - run: ./build.sh && ./scripts/itch.sh
+      - run: ./scripts/changelog-notes.sh "$TAG" > notes.md
       - uses: actions/upload-artifact@v4
         with:
           name: the-object-itch
@@ -41,7 +42,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           target_commitish: ${{ github.sha }}
           name: the object ${{ env.TAG }}
-          body: The HTML5 build for itch.io. Upload the zip as is; index.html is at its root.
+          body_path: notes.md
           files: dist/the-object-itch.zip
       - name: Push to itch
         if: ${{ vars.ITCH_TARGET != '' }}

@@ -28,6 +28,8 @@ web/             the page it lives on; the compiled object lands in web/pkg/
 build.sh         compiles src/ into web/pkg/
 CONTRIBUTING.md  how it is built, how it is put together, and the rules that keep it standing
 DESIGN.md        how it looks, moves, sounds and speaks
+CHANGELOG.md     every version so far
+devlog/          what changed, told for people
 ```
 
 ## Build it yourself

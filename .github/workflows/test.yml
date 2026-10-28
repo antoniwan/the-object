@@ -18,6 +18,16 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen-cli@0.2.100
+      - name: The version moved on
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch -q --depth=1 origin "$GITHUB_BASE_REF"
+          base=$(git show FETCH_HEAD:Cargo.toml | sed -n 's/^version = "\(.*\)"$/\1/p' | head -1)
+          head=$(./scripts/version.sh)
+          if [ "$head" = "$base" ] || [ "$(printf '%s\n%s\n' "$base" "$head" | sort -V | tail -1)" != "$head" ]; then
+            echo "::error::Cargo.toml says $head and $GITHUB_BASE_REF says $base. Run ./scripts/version.sh <next> and write its CHANGELOG.md entry (CONTRIBUTING.md, Versions)."
+            exit 1
+          fi
       - run: cargo test
       - uses: actions/setup-node@v4
         with:
