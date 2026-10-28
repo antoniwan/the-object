@@ -21,6 +21,8 @@ Everything except the browser glue is plain Rust with no browser types, so the t
 
 Never commit build output. `web/pkg/` and `target/` are ignored on purpose.
 
+Vercel builds with `./build.sh --hash`, which names the two files in `web/pkg/` by a hash of their contents and rewrites the `pkg/` links in `web/index.html` to match (`scripts/pkg-names.mjs`), so `vercel.json` can cache `/pkg/` for a year and a deploy is never served stale code. A plain `./build.sh` puts the plain names back, so don't commit `index.html` after a `--hash` build; run `./build.sh` first. Font files are cached the same way, so a changed font gets a new file name.
+
 ## Versions and the changelog
 
 `Cargo.toml` holds the version; it follows semantic versioning, read for a piece you touch:
@@ -43,7 +45,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 ## Where it runs
 
 - **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, `npm test`, then a full `./build.sh`. Both must pass before a PR merges. On pull requests it also checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
-- **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh`, and serves `web/`. Settings are in `vercel.json`.
+- **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh --hash`, and serves `web/`. Settings are in `vercel.json`.
 - **Only `main` deploys.** Preview deployments are turned off in the Vercel project settings, so branches and pull requests build nothing there. Merging is deploying.
 - **itch.io** gets the same object as a zip. `./scripts/itch.sh` packs `web/` into `dist/the-object-itch.zip` with `index.html` at its root; `scripts/itch-page.mjs` takes out of the page the Vercel analytics, the ratings call and the root-absolute links, which break when itch serves the game from a subfolder in an iframe. Every production deploy on Vercel then runs `scripts/itch-push.sh`, which pushes that build to <https://antoniwan.itch.io/the-object> with butler, using the `BUTLER_API_KEY` and `ITCH_TARGET` (`user/game`) environment variables of the Vercel project; so merging to main updates both. A failed push is logged and never fails the deploy. `.github/workflows/itch.yml` is the manual path: on a `v*` tag (or by hand from the Actions tab) it attaches the zip to a GitHub release.
 - **One serverless function**, `api/rating.js`, keeps the answers to the question the object asks after contact (`contact.rs`, `Ask`): the player is handed a drop and the steps they kept it for, 1 to 5, are posted to `/api/rating`. They are stored in a private Vercel Blob store connected to the project (`BLOB_READ_WRITE_TOKEN`), as counts in `ratings/summary.json` and one small file per visitor under `ratings/visitors/`, named by a salted hash of their address (salt: `RATING_SALT` if set, else the store token), never the address itself. A visitor who answers again replaces their answer, and no sooner than a minute later. `GET /api/rating` returns the mean and count; `web/index.html` adds them to the page's JSON-LD as an `AggregateRating` once there is at least one. Nothing is invented: with no answers there is no rating.

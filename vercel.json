@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "./scripts/vercel-install.sh",
-  "buildCommand": "./build.sh && ./scripts/itch-push.sh",
+  "buildCommand": "./build.sh --hash && ./scripts/itch-push.sh",
   "outputDirectory": "web",
   "git": {
     "deploymentEnabled": {
@@ -11,7 +11,9 @@
     }
   },
   "headers": [
-    { "source": "/fonts/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=86400" }] }
+    { "source": "/fonts/(.*)\\.woff2", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/pkg/(.*)\\.([0-9a-f]{8})\\.(js|wasm)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/(favicon\\.ico|favicon-32\\.png|apple-touch-icon\\.png|icon-192\\.png|icon-512\\.png|og\\.png|site\\.webmanifest)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] }
   ],
   "redirects": [
     { "source": "/", "has": [{ "type": "host", "value": "the-object-five.vercel.app" }], "destination": "https://the-object.antoniwan.online/", "permanent": true },
