@@ -6,11 +6,13 @@ Every version that has been live, newest first. The format follows [Keep a Chang
 - **minor**: a new verb, a new form, or anything new a player can do or see.
 - **patch**: fixes, speed, words, metadata, hosting and documentation.
 
+Before 1.0.0, the first release outside its own site, everything new was a minor version, the arc included.
+
 Every merge to `main` is deployed, so every pull request is a release and carries its own entry. `CONTRIBUTING.md` says how.
 
 ## [Unreleased]
 
-## [1.2.2] - 2026-10-28
+## [1.1.2] - 2026-10-28
 
 ### Added
 - A version number, kept in `Cargo.toml` and repeated in the page's metadata, its structured data and `llms.txt`; tests fail when they disagree.
@@ -19,9 +21,9 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 - Each merge to `main` tags its version and publishes a GitHub release with that version's notes.
 
 ### Changed
-- itch.io builds carry the version and the short commit (`1.2.2+abc1234`) instead of the commit alone.
+- itch.io builds carry the version and the short commit (`1.1.2+abc1234`) instead of the commit alone.
 
-## [1.2.1] - 2026-10-28
+## [1.1.1] - 2026-10-28
 
 ### Added
 - `DESIGN.md`: the palettes, type, timing, sound, voice and gesture grammar already in the code, and a checklist for adding a form. `CLAUDE.md` points every session at it first. (#34)
@@ -30,12 +32,12 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ### Changed
 - The voice guide: late in the contact arc it may ask, in a word or two; it still never explains how. (#36)
 
-## [1.2.0] - 2026-10-28
+## [1.1.0] - 2026-10-28
 
 ### Added
 - Crowded together anywhere but the middle, the twelve melt and run as a dark red river. Tapped, it stands up in columns; enough of them at once and it beats in their rhythm, drains, and the body gathers out of it red, keeping the beat a while. Three discoveries. (#33)
 
-## [1.1.2] - 2026-10-28
+## [1.0.2] - 2026-10-28
 
 ### Added
 - Every production deploy also pushes the build to itch.io, so one merge updates both. A failed push never stops the site. (#29)
@@ -44,26 +46,30 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ### Changed
 - itch.io builds are versioned by short commit. (#30)
 
-## [1.1.1] - 2026-10-28
-
-### Added
-- An itch.io build: the site packed with its page at the root, without the analytics, the rating call or root-absolute links. (#28)
+## [1.0.1] - 2026-10-28
 
 ### Fixed
 - The page crashed Edge on Windows again: the scene had crept back to several call sites in the shader. It is compiled once now, about 1 s instead of about 6 s. (#24)
 
-## [1.1.0] - 2026-10-28
+## [1.0.0] - 2026-10-28
+
+The first release outside the site.
+
+### Added
+- An itch.io build: the site packed with its page at the root, without the analytics, the rating call or root-absolute links. (#28)
+
+## [0.10.0] - 2026-10-28
 
 ### Added
 - After contact, it holds out one drop. How long it is kept is the only answer that ever leaves the browser, counted anonymously and shown as a rating once there is one. (#27)
 
-## [1.0.2] - 2026-10-28
+## [0.9.2] - 2026-10-28
 
 ### Changed
 - Moved to https://the-object.antoniwan.online; the old address redirects, front page included. (#25, #26)
 - Only `main` deploys; branches build nothing. (#16)
 
-## [1.0.1] - 2026-10-28
+## [0.9.1] - 2026-10-28
 
 ### Added
 - A face for strangers: Open Graph and Twitter cards, a share image, structured data, robots and sitemap. (#18)
@@ -77,7 +83,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ### Changed
 - Faster start: uniforms looked up once, a stripped wasm fetched early, cached fonts. (#23)
 
-## [1.0.0] - 2026-10-28
+## [0.9.0] - 2026-10-28
 
 The arc arrives: what it was always about.
 
@@ -139,16 +145,17 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.2.2...HEAD
-[1.2.2]: https://github.com/antoniwan/the-object/compare/v1.2.1...v1.2.2
-[1.2.1]: https://github.com/antoniwan/the-object/compare/v1.2.0...v1.2.1
-[1.2.0]: https://github.com/antoniwan/the-object/compare/v1.1.2...v1.2.0
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.1.2...HEAD
 [1.1.2]: https://github.com/antoniwan/the-object/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/antoniwan/the-object/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/antoniwan/the-object/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/antoniwan/the-object/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/antoniwan/the-object/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/antoniwan/the-object/compare/v0.8.0...v1.0.0
+[1.0.0]: https://github.com/antoniwan/the-object/compare/v0.10.0...v1.0.0
+[0.10.0]: https://github.com/antoniwan/the-object/compare/v0.9.2...v0.10.0
+[0.9.2]: https://github.com/antoniwan/the-object/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/antoniwan/the-object/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/antoniwan/the-object/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/antoniwan/the-object/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/antoniwan/the-object/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/antoniwan/the-object/compare/v0.5.0...v0.6.0

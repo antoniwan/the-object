@@ -1,0 +1,20 @@
+# The versions that were live before tags were kept, and the merge commit each one was.
+# release.yml tags any of these that are missing; v1.0.0 was tagged by hand for the first itch upload.
+0.1.0 da645bb
+0.2.0 a551ec5
+0.3.0 e9bdb67
+0.3.1 b509269
+0.4.0 bcf5ab5
+0.5.0 8d99ea5
+0.6.0 d483d4e
+0.7.0 dc60eaf
+0.8.0 5ebb1c6
+0.9.0 02869e6
+0.9.1 0323ce6
+0.9.2 76bd73c
+0.10.0 ad01171
+1.0.0 6230ddb
+1.0.1 86e193d
+1.0.2 d43781e
+1.1.0 c6ba66d
+1.1.1 d302d5a

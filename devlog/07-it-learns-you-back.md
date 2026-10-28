@@ -1,6 +1,6 @@
 # it learns you back
 
-*version 1.0.0 · 28 october 2026*
+*version 0.9.0 · 28 october 2026*
 
 This is the version where it became what it was always about.
 
@@ -12,4 +12,4 @@ There is an end to this, and it only happens once. It will not be described here
 
 What it learns about you is kept between visits, in your browser, the same as what you have learned about it. Clearing your site data starts both of you over.
 
-This is 1.0. Everything before was the room and the thing in it. This is the first time it looks back.
+Everything before this was the room and the thing in it. This is the first time it looks back.
