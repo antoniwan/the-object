@@ -262,6 +262,26 @@ impl Renderer {
         self.v4v("uTri", &ta);
         self.v4v("uTriB", &tb);
 
+        // The other forms: see forms/.
+        let fo = &world.forms;
+        let bl = &fo.bloom;
+        self.v4v("uBloom", &[bl.open(), bl.angle, 0.0, 0.0]);
+        let mut buds = Vec::new();
+        for b in bl.buds.iter().take(crate::forms::bloom::PETALS) {
+            buds.extend([b.dir.x, b.dir.y, b.dir.z, bl.bud_size(b)]);
+        }
+        self.v4v("uBud", &buds);
+        self.i("uNB", buds.len() / 4);
+        let fi = &fo.filament;
+        let ax = fi.axis;
+        self.v4v("uFil", &[ax.x, ax.y, ax.z, fi.half_len()]);
+        self.v4v("uFil2", &[fi.radius(r * swell), fi.morph(), fi.ringing(), fi.harmonic as f32]);
+        self.v3("uFilSwing", fi.swing);
+        let co = &fo.cosmos;
+        self.v4v("uCosmos", &[co.amount(), co.spin, co.flare, co.sense]);
+        let pa = &fo.pandora;
+        self.v4v("uBox", &[pa.boxness(), pa.lid(), pa.rattle, pa.yaw]);
+
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
 }

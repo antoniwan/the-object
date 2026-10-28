@@ -48,9 +48,22 @@ pub enum Discovery {
     Grow,
     Weather,
     Mend,
+    Pinch,
+    Bloom,
+    Fold,
+    Thread,
+    Pluck,
+    Wind,
+    Stir,
+    Cosmos,
+    Settle,
+    Corners,
+    Knock,
+    Lid,
+    Round,
 }
 
-pub const ALL: [Discovery; 45] = [
+pub const ALL: [Discovery; 58] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -96,6 +109,19 @@ pub const ALL: [Discovery; 45] = [
     Discovery::Grow,
     Discovery::Weather,
     Discovery::Mend,
+    Discovery::Pinch,
+    Discovery::Bloom,
+    Discovery::Fold,
+    Discovery::Thread,
+    Discovery::Pluck,
+    Discovery::Wind,
+    Discovery::Stir,
+    Discovery::Cosmos,
+    Discovery::Settle,
+    Discovery::Corners,
+    Discovery::Knock,
+    Discovery::Lid,
+    Discovery::Round,
 ];
 
 impl Discovery {
@@ -146,6 +172,19 @@ impl Discovery {
             Discovery::Grow => "grow",
             Discovery::Weather => "weather",
             Discovery::Mend => "mend",
+            Discovery::Pinch => "pinch",
+            Discovery::Bloom => "bloom",
+            Discovery::Fold => "fold",
+            Discovery::Thread => "thread",
+            Discovery::Pluck => "pluck",
+            Discovery::Wind => "wind",
+            Discovery::Stir => "stir",
+            Discovery::Cosmos => "cosmos",
+            Discovery::Settle => "settle",
+            Discovery::Corners => "corners",
+            Discovery::Knock => "knock",
+            Discovery::Lid => "lid",
+            Discovery::Round => "round",
         }
     }
 
@@ -196,6 +235,19 @@ impl Discovery {
             Discovery::Grow => "it came back larger than it left.",
             Discovery::Weather => "nothing here stays sharp. not even this.",
             Discovery::Mend => "you put it back. it is not the same.",
+            Discovery::Pinch => "the smallest hurt. it grows something there.",
+            Discovery::Bloom => "five small wounds agreed to open.",
+            Discovery::Fold => "it closes the way it was first closed.",
+            Discovery::Thread => "held gently enough, it never breaks. it only leaves the room.",
+            Discovery::Pluck => "it was always a note. it only needed a length.",
+            Discovery::Wind => "everything long is a sphere, waiting.",
+            Discovery::Stir => "round and round. the inside starts to listen.",
+            Discovery::Cosmos => "a drop, stirred long enough, holds every drop.",
+            Discovery::Settle => "the other way round, and time lies down again.",
+            Discovery::Corners => "you drew it a shape. it agreed.",
+            Discovery::Knock => "something inside knocks back.",
+            Discovery::Lid => "it was never empty. only closed.",
+            Discovery::Round => "it forgets its corners last.",
         }
     }
 }
@@ -257,7 +309,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Mend as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Round as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

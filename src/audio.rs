@@ -107,6 +107,30 @@ impl Audio {
                 self.pluck(Sine, f, f, 0.035, 3.2, i as f64 * 0.045)
             }),
             Sound::Call => self.pluck(Sine, 146.8, 196.0, 0.08, 0.7, 0.0),
+            Sound::Pinch => self.pluck(Sine, 1046.5, 1174.7, 0.05, 0.3, 0.0),
+            Sound::Bloom => self
+                .pluck(Sine, 523.3, 523.3, 0.05, 2.6, 0.0)
+                .and_then(|_| self.pluck(Sine, 659.3, 659.3, 0.04, 2.6, 0.18))
+                .and_then(|_| self.pluck(Sine, 784.0, 784.0, 0.035, 2.8, 0.36))
+                .and_then(|_| self.pluck(Sine, 1046.5, 1046.5, 0.025, 3.0, 0.54)),
+            // Every pluck is an overtone of the same low string.
+            Sound::Pluck { harmonic } => {
+                let f = 98.0 * harmonic as f32;
+                self.pluck(Triangle, f, f, 0.16, 3.2, 0.0).and_then(|_| self.pluck(Sine, f * 2.0, f * 2.0, 0.04, 1.6, 0.0))
+            }
+            Sound::Stir => self.pluck(Sine, 110.0, 220.0, 0.08, 1.4, 0.0),
+            // A knock, and a moment later the knock from inside.
+            Sound::Knock => self
+                .pluck(Triangle, 92.0, 70.0, 0.3, 0.22, 0.0)
+                .and_then(|_| self.pluck(Triangle, 82.0, 64.0, 0.14, 0.22, 0.55)),
+            Sound::Lid => self
+                .pluck(Sine, 196.0, 196.0, 0.07, 3.0, 0.0)
+                .and_then(|_| self.pluck(Sine, 293.7, 293.7, 0.06, 3.0, 0.25))
+                .and_then(|_| self.pluck(Sine, 392.0, 392.0, 0.05, 3.2, 0.5))
+                .and_then(|_| self.pluck(Sine, 587.3, 587.3, 0.04, 3.4, 0.75)),
+            Sound::Become => self
+                .pluck(Sine, 65.4, 65.4, 0.14, 3.0, 0.0)
+                .and_then(|_| self.pluck(Sine, 98.0, 98.0, 0.08, 3.0, 0.1)),
             Sound::Provoked => self
                 .pluck(Triangle, 73.4, 69.0, 0.25, 1.4, 0.0)
                 .and_then(|_| self.pluck(Triangle, 77.8, 72.0, 0.2, 1.3, 0.0)),

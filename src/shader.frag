@@ -65,6 +65,17 @@ uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w sp
 uniform vec4 uTri[12];   // xyz where the piece is (on the floor once landed), w height
 uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke, w weathering (extra rounding)
 
+// The other forms (forms/). Each is gated on its own amount, so it costs nothing until it is used.
+uniform vec4 uBloom;     // x how open the flower is 0..1, y where the first petal points
+uniform vec4 uBud[5];    // xyz where a pinch left a bud, w how grown it is
+uniform int uNB;
+uniform vec4 uFil;       // xyz which way the thread runs, w half its length
+uniform vec4 uFil2;      // x its thickness, y sphere→thread 0..1, z ringing now, w which harmonic
+uniform vec3 uFilSwing;  // which way it swings when plucked
+uniform vec4 uCosmos;    // x liquid→universe 0..1, y how far the galaxy has turned, z a star igniting, w which way it turns
+uniform vec4 uBox;       // x round→box 0..1, y the lid open 0..1, z rattle of a knock, w which way it faces
+const float HALF_SIDE = 0.806;
+
 // Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
 // Order matches Consistency in burst.rs: milk, chrome, glass, jelly, stone, honey,
 // velvet, wax, ice, rubber, obsidian, moss.
@@ -124,6 +135,11 @@ float surfaceDisp(vec3 n) {
   // Agitation: the surface boils.
   float t = uTime;
   disp += uAgit * 0.045 * sin(n.x * 17.0 + t * 23.0) * sin(n.y * 15.0 - t * 19.0) * sin(n.z * 16.0 + t * 21.0);
+  // Buds: a pinch leaves a small sharp peak.
+  for (int i = ZERO; i < 5; i++) {
+    if (i >= uNB) break;
+    disp += 0.3 * uBud[i].w * exp((dot(n, uBud[i].xyz) - 1.0) * 40.0);
+  }
   // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
   float c = dot(n, uCut.xyz);
   disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
@@ -217,7 +233,7 @@ float slabSurface(vec3 p) {
   return length(max(o, 0.0)) + min(max(o.x, max(o.y, o.z)), 0.0) - bevel;
 }
 
-float bodySurface(vec3 p) {
+float cellsSurface(vec3 p) {
   vec3 q = (p - uBody.xyz) / uScale;
   float lip = min(uScale.x, uScale.y);
   float r = uBody.w;
@@ -252,6 +268,82 @@ float bodySurface(vec3 p) {
   }
   if (one) return (da - K_JOIN * r * 0.25) * lip;
   return smin(da, db, max(K_JOIN * r * (1.0 - uCut.w), 1e-4)) * lip;
+}
+
+float sdEllipsoid(vec3 p, vec3 r) {
+  float k0 = length(p / r);
+  float k1 = length(p / (r * r));
+  return k0 * (k0 - 1.0) / k1;
+}
+
+float sdBox(vec3 p, vec3 b, float r) {
+  vec3 q = abs(p) - b + r;
+  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+
+// The flower, facing up: a low heart and five petals that unfold from standing to open.
+float flowerSdf(vec3 p) {
+  vec3 q = (p - uBody.xyz) / uBody.w;
+  float d = sdEllipsoid(q - vec3(0.0, 0.05, 0.0), vec3(0.42, 0.26, 0.42));
+  float tilt0 = mix(1.45, 0.3, uBloom.x);
+  for (int i = ZERO; i < 5; i++) {
+    float a = uBloom.y + float(i) * 1.2566;
+    float c = cos(a), s = sin(a);
+    // into the petal's frame: x out along it, hinged at the heart's rim
+    vec3 v = vec3(c * q.x + s * q.z, q.y, -s * q.x + c * q.z);
+    v.x -= 0.18;
+    float tilt = tilt0 + 0.04 * sin(uTime * 0.8 + float(i) * 1.7);
+    float ct = cos(tilt), st = sin(tilt);
+    v = vec3(ct * v.x + st * v.y, -st * v.x + ct * v.y, v.z);
+    v.y -= 0.45 * v.z * v.z; // cupped
+    d = smin(d, sdEllipsoid(v - vec3(0.62, 0.0, 0.0), vec3(0.66, 0.06, 0.36)), 0.08);
+  }
+  return d * uBody.w;
+}
+
+// The thread: a long capsule through the body's center, ringing in one harmonic.
+float filamentSdf(vec3 p) {
+  vec3 v = p - uBody.xyz;
+  float h = max(uFil.w, 1e-4);
+  float s = clamp(dot(v, uFil.xyz), -h, h);
+  float wave = uFil2.z * sin(uFil2.w * 3.14159 * (s + h) / (2.0 * h)) + 0.012 * uFil2.y * sin(s * 2.3 - uTime * 2.0);
+  return length(v - uFil.xyz * s - uFilSwing * wave) - uFil2.x;
+}
+
+// The box's own frame: turned to face its way, shivering when knocked.
+vec3 boxLocal(vec3 p) {
+  vec3 q = p - uBody.xyz;
+  float c = cos(uBox.w), s = sin(uBox.w);
+  q = vec3(c * q.x - s * q.z, q.y, s * q.x + c * q.z);
+  q.x += uBox.z * 0.025 * uBody.w * sin(uTime * 70.0);
+  return q;
+}
+
+// A box with the sphere's volume, its lid hinged along the back.
+float boxSdf(vec3 p) {
+  vec3 q = boxLocal(p);
+  float s = HALF_SIDE * uBody.w;
+  float lh = 0.12 * s;
+  float k = 0.06 * s;
+  float base = sdBox(q - vec3(0.0, -lh, 0.0), vec3(s, s - lh, s), k);
+  if (uBox.y <= 0.0) return min(base, sdBox(q - vec3(0.0, s - lh, 0.0), vec3(s, lh, s), k));
+  // opened, it is hollow
+  base = max(base, -sdBox(q - vec3(0.0, 0.25 * s, 0.0), vec3(0.86 * s, s, 0.86 * s), 0.02 * s));
+  float a = uBox.y * 1.9;
+  float ca = cos(a), sa = sin(a);
+  vec3 v = q - vec3(0.0, s - 2.0 * lh, -s);
+  v = vec3(v.x, v.y * ca - v.z * sa, v.y * sa + v.z * ca);
+  float lid = sdBox(v - vec3(0.0, lh, s), vec3(s, lh, s), k);
+  return min(base, lid);
+}
+
+// The body, reshaped by whichever form it is taking. Mirrors Forms::shape in forms/mod.rs.
+float bodySurface(vec3 p) {
+  float d = cellsSurface(p);
+  if (uBloom.x > 0.0) d = mix(d, flowerSdf(p), smoothstep(0.0, 0.35, uBloom.x));
+  if (uFil2.y > 0.0) d = mix(d, filamentSdf(p), smoothstep(0.0, 0.15, uFil2.y));
+  if (uBox.x > 0.0) d = mix(d, boxSdf(p), uBox.x);
+  return d;
 }
 
 // How much of the floor at xz is liquid, 0..1.
@@ -437,8 +529,15 @@ vec3 floorMatte(vec3 p, vec3 bg) {
   {
     vec3 off = cellOffset();
     float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
-    float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1))
+    float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y)))
                               : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
+    if (uFil2.y > 0.0) {
+      // the thread's shadow: a line of soft beads along it
+      for (int i = ZERO; i < 9; i++) {
+        float s = (float(i) - 4.0) * 1.2 * uFil2.y;
+        occ += sphOcc(p, vec4(uBody.xyz + uFil.xyz * s, uFil2.x * 1.6));
+      }
+    }
     if (uNC > 0) {
       occ = mix(sphOcc(p, vec4(uBody.xyz, uBody.w * 1.25)),
                 sphOcc(p, vec4(uSlab.x, FLOOR_Y + 0.7 * uBody.w, uSlab.z, 0.9 * uBody.w)), uStone.y);
@@ -467,6 +566,7 @@ vec3 floorMatte(vec3 p, vec3 bg) {
 }
 
 vec3 shadeLiquid(vec3 p, vec3 rd);
+vec3 galaxy(vec3 p, vec3 rd);
 
 // The liquid floor dissolves into the white with distance, so it has no far edge.
 vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
@@ -668,6 +768,15 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv) {
     if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
     if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n), uStone.x);
   }
+  if (uCosmos.x > 0.001) col = mix(col, galaxy(p, rd), uCosmos.x);
+  if (uBox.y > 0.0) {
+    // inside the open box it is lit from within
+    vec3 q = boxLocal(p);
+    float s = HALF_SIDE * uBody.w;
+    float inside = step(max(abs(q.x), abs(q.z)), 0.88 * s) * step(q.y, 0.75 * s);
+    float deep = smoothstep(0.75 * s, -s, q.y);
+    col = mix(col, vec3(1.0, 0.94, 0.78) * (0.9 + 0.9 * deep), inside * uBox.y * 0.85);
+  }
   if (uNC == 0) {
     // the cut: a hot seam where the slice plane crosses the surface
     float seam = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;
@@ -725,9 +834,55 @@ vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
   return col;
 }
 
+// A flower's colors: pollen at the heart, petals deep at the base and pale at the tips.
+vec3 formTint(vec3 p, vec3 tint) {
+  if (uBloom.x > 0.0) {
+    vec3 q = (p - uBody.xyz) / uBody.w;
+    float rho = length(q.xz);
+    float heart = smoothstep(0.5, 0.36, rho) * step(-0.1, q.y);
+    vec3 petal = mix(vec3(0.93, 0.42, 0.62), vec3(1.0, 0.95, 0.96), smoothstep(0.35, 1.45, rho));
+    petal = mix(petal, tint, 0.3);
+    vec3 pollen = vec3(0.98, 0.76, 0.26) * (0.85 + 0.15 * hash(floor(p * 60.0)));
+    tint = mix(tint, mix(petal, pollen, heart), smoothstep(0.2, 0.7, uBloom.x));
+  }
+  return tint;
+}
+
+// Seen through its skin: a spiral galaxy turning in the middle, stars all the way down.
+vec3 galaxy(vec3 p, vec3 rd) {
+  vec3 c = uBody.xyz;
+  float R = uBody.w;
+  vec3 n = normalize(p - c);
+  vec3 r = refract(rd, n, 0.8);
+  vec3 col = vec3(0.012, 0.010, 0.032) + stars(r) * 0.9;
+  vec3 ax = normalize(vec3(0.25, 1.0, 0.35));
+  float den = dot(r, ax);
+  float t = dot(c - p, ax) / (abs(den) > 1e-3 ? den : 1e-3);
+  if (t > 0.0) {
+    vec3 q = p + r * t - c;
+    vec3 u = normalize(cross(ax, vec3(0.0, 0.0, 1.0)));
+    vec3 w = cross(ax, u);
+    vec2 xy = vec2(dot(q, u), dot(q, w)) / R;
+    float rho = length(xy);
+    float phi = atan(xy.y, xy.x) - uCosmos.y;
+    float arms = pow(0.5 + 0.5 * cos(2.0 * phi - uCosmos.w * 4.5 * log(rho + 0.04)), 3.0);
+    float disc = exp(-rho * 3.0) * smoothstep(1.0, 0.6, rho);
+    float dust = hash(floor(vec3(xy * 70.0, 3.0)));
+    col += disc * arms * mix(vec3(0.45, 0.58, 1.0), vec3(1.0, 0.55, 0.78), step(0.9, dust)) * 1.7;
+    col += disc * step(0.985, dust) * arms * 2.0;
+    col += exp(-rho * rho * 55.0) * vec3(1.0, 0.86, 0.62) * (1.4 + 4.0 * uCosmos.z);
+  }
+  float ndv = max(dot(n, -rd), 0.0);
+  float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  col = mix(col, env(reflect(rd, n)), clamp(fres * 0.9 + 0.04, 0.0, 1.0));
+  col += vec3(pow(max(dot(reflect(-L, n), -rd), 0.0), 120.0));
+  return col;
+}
+
 vec3 shadeLiquid(vec3 p, vec3 rd) {
   vec3 n = calcNormal(p);
-  vec3 tint = sceneColor(p);
+  vec3 tint = formTint(p, sceneColor(p));
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
   vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
@@ -795,6 +950,18 @@ void main() {
   }
 
   vec3 col = hit ? shade(ro + rd * t, rd, uv) : background(ro, rd, uv);
+  if (uBox.y > 0.0) {
+    // light rising out of the open box
+    vec2 dxz = rd.xz;
+    float s = max(dot(uBody.xz - ro.xz, dxz) / max(dot(dxz, dxz), 1e-5), 0.0);
+    if (!hit || s < t) {
+      vec3 at = ro + rd * s;
+      float top = uBody.y + HALF_SIDE * uBody.w * 0.8;
+      float off = length(at.xz - uBody.xz) / uBody.w;
+      float above = smoothstep(top, top + 0.3, at.y) * exp(-(at.y - top) * 0.35);
+      col += vec3(1.0, 0.93, 0.75) * uBox.y * above * exp(-off * off * 3.0) * 0.5;
+    }
+  }
   col = mix(col, vec3(1.0), uBurst.y);
   col = pow(col, vec3(0.97));
   outColor = vec4(col, 1.0);

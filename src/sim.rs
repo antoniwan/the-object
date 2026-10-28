@@ -6,6 +6,7 @@
 
 use crate::math::*;
 use crate::burst::Burst;
+use crate::forms::Forms;
 use crate::fusion::Fusion;
 use crate::meiosis::Division;
 
@@ -153,6 +154,8 @@ pub struct World {
     pub fusion: Fusion,
     /// Poking it to death: wounds, and the twelve pieces it bursts into.
     pub burst: Burst,
+    /// Pinch, stretch, stir and draw around it: what else it can become (see forms/).
+    pub forms: Forms,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -195,6 +198,7 @@ impl World {
             division: Division::default(),
             fusion: Fusion::default(),
             burst: Burst::default(),
+            forms: Forms::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -226,6 +230,22 @@ impl World {
 
     fn handle_mut(&mut self, id: u32) -> Option<&mut Handle> {
         self.handles.iter_mut().find(|h| h.id == id)
+    }
+
+    /// Still the plain liquid: not divided, fused, burst, or turned into any other form.
+    pub fn ordinary(&self) -> bool {
+        self.division.whole() && self.fusion.whole() && self.burst.whole() && self.forms.whole()
+    }
+
+    /// Let some of the body out as a free drop. Returns false when there is no room or not enough of it.
+    pub fn spill(&mut self, pos: V3, vel: V3, r: f32, color: V3) -> bool {
+        if self.drops.len() >= MAX_DROPS || (self.body.volume - r * r * r).cbrt() < MIN_BODY_RADIUS {
+            return false;
+        }
+        let id = self.id();
+        self.body.volume -= r * r * r;
+        self.drops.push(Drop { id, pos, vel, r, target: None, age: 0.0, color });
+        true
     }
 
     pub fn add_ripple(&mut self, dir: V3, amp: f32) {
@@ -347,6 +367,7 @@ impl World {
         }
         self.fusion.step(dt);
         self.burst.step(dt);
+        self.forms.step(dt);
         self.step_handles(dt);
 
         for r in &mut self.ripples {
@@ -563,7 +584,7 @@ impl World {
         let r = b.radius();
         let s = b.scale();
         // Once it has burst, there is no body to touch.
-        let mut d = if self.burst.body_gone() { 1e3 } else { self.division.body_sdf(p, b.pos, r, s) };
+        let mut d = if self.burst.body_gone() { 1e3 } else { self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s)) };
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }
