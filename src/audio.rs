@@ -106,6 +106,16 @@ impl Audio {
                 let f = 1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0);
                 self.pluck(Sine, f, f, 0.035, 3.2, i as f64 * 0.045)
             }),
+            // up the scale with the river, a row raised in one drag climbs
+            Sound::Column { slot } => {
+                let row = slot / crate::river::LANES;
+                let f = 196.0 * 2f32.powf(SCALE[row % SCALE.len()] / 12.0);
+                self.pluck(Sine, f * 0.5, f, 0.06, 0.6, 0.0).and_then(|_| self.pluck(Triangle, f * 2.0, f * 2.0, 0.015, 0.9, 0.05))
+            }
+            // two low thumps, the second softer
+            Sound::Beat => self
+                .pluck(Sine, 62.0, 44.0, 0.32, 0.35, 0.0)
+                .and_then(|_| self.pluck(Sine, 58.0, 42.0, 0.2, 0.3, 0.2)),
             Sound::Call => self.pluck(Sine, 146.8, 196.0, 0.08, 0.7, 0.0),
             Sound::Pinch => self.pluck(Sine, 1046.5, 1174.7, 0.05, 0.3, 0.0),
             Sound::Bloom => self

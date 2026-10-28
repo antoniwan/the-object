@@ -49,6 +49,9 @@ pub enum Discovery {
     Grow,
     Weather,
     Mend,
+    River,
+    Column,
+    Pulse,
     Pinch,
     Bloom,
     Fold,
@@ -72,7 +75,7 @@ pub enum Discovery {
     Contact,
 }
 
-pub const ALL: [Discovery; 66] = [
+pub const ALL: [Discovery; 69] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -118,6 +121,9 @@ pub const ALL: [Discovery; 66] = [
     Discovery::Grow,
     Discovery::Weather,
     Discovery::Mend,
+    Discovery::River,
+    Discovery::Column,
+    Discovery::Pulse,
     Discovery::Pinch,
     Discovery::Bloom,
     Discovery::Fold,
@@ -189,6 +195,9 @@ impl Discovery {
             Discovery::Grow => "grow",
             Discovery::Weather => "weather",
             Discovery::Mend => "mend",
+            Discovery::River => "river",
+            Discovery::Column => "column",
+            Discovery::Pulse => "pulse",
             Discovery::Pinch => "pinch",
             Discovery::Bloom => "bloom",
             Discovery::Fold => "fold",
@@ -260,6 +269,9 @@ impl Discovery {
             Discovery::Grow => "it came back larger than it left.",
             Discovery::Weather => "nothing here stays sharp. not even this.",
             Discovery::Mend => "you put it back. it is not the same.",
+            Discovery::River => "close enough, they forgot they were twelve. now they run.",
+            Discovery::Column => "it stands up to meet you. then it remembers it is liquid.",
+            Discovery::Pulse => "you filled it. now it keeps your time.",
             Discovery::Pinch => "the smallest hurt. it grows something there.",
             Discovery::Bloom => "five small wounds agreed to open.",
             Discovery::Fold => "it closes the way it was first closed.",

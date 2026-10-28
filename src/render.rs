@@ -269,6 +269,17 @@ impl Renderer {
         }
         self.v4v("uTri", &ta);
         self.v4v("uTriB", &tb);
+        // river.rs: the band it runs in, and the columns standing out of it
+        let rv = &bu.river;
+        self.v4v("uRiver", &[rv.at.0, rv.at.1, rv.angle, if rv.active { rv.reach() } else { 0.0 }]);
+        self.v4v("uRiver2", &[rv.amount, rv.flow, rv.beat(), rv.tallest()]);
+        let pil: Vec<f32> = (0..crate::river::SLOTS).map(|i| rv.height(i)).collect();
+        self.v4v("uPil", &pil);
+        let rows: Vec<f32> = (0..crate::river::ROWS).map(|k| rv.rows_to_standing(k)).collect();
+        self.v4v("uPilRow", &rows);
+        let sp: Vec<f32> = rv.splashes.iter().flat_map(|&(x, z, age)| [x, z, age, 1.0]).collect();
+        self.v4v("uSplash", &sp);
+        self.i("uNSp", sp.len() / 4);
 
         // The other forms: see forms/.
         let fo = &world.forms;

@@ -64,6 +64,16 @@ uniform vec2 uCoat;      // what it rose as: x quicksilver, y ink
 uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
 uniform vec4 uTri[12];   // xyz where the piece is (on the floor once landed), w height
 uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke, w weathering (extra rounding)
+// The river they run as when crowded together (river.rs), and the columns that stand out of it.
+uniform vec4 uRiver;     // xy where it rose (x, z), z which way it runs, w how far it reaches either way (0: none)
+uniform vec4 uRiver2;    // x how much river 0..1, y how far it has flowed, z its heartbeat 0..1, w the tallest column
+uniform vec4 uPil[18];   // each column's height, four to a vec4: row by row along the river, three across
+uniform vec4 uPilRow[6]; // for each row, rows to the nearest one with a column standing: ahead + 32 * behind
+uniform vec4 uSplash[6]; // x, z, age of each place a column fell back in
+uniform int uNSp;
+const float PIL_GAP = 1.6;
+const float PIL_HALF = 0.58;
+const vec3 BLOOD = vec3(0.42, 0.02, 0.05);
 
 // The other forms (forms/). Each is gated on its own amount, so it costs nothing until it is used.
 uniform vec4 uBloom;     // x how open the flower is 0..1, y where the first petal points
@@ -418,6 +428,49 @@ float shards(vec3 p, out int id) {
   return d;
 }
 
+// Where xz is along the river (x) and across it from its winding middle (y). Mirrors River::local.
+vec2 riverLocal(vec2 xz) {
+  vec2 d = xz - uRiver.xy;
+  vec2 dir = vec2(cos(uRiver.z), sin(uRiver.z));
+  float s = dot(d, dir);
+  return vec2(s, dot(d, vec2(-dir.y, dir.x)) - 2.2 * sin(0.21 * s) - 1.1 * sin(0.47 * s + 1.3));
+}
+
+// The column in row k (0..23) and lane l (-1..1): its slot, and how tall it stands.
+int pillarSlot(float k, float l) { return int(k) * 3 + int(l) + 1; }
+float pick4(vec4 v, int c) { return c == 0 ? v.x : c == 1 ? v.y : c == 2 ? v.z : v.w; }
+float pillarHeight(int slot) { return pick4(uPil[slot >> 2], slot & 3); }
+
+// The columns standing out of the river, and which one is nearest (16 + its slot).
+// They stand on a lattice that follows the river's winding, so only the one in this
+// cell is measured; any other is at least as far as the edge of its own cell.
+float pillars(vec3 p, out int pid) {
+  vec2 su = riverLocal(p.xz);
+  float k = clamp(floor(su.x / PIL_GAP) + 12.0, 0.0, 23.0);
+  float l = clamp(floor(su.y / PIL_GAP + 0.5), -1.0, 1.0);
+  int slot = pillarSlot(k, l);
+  float h = pillarHeight(slot);
+  vec2 q = su - vec2((k - 11.5) * PIL_GAP, l * PIL_GAP);
+  float d = 1e3;
+  pid = 16 + slot;
+  if (h > 0.02) d = sdBox(vec3(q.x, p.y - FLOOR_Y - h * 0.5, q.y), vec3(PIL_HALF, h * 0.5 + 0.02, PIL_HALF), 0.1);
+  // any other is at least as far as the next row that has one standing, ahead or behind,
+  // or across in this row
+  int row = int(k);
+  float rows = pick4(uPilRow[row >> 2], row & 3);
+  float behind = floor(rows / 32.0);
+  float ahead = rows - 32.0 * behind;
+  d = min(d, min(ahead * PIL_GAP - q.x, behind * PIL_GAP + q.x) - PIL_HALF);
+  for (int j = ZERO; j < 3; j++) {
+    float lj = float(j - 1);
+    if (lj != l && pillarHeight(pillarSlot(k, lj)) > 0.02) d = min(d, abs((lj - l) * PIL_GAP - q.y) - PIL_HALF);
+  }
+  // none stand further across than the outer lanes
+  d = max(d, abs(su.y) - PIL_GAP - PIL_HALF);
+  // the winding stretches distances; and there is nothing above the tallest, or under the ground
+  return max(d * 0.6, max(p.y - FLOOR_Y - uRiver2.w - 0.1, FLOOR_Y - p.y));
+}
+
 // Also hands back the body alone, and the nearest piece and its distance, so
 // shade() can use them without compiling bodySurface() and shards() again.
 float scene(vec3 p, out float body, out float piece, out int id) {
@@ -426,7 +479,13 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   piece = 1e3;
   id = -1;
   if (uBurst.w > 0.0) {
-    piece = shards(p, id);
+    // all the way into the river, the pieces are under the ground and need not be looked for
+    if (uRiver2.x < 0.99) piece = shards(p, id);
+    if (uRiver2.w > 0.0) {
+      int pid;
+      float pd = pillars(p, pid);
+      if (pd < piece) { piece = pd; id = pid; }
+    }
     d = min(d, piece);
   }
   if (uLake.z > 0.0) {
@@ -563,6 +622,80 @@ vec3 floorMatte(vec3 p, vec3 bg) {
 vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db);
 vec3 galaxy(vec3 p, vec3 rd);
 
+// Dark and wet, lit by the room; brighter on each heartbeat.
+vec3 shadeBlood(vec3 rd, vec3 n, float depth) {
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  float ndv = max(dot(n, -rd), 0.0);
+  vec3 col = mix(vec3(0.62, 0.05, 0.09), BLOOD * 0.5, depth) * (0.55 + 0.45 * max(dot(n, L), 0.0));
+  col *= 1.0 + 0.9 * uRiver2.z;
+  vec3 r = reflect(rd, n);
+  float fres = 0.03 + 0.97 * pow(1.0 - ndv, 5.0);
+  col = mix(col, env(r) * vec3(1.0, 0.86, 0.86), fres * 0.85);
+  return col + vec3(1.0, 0.9, 0.9) * pow(max(dot(r, L), 0.0), 160.0) * 0.9;
+}
+
+// The river on the floor at p: running, rippled where columns fell back in, dark in the
+// middle and thin at the banks.
+vec3 riverFloor(vec3 p, vec3 rd, vec3 bg) {
+  vec2 su = riverLocal(p.xz);
+  float w = (3.2 + 0.6 * sin(0.33 * su.x + 0.4)) * uRiver2.x;
+  float m = smoothstep(w, w - 0.35, abs(su.y)) * smoothstep(uRiver.w, uRiver.w - 3.0, abs(su.x));
+  if (m <= 0.0) return bg;
+  // two trains of ripples running downstream, as a slope along and across it
+  float f = uRiver2.y;
+  float a1 = su.x * 1.7 + su.y * 0.6 - f * 2.6;
+  float a2 = su.x * 3.1 - su.y * 1.3 - f * 4.0;
+  vec2 g = 0.05 * cos(a1) * vec2(1.7, 0.6) + 0.025 * cos(a2) * vec2(3.1, -1.3);
+  vec2 dir = vec2(cos(uRiver.z), sin(uRiver.z));
+  // far off the ripples are too fine to see, only to shimmer
+  g = (dir * g.x + vec2(-dir.y, dir.x) * g.y) * smoothstep(34.0, 14.0, length(p - uCamPos));
+  for (int i = ZERO; i < 6; i++) {
+    if (i >= uNSp) break;
+    vec2 o = p.xz - uSplash[i].xy;
+    float d = length(o) + 1e-3;
+    float a = uSplash[i].z;
+    g -= o / d * 0.9 * exp(-a * 1.4) * sin(d * 6.0 - a * 9.0) * smoothstep(a * 3.0 + 0.6, a * 3.0 - 0.4, d);
+  }
+  vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
+  vec3 col = shadeBlood(rd, n, smoothstep(0.3, 2.6, w - abs(su.y)));
+  // the columns darken the river around their feet
+  float k = clamp(floor(su.x / PIL_GAP) + 12.0, 0.0, 23.0);
+  float l = clamp(floor(su.y / PIL_GAP + 0.5), -1.0, 1.0);
+  vec2 q = abs(su - vec2((k - 11.5) * PIL_GAP, l * PIL_GAP)) - PIL_HALF;
+  float h = pillarHeight(pillarSlot(k, l));
+  col *= 1.0 - 0.6 * step(0.02, h) * exp(-max(max(q.x, q.y), 0.0) * 3.0);
+  col = mix(col, bg, smoothstep(26.0, 48.0, length(p - uCamPos)));
+  return mix(bg, col, m);
+}
+
+// A column out of the river: solid in one of the twelve's colors, or burning. Near its foot,
+// and all over while it is still short, it is wet with the river.
+vec3 shadePillar(vec3 p, vec3 rd, int slot, vec3 n, float ao) {
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  float ndv = max(dot(n, -rd), 0.0);
+  vec3 base = TCOL[slot % 12];
+  float y = p.y - FLOOR_Y;
+  vec3 col;
+  if (fract(sin(float(slot) * 78.233) * 43758.547) > 0.6) {
+    // energy: light climbing it, hottest at the edges, flaring on the beat
+    float band = 0.5 + 0.5 * sin(y * 5.0 - uTime * 9.0 + float(slot));
+    col = mix(base, vec3(1.0), 0.5) * (1.05 + 0.6 * band) + base * 1.4 * pow(1.0 - ndv, 2.0);
+    col *= 1.0 + 0.6 * uRiver2.z;
+  } else {
+    col = base * (0.3 + 0.7 * max(dot(n, L), 0.0)) * (0.55 + 0.45 * ao);
+    col += vec3(pow(max(dot(reflect(-L, n), -rd), 0.0), 40.0)) * 0.25;
+    col = mix(col, env(reflect(rd, n)), 0.04 + 0.3 * pow(1.0 - ndv, 5.0));
+  }
+  float h = pillarHeight(slot);
+  float wet = max(smoothstep(1.3, 0.05, y), 1.0 - smoothstep(0.6, 2.8, h));
+  // and it runs down the sides in streaks
+  wet = max(wet, smoothstep(0.55, 0.95, sin(dot(p.xz, vec2(7.0, 5.0)) + float(slot)) * 0.5 + 0.5) * smoothstep(h * 0.6, 0.0, y));
+  // wet: dark red, and the light's highlight sharp on it
+  vec3 blood = BLOOD * (0.6 + 0.6 * max(dot(n, L), 0.0)) * (1.0 + 0.9 * uRiver2.z)
+             + vec3(1.0, 0.85, 0.85) * (pow(max(dot(reflect(-L, n), -rd), 0.0), 120.0) + 0.25 * pow(1.0 - ndv, 4.0));
+  return mix(col, blood, wet);
+}
+
 // The liquid floor dissolves into the white with distance, so it has no far edge.
 vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
   return mix(col, bg, smoothstep(6.0, 20.0, length(p - uCamPos)));
@@ -574,6 +707,7 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake) {
   if (rd.y < 0.0) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
     bg = floorMatte(p, bg);
+    if (uRiver.w > 0.0) bg = riverFloor(p, rd, bg);
     // past the marcher's reach the liquid floor still shows, flat
     if (uLake.z > 0.0) bg = mix(bg, lakeFade(lake, p, bg), lakeMask(p.xz));
   }
@@ -740,6 +874,7 @@ vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n) {
 vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float ds, int id) {
   int shard = -1;
   if (uBurst.w > 0.0 && !far && id >= 0 && ds < db) shard = id;
+  if (shard >= 16) return shadePillar(p, rd, shard - 16, n, ao);
   // One call site for shadeLiquid, so the compiler builds it once here.
   vec3 col = far || shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd, n, ao, db) : vec3(0.0);
   if (far) return col;
