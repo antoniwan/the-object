@@ -12,12 +12,21 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
-## [1.6.0] - 2026-10-28
+## [1.7.0] - 2026-10-28
 
 ### Added
 - Its universe, stirred on the same way long after it holds one, gets out: the floor goes, the white room comes apart along the seams of a sky cut by mirrors, and it is everywhere, in every direction, each copy turning its own galaxy. (#46)
 - In there, a poke gives the room another mirror; a hand held still runs its time backward until it is let go; the other way round folds the room back up around one of it. (#46)
 - Four discoveries for it, and five thoughts for a universe that has not been let out. (#46)
+
+## [1.6.0] - 2026-10-28
+
+### Added
+- Late, after it has reached back once (or after fifty discoveries), something else comes down into the room: small, hard, dark and many-sided, with colors splitting at its edges. It never touches the floor. (#44)
+- Tap it and it rings, and the first shivers. Carry it close and the first reaches for it. Throw it at the first and they clash. (#44)
+- Press the two together and the first takes it in, a dark shape seen through it, and cools; squeeze and it is given back, each keeping some of the other's color. (#44)
+- Hurt the first again and again while it is there and it comes between you. Leave them both alone and they circle. Eight new discoveries and five new thoughts. (#44)
+
 ## [1.5.0] - 2026-10-28
 
 ### Added
@@ -188,7 +197,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/antoniwan/the-object/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/antoniwan/the-object/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/antoniwan/the-object/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/antoniwan/the-object/compare/v1.4.0...v1.4.1

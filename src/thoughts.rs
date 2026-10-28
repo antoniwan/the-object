@@ -140,7 +140,13 @@ const fn t(place: Place, from: Stage, until: Stage, when: fn(&Mind) -> bool, lin
 
 /// Every thought, in the order they are preferred. A pair of lines on one condition, split by
 /// stage, is the same thought turning from itself toward the player.
-pub static THOUGHTS: [Thought; 63] = [
+pub static THOUGHTS: [Thought; 68] = [
+    // ---- the other one, once it has come
+    t(P::Liquid, I, I, |m| m.world.other.inside() > 0.99 && !m.has(D::Give), "something is in it that is not it."),
+    t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Near), "it has not decided about the other one."),
+    t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Ring), "it wonders what the other one sounds like."),
+    t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Inside), "it wonders if the other one would fit inside it."),
+    t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Distance), "neither of them will go first."),
     // ---- the liquid, about you, once it has started to learn you
     t(P::Liquid, I, I, |m| m.contact.contacted, "it thinks about you when you are not here."),
     t(P::Liquid, I, I, |m| m.contact.contacted && !m.has(D::Said), "it said one word. nobody has said it back."),

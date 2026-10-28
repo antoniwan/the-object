@@ -6,7 +6,7 @@ This is the design system. Everything in it is taken from what is already built;
 
 ## 1. What it is about
 
-First contact. The player meets something they do not understand, in a white room. The feeling to protect is curiosity: is it alive, is it aware, what is it. Over many visits the curiosity becomes mutual. The object learns the player, then answers, then once reaches back (`contact.rs`).
+First contact. The player meets something they do not understand, in a white room. The feeling to protect is curiosity: is it alive, is it aware, what is it. Over many visits the curiosity becomes mutual. The object learns the player, then answers, then once reaches back (`contact.rs`). After that it is no longer alone: something else comes into the room (`other.rs`), and the curiosity has a third side. Neither of them is ever named; they are told apart only by what they are like (the soft one, the hard one, the other one).
 
 Three rules follow from that, and every other rule bends to them:
 
@@ -51,6 +51,10 @@ The world is almost white, the object is almost white, and color is something th
 | fold | `#080412` the dark between, then a cosine run through `#e50839` `#6b00db` `#0091e0` `#6b9f3e` (`foldPal()`), squared, so mostly the violet and blue of the galaxy's arms come through, on an orbit-trap fractal | the galaxy's own colors let out into the room; each copy of it takes a different turn of the run | `shader.frag` fold block |
 | fold seams | `#f2d9ff`, flaring on a new mirror | where the mirrors meet | `foldSky()` |
 | backward | the fold's colors rotated a channel (`col.zxy`), cooler | its time running the other way | `foldSky()` `uFold.w` |
+| the other one | `#05060a` body, the room in its faces, a full-spectrum cosine at its edges (`fire`, 0.35 → 1) | hard, cold, not from here; the colors split at its edges, more each time it is given back | `shadeOther()` |
+| the other, struck | `#bdd1ff` | it rings; brightest at its edges | `shadeOther()` `uOther2.w` |
+| the other, kept | the first's color at the time it was given back, 60% each time, glowing faintly at its grazing faces | what it took from inside the first | `other.rs` `kept` |
+| cold | `#9ea3f5` | the first cools toward this while it holds the other inside | `other.rs` `COLD` |
 
 ### The twelve
 
@@ -165,6 +169,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2 |
 | letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
+| the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
 | slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
 
 ### Decay and recovery
@@ -198,7 +203,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
-- **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread.
+- **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
 
 A new form gets a sound only if it changes what the object is; use `Sound::Become` before inventing one.
@@ -271,6 +276,12 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
+| tap | the other one, after contact | ring | it rings; the first shivers on the side facing it | `other.rs` |
+| drag | the other one | carry | brought near, the first reaches a tendril toward it | `other.rs` |
+| flick it at the first | the other one | clash | both recoil and the first is upset; neither gives | `other.rs` |
+| press it into the first and keep pressing | the other one | (inside) | the first takes it in; squeeze and it is given back, each keeping some of the other's color | `other.rs` |
+| poke the first, again and again | the liquid, while the other is there | (between) | the other places itself between you and the first | `other.rs` |
+| nothing, while both are there | | (distance) | they circle each other; the first watches it instead of you | `other.rs` |
 | type a letter | (keyboard) | letters | a ripple where the key sits, q high left, n low right; each its own note | `keys.rs` |
 | hold a letter | (keyboard) | hum | the note sung back, the surface trembling in time, that letter's color seeping in | `keys.rs` |
 | hold space, let go | (keyboard) | breath | it swells a tenth and sighs out; breathed with slowly, it breathes four more on its own, at your pace | `keys.rs` |

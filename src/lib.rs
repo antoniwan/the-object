@@ -15,6 +15,7 @@ pub mod meiosis;
 pub mod mere;
 pub mod morula;
 pub mod motion;
+pub mod other;
 pub mod progress;
 pub mod river;
 pub mod senses;

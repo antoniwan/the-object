@@ -42,6 +42,10 @@
 //!   fast, or cover the camera
 //! - and with a phone in the hand (see motion.rs): tip it to tip the room; shake it
 //!
+//! - late, once it has reached back (see other.rs), something else is in the room: tap it, carry
+//!   it close, throw it, press the two together and squeeze, hurt the first while it is there,
+//!   or leave them both alone
+//!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
 //!
@@ -97,6 +101,8 @@ pub enum Sound {
     Column { slot: usize },
     /// The river's heartbeat.
     Beat,
+    /// The other one, struck; `pitch` 0..1.
+    Ring { pitch: f32 },
 }
 
 enum Gesture {
@@ -117,6 +123,8 @@ enum Gesture {
     Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
     /// Touching the river: every column under the pointer stands up.
     River,
+    /// Pressing the other one (other.rs): a tap strikes it, a drag carries it.
+    Other { start: (f32, f32), plane: V3, offset: V3, carried: bool },
 }
 
 /// Distance between two points on the canvas.
@@ -239,7 +247,8 @@ impl Game {
     }
 
     pub fn hovering_liquid(&self, x: f32, y: f32) -> bool {
-        self.pointers.is_empty() && self.pick(x, y).is_some()
+        let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+        self.pointers.is_empty() && (self.pick(x, y).is_some() || self.world.other.pick(ro, rd).is_some())
     }
 
     fn end_gesture(&mut self) {
@@ -252,6 +261,7 @@ impl Game {
                 let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
                 self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
                 self.contact.poked((hit.pos - self.world.body.pos).norm(), pitch);
+                self.world.other.hurt();
                 self.discover(Discovery::Poke);
                 if self.world.division.phase == meiosis::Phase::Two {
                     self.discover(Discovery::Twin);
@@ -333,6 +343,12 @@ impl Game {
                     self.sounds.push(Sound::Merge);
                 }
             }
+            Gesture::Other { carried: false, .. } => crate::other::strike(&mut self.world),
+            Gesture::Other { carried: true, .. } => {
+                let b = self.cam.basis();
+                let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
+                self.world.other.release((b.right * vx - b.up * vy) * 3.0);
+            }
             Gesture::Ground { .. } | Gesture::River | Gesture::Idle => {}
         }
     }
@@ -394,6 +410,7 @@ impl Game {
                     Gesture::Shard { i, carried: true, .. } => {
                         self.world.burst.release(i, self.world.body.radius());
                     }
+                    Gesture::Other { .. } => self.world.other.release(V3::ZERO),
                     _ => {}
                 }
                 self.trace.clear();
@@ -442,6 +459,18 @@ impl Game {
                 None => Gesture::Orbiting { start: (x, y), last: (x, y) },
             };
             return;
+        }
+        let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+        if let Some(t) = self.world.other.pick(ro, rd) {
+            if self.pick(x, y).is_none_or(|h| (h.pos - ro).len() > t) {
+                // It is carried at the soft one's depth, so it can be brought to it.
+                let fwd = self.cam.basis().fwd;
+                let plane = self.world.body.pos;
+                let off = self.world.other.pos - self.plane_point(x, y, plane);
+                let offset = off - fwd * off.dot(fwd);
+                self.gesture = Gesture::Other { start: (x, y), plane, offset, carried: false };
+                return;
+            }
         }
         self.gesture = match self.pick(x, y) {
             Some(hit @ Hit { target: Target::Body, .. }) => {
@@ -511,6 +540,13 @@ impl Game {
             Gesture::Dragging { drop, plane, offset } => {
                 let to = self.plane_point(x, y, plane) + offset;
                 self.world.grab_drop(drop, to);
+            }
+            Gesture::Other { start, plane, offset, carried } => {
+                if carried || dist(start, (x, y)) / self.h > TAP_SLOP {
+                    let to = self.plane_point(x, y, plane) + offset;
+                    self.world.other.carry(to);
+                    self.gesture = Gesture::Other { start, plane, offset, carried: true };
+                }
             }
             Gesture::Orbiting { start, last } => {
                 self.track_swipe(last, (x, y));
@@ -1055,6 +1091,20 @@ impl Game {
             }
         }
         self.update_forms(dt, orbiting);
+        let b = self.cam.basis();
+        let look = crate::other::Look {
+            due: self.contact.contacted || self.progress.count() >= crate::other::ARRIVE_FOUND,
+            busy: self.contact.acting(),
+            visit: self.clock,
+            still: self.still,
+            right: b.right,
+            up: b.up,
+            fwd: b.fwd,
+            aspect: self.w / self.h.max(1.0),
+            view: self.cam.dist / FOCAL,
+        };
+        crate::other::step(&mut self.world, dt, &look);
+        self.other_news();
         self.update_contact(dt);
         self.update_senses(dt);
         self.update_heart(dt);

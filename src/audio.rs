@@ -147,6 +147,12 @@ impl Audio {
             Sound::Become => self
                 .pluck(Sine, 65.4, 65.4, 0.14, 3.0, 0.0)
                 .and_then(|_| self.pluck(Sine, 98.0, 98.0, 0.08, 3.0, 0.1)),
+            // The other one: hard, so a triangle, with a bell's partial over it; high struck, low arriving.
+            Sound::Ring { pitch } => {
+                let f = 329.6 * 2f32.powf(SCALE[((pitch * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)] / 12.0);
+                self.pluck(Triangle, f, f * 0.998, 0.1, 2.8, 0.0)
+                    .and_then(|_| self.pluck(Sine, f * 2.76, f * 2.75, 0.025, 1.4, 0.0))
+            }
             Sound::Provoked => self
                 .pluck(Triangle, 73.4, 69.0, 0.25, 1.4, 0.0)
                 .and_then(|_| self.pluck(Triangle, 77.8, 72.0, 0.2, 1.3, 0.0)),
