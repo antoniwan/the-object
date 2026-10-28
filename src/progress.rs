@@ -37,7 +37,7 @@ pub enum Discovery {
     Thaw,
 }
 
-pub const ALL: [Discovery; 15] = [
+pub const ALL: [Discovery; 32] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -53,6 +53,23 @@ pub const ALL: [Discovery; 15] = [
     Discovery::Close,
     Discovery::Return,
     Discovery::Call,
+    Discovery::Divide,
+    Discovery::Twin,
+    Discovery::Rejoin,
+    Discovery::Throw,
+    Discovery::Slam,
+    Discovery::Lake,
+    Discovery::Rise,
+    Discovery::Burst,
+    Discovery::Shards,
+    Discovery::Gather,
+    Discovery::Cleave,
+    Discovery::Grain,
+    Discovery::Eye,
+    Discovery::Shed,
+    Discovery::Stone,
+    Discovery::Slab,
+    Discovery::Thaw,
 ];
 
 impl Discovery {
@@ -95,38 +112,38 @@ impl Discovery {
 
     pub fn line(self) -> &'static str {
         match self {
-            Discovery::Poke => "it felt that.",
-            Discovery::Stretch => "it gives.",
-            Discovery::Tear => "a piece of it is free.",
-            Discovery::Merge => "it remembers being whole.",
-            Discovery::Squeeze => "it holds its volume.",
-            Discovery::Fling => "it always comes back.",
-            Discovery::LookAround => "there is nothing else. yet.",
-            Discovery::Warm => "it was waiting to be held.",
-            Discovery::Mix => "nothing comes back the same.",
-            Discovery::Provoke => "it will remember that.",
-            Discovery::Patience => "it noticed you.",
-            Discovery::Open => "it was never empty.",
-            Discovery::Close => "and it closed again.",
-            Discovery::Return => "it remembers you.",
-            Discovery::Call => "it heard you.",
-            Discovery::Divide => "it was always two.",
-            Discovery::Twin => "what one feels, the other feels.",
-            Discovery::Rejoin => "it chose to be one.",
-            Discovery::Throw => "it goes where it is sent.",
-            Discovery::Slam => "it hit the ground and stayed.",
-            Discovery::Lake => "the ground remembers.",
-            Discovery::Rise => "it was never gone.",
-            Discovery::Burst => "it couldn't hold any more.",
-            Discovery::Shards => "every piece is different.",
-            Discovery::Gather => "it was in pieces, not gone.",
-            Discovery::Cleave => "it did not grow. it multiplied.",
-            Discovery::Grain => "it is becoming a material.",
-            Discovery::Eye => "one of them is looking back.",
-            Discovery::Shed => "it let one go.",
-            Discovery::Stone => "it closed every seam.",
-            Discovery::Slab => "it has decided what it is.",
-            Discovery::Thaw => "even stone was liquid once.",
+            Discovery::Poke => "a pressure, and then the memory of a pressure.",
+            Discovery::Stretch => "it gives, and keeps what it gave.",
+            Discovery::Tear => "something left it. it is still counted.",
+            Discovery::Merge => "the seam forgets it was ever a seam.",
+            Discovery::Squeeze => "less room. the same amount of it.",
+            Discovery::Fling => "distance is a slower way of coming back.",
+            Discovery::LookAround => "there is nothing else here. not yet.",
+            Discovery::Warm => "your stillness has a temperature.",
+            Discovery::Mix => "no color returns the way it left.",
+            Discovery::Provoke => "it keeps the shape of every blow.",
+            Discovery::Patience => "you waited. now it waits for you.",
+            Discovery::Open => "the inside was a sky all along.",
+            Discovery::Close => "it folds the night back into itself.",
+            Discovery::Return => "it kept your place.",
+            Discovery::Call => "a sound went in. something answered.",
+            Discovery::Divide => "it was two before it was one.",
+            Discovery::Twin => "one wound. two bodies.",
+            Discovery::Rejoin => "it chose the harder number.",
+            Discovery::Throw => "it accepts the direction, not the reason.",
+            Discovery::Slam => "the ground was the softer thing.",
+            Discovery::Lake => "now the floor remembers its shape.",
+            Discovery::Rise => "what falls here does not stay fallen.",
+            Discovery::Burst => "too much inside. the outside won.",
+            Discovery::Shards => "twelve pieces. none of them agree.",
+            Discovery::Gather => "broken is not the same as gone.",
+            Discovery::Cleave => "more of it. never more than it.",
+            Discovery::Grain => "too many to be cells. a material now.",
+            Discovery::Eye => "one of them stopped agreeing. it looks.",
+            Discovery::Shed => "it gave one up so the rest could close.",
+            Discovery::Stone => "every seam, closed from the inside.",
+            Discovery::Slab => "one, four, nine. it has decided.",
+            Discovery::Thaw => "even stone remembers being poured.",
         }
     }
 }
@@ -182,5 +199,15 @@ mod tests {
         assert_eq!(q.count(), 2);
         assert_eq!(Progress::load("").count(), 0);
         assert_eq!(Progress::load("nonsense,poke").count(), 1);
+    }
+
+    #[test]
+    fn all_lists_every_discovery() {
+        // Discoveries missing from ALL are forgotten between visits.
+        // Keep the last variant here when appending to the enum.
+        assert_eq!(ALL.len(), Discovery::Thaw as usize + 1);
+        for (i, d) in ALL.iter().enumerate() {
+            assert_eq!(*d as usize, i);
+        }
     }
 }
