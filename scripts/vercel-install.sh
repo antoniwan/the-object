@@ -3,7 +3,6 @@
 # and the one package the function in api/ uses.
 set -euo pipefail
 WASM_BINDGEN=0.2.100
-BINARYEN=124  # must match WASM_OPT in build.sh
 
 if ! command -v cargo >/dev/null && [ ! -x "$HOME/.cargo/bin/cargo" ]; then
   curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --no-modify-path
@@ -19,14 +18,5 @@ if ! wasm-bindgen --version 2>/dev/null | grep -q "$WASM_BINDGEN"; then
   cp "/tmp/wasm-bindgen-$WASM_BINDGEN-x86_64-unknown-linux-musl/wasm-bindgen" "$HOME/.cargo/bin/"
 fi
 wasm-bindgen --version
-
-# wasm-opt, from binaryen's release tarball; only the one binary is kept (it is static).
-if ! wasm-opt --version 2>/dev/null | grep -q "version $BINARYEN "; then
-  url="https://github.com/WebAssembly/binaryen/releases/download/version_$BINARYEN/binaryen-version_$BINARYEN-x86_64-linux.tar.gz"
-  curl -sSfL "$url" | tar -xz -C /tmp "binaryen-version_$BINARYEN/bin/wasm-opt"
-  mkdir -p "$HOME/.cargo/bin"
-  cp "/tmp/binaryen-version_$BINARYEN/bin/wasm-opt" "$HOME/.cargo/bin/"
-fi
-wasm-opt --version
 
 npm ci --omit=dev --no-audit --no-fund
