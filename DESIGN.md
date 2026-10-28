@@ -198,6 +198,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 - Let it feel slightly off: a fact that should not be true, said calmly.
 - Keep it under about 60 characters. The longest one today is 61.
 - Address the player as "you" sparingly, and only when it is about what they did.
+- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
 
 **Examples from the game**
 
@@ -214,7 +215,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 | --- | --- |
 | "Nice! You discovered Poke!" | cheering, title case, exclamation, game voice |
 | "The alien creature splits in two." | says what it is |
-| "Try swiping faster to slice it." | instruction; the hint already exists and stays vague |
+| "Try swiping faster to slice it." | says how; it may ask for something (`stay.`), never explain how to do it |
 | "it's so squishy and cute :)" | cute |
 | "Mitosis: the cell divides into two daughter cells." | explanation, biology lesson |
 | "you have unlocked 14 of 66 secrets" | progress talk, digits; the count is roman and unlabeled |
