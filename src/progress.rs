@@ -28,6 +28,13 @@ pub enum Discovery {
     Burst,
     Shards,
     Gather,
+    Cleave,
+    Grain,
+    Eye,
+    Shed,
+    Stone,
+    Slab,
+    Thaw,
 }
 
 pub const ALL: [Discovery; 15] = [
@@ -76,6 +83,13 @@ impl Discovery {
             Discovery::Burst => "burst",
             Discovery::Shards => "twelve",
             Discovery::Gather => "gather",
+            Discovery::Cleave => "cleave",
+            Discovery::Grain => "grain",
+            Discovery::Eye => "eye",
+            Discovery::Shed => "shed",
+            Discovery::Stone => "stone",
+            Discovery::Slab => "1 : 4 : 9",
+            Discovery::Thaw => "thaw",
         }
     }
 
@@ -106,6 +120,13 @@ impl Discovery {
             Discovery::Burst => "it couldn't hold any more.",
             Discovery::Shards => "every piece is different.",
             Discovery::Gather => "it was in pieces, not gone.",
+            Discovery::Cleave => "it did not grow. it multiplied.",
+            Discovery::Grain => "it is becoming a material.",
+            Discovery::Eye => "one of them is looking back.",
+            Discovery::Shed => "it let one go.",
+            Discovery::Stone => "it closed every seam.",
+            Discovery::Slab => "it has decided what it is.",
+            Discovery::Thaw => "even stone was liquid once.",
         }
     }
 }
