@@ -52,6 +52,13 @@ uniform vec4 uLake;      // xy impact point on the floor (x, z), z liquid radius
 uniform vec4 uLakeRip[6]; // x, z, age, amplitude of a touch on the lake
 uniform int uNLR;
 const float FLOOR_Y = -1.45;
+// What the lake becomes (mere.rs), each gliding 0..1.
+uniform vec4 uMere;      // x mirror, y deep, z ice
+uniform vec4 uIce;       // xy where it froze from (x, z), z how far the ice reaches
+uniform vec4 uCrack[6];  // x, z, age, seed of each blow to the ice
+uniform int uNCrack;
+uniform vec4 uJet;       // xy where the fountain stands (x, z), z column height, w drop height (< 0: none)
+uniform vec2 uCoat;      // what it rose as: x quicksilver, y ink
 
 // Bursting (burst.rs): twelve pieces that become twelve triangles.
 uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
@@ -266,8 +273,9 @@ float lakeHeight(vec2 xz) {
     h += 0.06 * uLakeRip[i].w * exp(-a * 0.8) * sin(di * 9.0 - a * 10.0) * exp(-di * 0.35)
          * smoothstep(a * 2.0 + 0.4, a * 2.0 - 0.3, di);
   }
-  h += 0.012 * sin(xz.x * 1.3 + uTime * 0.9) * sin(xz.y * 1.1 - uTime * 0.7);
-  return h * m;
+  h += 0.012 * sin(xz.x * 1.3 + uTime * 0.9) * sin(xz.y * 1.1 - uTime * 0.7) * (1.0 - uMere.z);
+  // a mirror is a lake with nothing moving in it
+  return h * m * (1.0 - uMere.x);
 }
 
 float sdTri2(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
@@ -322,7 +330,15 @@ float scene(vec3 p) {
   }
   if (uLake.z > 0.0) {
     // the body melts into the floor through a smooth join
-    d = smin(d, (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8, 0.45 * uBody.w);
+    float lake = (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8;
+    if (uJet.w > -0.3) {
+      // the fountain: a column thrown up out of the lake, and the drop it lets go of
+      vec3 jb = vec3(uJet.x, FLOOR_Y, uJet.y);
+      float jet = sdTaper(p, jb - vec3(0.0, 0.3, 0.0), jb + vec3(0.0, uJet.z, 0.0), 0.2, 0.07);
+      jet = min(jet, length(p - jb - vec3(0.0, uJet.w + 0.12, 0.0)) - 0.13);
+      lake = smin(lake, jet, 0.18);
+    }
+    d = smin(d, lake, 0.45 * uBody.w);
   }
   for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
@@ -656,6 +672,55 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv) {
   return col;
 }
 
+// The lake as mirror, deep, and ice. `col` is the plain liquid underneath.
+vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
+  vec3 r = reflect(rd, n);
+  float ndv = max(dot(n, -rd), 0.0);
+  if (uMere.x > 0.0) {
+    // still: the room, perfectly, and the object standing in it where it fell
+    vec3 mir = env(r) * vec3(0.93, 0.94, 0.96);
+    vec3 gc = vec3(uLake.x, FLOOR_Y + uBody.w, uLake.y);
+    vec3 oc = p - gc;
+    float b = dot(oc, r);
+    float disc = b * b - dot(oc, oc) + uBody.w * uBody.w;
+    if (disc > 0.0 && -b - sqrt(disc) > 0.0) {
+      vec3 gn = normalize(p + r * (-b - sqrt(disc)) - gc);
+      float gd = max(dot(gn, -r), 0.0);
+      vec3 ghost = mix(vec3(0.90, 0.91, 0.95) * (0.8 + 0.2 * gn.y), env(reflect(r, gn)), 0.15 + 0.85 * pow(1.0 - gd, 4.0));
+      mir = mix(mir, ghost, 0.92);
+    }
+    col = mix(col, mir, uMere.x);
+  }
+  if (uMere.y > 0.0) {
+    // deep: ink, and the object a faint moon far under it
+    float dd = length(p.xz - uLake.xy);
+    vec3 ink = vec3(0.015, 0.02, 0.04) + env(r) * fres * 0.7
+             + vec3(0.85, 0.88, 1.0) * 0.4 * exp(-dd * dd * 0.6) * (0.8 + 0.2 * sin(uTime * 0.8));
+    col = mix(col, ink, uMere.y);
+  }
+  float im = uMere.z * smoothstep(uIce.z, uIce.z - 0.6, length(p.xz - uIce.xy));
+  if (im > 0.0) {
+    // ice: frosted, pale, holding the shape it froze in, scored by every blow
+    vec3 ice = mix(vec3(0.78, 0.86, 0.93), vec3(0.97, 0.99, 1.0), 0.5 + 0.5 * n.y);
+    ice *= 0.93 + 0.07 * hash(floor(p * 55.0));
+    ice = mix(ice, env(r), 0.2 + 0.6 * pow(1.0 - ndv, 4.0));
+    float cr = 0.0;
+    for (int i = ZERO; i < 6; i++) {
+      if (i >= uNCrack) break;
+      vec2 d = p.xz - uCrack[i].xy;
+      float l = length(d);
+      float reach = 2.4 * min(uCrack[i].z * 8.0, 1.0);
+      float a = atan(d.y, d.x) * 7.0 / 6.2831 + uCrack[i].w * 7.0 + 0.06 * sin(l * 6.0 + uCrack[i].w * 40.0);
+      float spoke = abs(fract(a) - 0.5) * 0.9 * l;
+      cr += smoothstep(0.022, 0.004, spoke) * smoothstep(reach, reach * 0.4, l);
+      cr += smoothstep(0.025, 0.0, abs(l - reach * 0.4)) * step(0.45, fract(a * 0.5 + uCrack[i].w));
+    }
+    ice = mix(ice, vec3(0.32, 0.40, 0.50), clamp(cr, 0.0, 1.0) * 0.8);
+    col = mix(col, ice, im);
+  }
+  return col;
+}
+
 vec3 shadeLiquid(vec3 p, vec3 rd) {
   vec3 n = calcNormal(p);
   vec3 tint = sceneColor(p);
@@ -690,6 +755,13 @@ vec3 shadeLiquid(vec3 p, vec3 rd) {
   col = mix(col, refl, clamp(fres * 0.9 + 0.08, 0.0, 1.0));
   float spec = pow(max(dot(reflect(-L, n), v), 0.0), 90.0);
   col += vec3(0.9) * spec;
+
+  // The lake's own states (mere.rs), and what the object rose as.
+  float lk = uLake.z > 0.0 ? smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz) : 0.0;
+  if (lk > 0.0) col = mix(col, mereSurface(p, rd, n, col, fres), lk);
+  vec3 r = reflect(rd, n);
+  col = mix(col, env(r) * vec3(0.86, 0.88, 0.92) + vec3(spec), uCoat.x * (1.0 - lk));
+  col = mix(col, vec3(0.018, 0.02, 0.032) + tint * 0.03 + env(r) * fres * 0.8 + vec3(spec) * 0.6, uCoat.y * (1.0 - lk));
 
   if (uNight > 0.001) {
     // At night it becomes a lens: the sky seen through it, a rim of its own color.

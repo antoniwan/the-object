@@ -2,11 +2,13 @@
 //! doesn't bounce: it melts into the floor, and the floor becomes liquid,
 //! spreading out from the impact until the whole ground is a mirror. Tap the
 //! lake and it ripples. Pull up from it and the object rises back out.
+//! What else the lake can become while the object is in it lives in mere.rs.
 //!
 //! Like meiosis.rs, `Phase` only decides which continuous values are moving;
 //! the shader blends those, so the melt and the spread never jump.
 
 use crate::math::*;
+use crate::mere::Mere;
 
 /// Height of the floor plane. The shader uses the same value.
 pub const FLOOR_Y: f32 = -1.45;
@@ -64,12 +66,14 @@ pub struct Fusion {
     /// Where it landed, on the floor plane.
     pub impact: (f32, f32),
     pub ripples: Vec<LakeRipple>,
+    /// Mirror, ice, deep, fountain: what the lake turns into (see mere.rs).
+    pub mere: Mere,
     events: Vec<Event>,
 }
 
 impl Default for Fusion {
     fn default() -> Self {
-        Fusion { phase: Phase::Whole, since_impact: 0.0, impact: (0.0, 0.0), ripples: Vec::new(), events: Vec::new() }
+        Fusion { phase: Phase::Whole, since_impact: 0.0, impact: (0.0, 0.0), ripples: Vec::new(), mere: Mere::default(), events: Vec::new() }
     }
 }
 
@@ -90,10 +94,11 @@ impl Fusion {
         }
     }
 
-    /// Where the body's spring pulls it: the middle of the room, or under the floor once fused.
+    /// Where the body's spring pulls it: the middle of the room, or under the floor once
+    /// fused, and further under once the lake has gone deep.
     pub fn home(&self, r: f32) -> V3 {
         let s = self.blend().sink;
-        v3(self.impact.0 * s, (FLOOR_Y - 1.4 * r) * s, self.impact.1 * s)
+        v3(self.impact.0 * s, (FLOOR_Y - (1.4 + 2.5 * self.mere.deep) * r) * s, self.impact.1 * s)
     }
 
     /// Floor contact for a body at `pos` moving at `vel`, with radius `r` and vertical scale
@@ -109,6 +114,7 @@ impl Fusion {
             self.since_impact = 0.0;
             self.impact = (pos.x, pos.z);
             self.ripples.clear();
+            self.mere.reset();
             self.events.push(Event::Slammed);
             // It keeps going down, into the floor, but loses most of its speed.
             return (pos, vel * 0.15, -speed * 0.9);
@@ -119,6 +125,11 @@ impl Fusion {
     }
 
     pub fn step(&mut self, dt: f32) {
+        self.mere.step(dt, self.phase == Phase::Fused);
+        // Frozen, the rings stop where they are.
+        if self.mere.frozen() {
+            return;
+        }
         self.since_impact += dt;
         self.phase = match self.phase {
             Phase::Fusing { t } if t + dt >= SPREAD_SECS => Phase::Fused,
@@ -149,17 +160,19 @@ impl Fusion {
     }
 
     pub fn touch_lake(&mut self, x: f32, z: f32, amp: f32) {
+        self.mere.disturb();
         if self.ripples.len() >= MAX_LAKE_RIPPLES {
             self.ripples.remove(0);
         }
         self.ripples.push(LakeRipple { x, z, age: 0.0, amp });
     }
 
-    /// Pull it back up out of the floor.
+    /// Pull it back up out of the floor. Not through ice.
     pub fn rise(&mut self) -> bool {
-        if self.phase != Phase::Fused {
+        if self.phase != Phase::Fused || self.mere.frozen() {
             return false;
         }
+        self.mere.rise();
         self.phase = Phase::Rising { t: 0.0 };
         true
     }

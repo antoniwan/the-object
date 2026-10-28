@@ -221,6 +221,31 @@ impl Renderer {
         self.v4v("uLakeRip", &lr);
         self.i("uNLR", lr.len() / 4);
 
+        // What the lake became, and what the object came back out as: see mere.rs.
+        let m = &fu.mere;
+        let loc = gl.get_uniform_location(&self.program, "uMere");
+        gl.uniform4f(loc.as_ref(), m.still, m.deep, m.ice, 0.0);
+        let loc = gl.get_uniform_location(&self.program, "uIce");
+        gl.uniform4f(loc.as_ref(), m.ice_at.0, m.ice_at.1, m.ice_reach, 0.0);
+        let mut cr = Vec::new();
+        for c in m.cracks.iter().take(crate::mere::MAX_CRACKS) {
+            cr.extend([c.x, c.z, c.age, c.seed]);
+        }
+        self.v4v("uCrack", &cr);
+        self.i("uNCrack", cr.len() / 4);
+        let (jx, jz, column, drop) = match m.fountain {
+            Some(f) => {
+                let (column, drop) = f.pose();
+                (f.x, f.z, column, drop)
+            }
+            None => (0.0, 0.0, 0.0, -1.0),
+        };
+        let loc = gl.get_uniform_location(&self.program, "uJet");
+        gl.uniform4f(loc.as_ref(), jx, jz, column, drop);
+        let (quicksilver, ink) = m.coat_mix();
+        let loc = gl.get_uniform_location(&self.program, "uCoat");
+        gl.uniform2f(loc.as_ref(), quicksilver, ink);
+
         // Bursting: see burst.rs.
         let bu = &world.burst;
         let loc = gl.get_uniform_location(&self.program, "uBurst");
