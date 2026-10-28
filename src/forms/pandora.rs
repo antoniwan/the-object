@@ -4,7 +4,7 @@
 //! and so does everything it was keeping, flying out as colored drops until the
 //! sky goes dark. When every drop has come home, it forgets its corners.
 
-use super::{smoothstep, Event};
+use super::Event;
 use crate::math::*;
 
 /// Half the side of a cube with the volume of a unit sphere: (π/6)^(1/3).

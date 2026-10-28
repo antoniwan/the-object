@@ -3,7 +3,7 @@
 //! the body becomes a flower facing up, its petals unfolding from where the
 //! buds were. Tap the flower and it folds back into the body.
 
-use super::{smoothstep, Event};
+use super::Event;
 use crate::math::*;
 
 pub const PETALS: usize = 5;
@@ -128,9 +128,9 @@ impl Bloom {
         let reach = r * (0.9 + 0.55 * o);
         let height = r * (1.3 - 0.95 * o);
         let rad = v3(reach, height, reach);
-        let q = (p - pos).div(rad);
+        let q = (p - pos).cdiv(rad);
         let k0 = q.len();
-        let k1 = (p - pos).div(v3(rad.x * rad.x, rad.y * rad.y, rad.z * rad.z)).len();
+        let k1 = (p - pos).cdiv(v3(rad.x * rad.x, rad.y * rad.y, rad.z * rad.z)).len();
         k0 * (k0 - 1.0) / k1.max(1e-6)
     }
 }

@@ -4,7 +4,7 @@
 //! it is plucked; the farther from the middle you pluck it, the higher the
 //! harmonic that rings. Hold it still and it winds back into a sphere.
 
-use super::{smoothstep, Event};
+use super::Event;
 use crate::math::*;
 
 /// Half the thread's length once fully drawn, in world units: past both edges of the screen.

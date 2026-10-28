@@ -3,7 +3,8 @@
 //! dark glass sphere with a spiral galaxy turning inside, the way you stirred.
 //! Poke it and a star ignites at the core. Stir the other way and it settles.
 
-use super::{smoothstep, Event};
+use super::Event;
+use crate::math::smoothstep;
 
 /// Turns of stirring (in one direction, without stopping long) that make the universe.
 pub const STIR_TURNS: f32 = 2.5;

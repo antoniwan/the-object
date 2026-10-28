@@ -1,4 +1,5 @@
-//! Browser glue: canvas, input events, the frame loop, and the small HUD.
+//! Browser glue: canvas, input events, the frame loop, the three lines of text
+//! (hint, toast, count), and what is saved between visits.
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
@@ -96,7 +97,8 @@ struct App {
     audio: Option<Audio>,
     night_shown: bool,
     last_frame: Option<f64>,
-    last_move: f64,
+    /// When each pointer last moved, so two fingers don't time each other's moves.
+    last_move: Vec<(i32, f64)>,
     /// Fraction of device pixels rendered; lowered automatically on slow devices.
     quality: f64,
     slow_time: f64,
@@ -115,6 +117,17 @@ impl App {
         let sx = self.canvas.width() as f64 / self.canvas.client_width().max(1) as f64;
         let sy = self.canvas.height() as f64 / self.canvas.client_height().max(1) as f64;
         ((e.offset_x() as f64 * sx) as f32, (e.offset_y() as f64 * sy) as f32)
+    }
+
+    /// Seconds since this pointer last moved (a frame, if it hasn't yet), and remember now.
+    fn moved(&mut self, id: i32, now: f64) -> f32 {
+        match self.last_move.iter_mut().find(|p| p.0 == id) {
+            Some(p) => ((now - std::mem::replace(&mut p.1, now)) / 1000.0).max(0.001) as f32,
+            None => {
+                self.last_move.push((id, now));
+                1.0 / 60.0
+            }
+        }
     }
 
     fn resize(&mut self) {
@@ -286,7 +299,7 @@ pub fn start() -> Result<(), JsValue> {
         audio: None,
         night_shown: false,
         last_frame: None,
-        last_move: 0.0,
+        last_move: Vec::new(),
         quality: 1.0,
         slow_time: 0.0,
         waiting: 0,
@@ -308,7 +321,7 @@ pub fn start() -> Result<(), JsValue> {
                 a.audio = Audio::new().ok();
             }
             let (x, y) = a.pos(&e);
-            a.last_move = e.time_stamp();
+            a.moved(e.pointer_id(), e.time_stamp());
             a.game.pointer_down(e.pointer_id(), x, y);
         })?;
     }
@@ -318,8 +331,7 @@ pub fn start() -> Result<(), JsValue> {
         listen(target, "pointermove", true, move |e: PointerEvent| {
             let mut a = app.borrow_mut();
             let (x, y) = a.pos(&e);
-            let dt = ((e.time_stamp() - a.last_move) / 1000.0).max(0.001) as f32;
-            a.last_move = e.time_stamp();
+            let dt = a.moved(e.pointer_id(), e.time_stamp());
             a.game.pointer_move(e.pointer_id(), x, y, dt);
             let cursor = if a.game.hovering_liquid(x, y) { "grab" } else { "default" };
             let _ = c.style().set_property("cursor", cursor);
@@ -330,6 +342,10 @@ pub fn start() -> Result<(), JsValue> {
         listen(target, name, true, move |e: PointerEvent| {
             let mut a = app.borrow_mut();
             a.game.pointer_up(e.pointer_id());
+            // A mouse keeps hovering after it lets go; a finger is gone.
+            if e.pointer_type() != "mouse" {
+                a.last_move.retain(|p| p.0 != e.pointer_id());
+            }
             match &a.audio {
                 Some(audio) => audio.resume(),
                 None => a.audio = Audio::new().ok(),

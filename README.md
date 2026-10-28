@@ -8,26 +8,31 @@ You can touch it.
 
 ---
 
-An art project. A liquid object rendered in the browser, written in Rust and compiled to WebAssembly. No libraries for the physics or rendering: a small simulation in Rust, and one shader that draws the liquid.
+An art project. Something liquid, in a white room, in your browser.
+
+It is written in Rust, compiled to WebAssembly, and drawn by a single shader. There is no engine, no physics library and no image of it anywhere: every shape is an equation, every sound is synthesized, every word arrives as something else first.
 
 What it does is for you to find out. It keeps count.
+
+It remembers you between visits. That memory lives in your browser and nowhere else. The site itself only counts visits, anonymously.
+
+You are not the only one paying attention.
 
 ## What is here
 
 ```
-src/      the object: its physics, what touching it does, how it is drawn, how it sounds
-web/      the site: the page it lives on, plus the compiled object in web/pkg/
-build.sh  compiles src/ into web/pkg/
+src/             the object: how it moves, what touching it does, how it is drawn, how it sounds
+web/             the page it lives on; the compiled object lands in web/pkg/
+build.sh         compiles src/ into web/pkg/
+CONTRIBUTING.md  how it is built, how it is put together, and the rules that keep it standing
 ```
-
-It is hosted on Vercel, which runs `build.sh` and serves `web/` on every push to `main` (`vercel.json`, `scripts/vercel-install.sh`). Tests run on GitHub (`.github/workflows/test.yml`).
 
 ## Build it yourself
 
-Requires Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.100, and Python (or any static file server).
+You need Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.100, and any static file server.
 
 ```
 ./build.sh                         # compiles into web/pkg/
 python3 -m http.server -d web      # then open http://localhost:8000
-cargo test                         # runs the simulation tests
+cargo test                         # the tests run natively, no browser needed
 ```
