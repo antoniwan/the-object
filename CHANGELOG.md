@@ -12,6 +12,13 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-10-28
+
+### Changed
+- Each frame costs about two fifths less to draw: every ray starts where something could be and stops past the last of it, leaps the empty space between, and strides further where it safely can. Shapes, light and color are as they were.
+- The room through the mirrors costs about a third less a frame, and the light and color laid over everything a quarter less, worked out once and shared instead of again for each surface.
+- It takes no longer to get ready, though it draws far less each frame.
+
 ## [1.8.2] - 2026-10-28
 
 ### Changed
@@ -223,7 +230,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.2...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.3...HEAD
+[1.8.3]: https://github.com/antoniwan/the-object/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/antoniwan/the-object/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/antoniwan/the-object/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/antoniwan/the-object/compare/v1.7.0...v1.8.0

@@ -94,15 +94,28 @@ uniform vec4 uOther3;    // rgb the color it kept from inside the first, a fire 
 uniform float uOtherIn;  // 0..1 how far inside the first it is
 const int OTHER = 40;
 
+// Turns that depend only on uniforms, worked out once per pixel by sceneSetup() so that
+// scene() and the shading need not work them out again at every step.
+vec4 gOtherTurn; // cos and sin of the other one's turn, then of its lean
+vec2 gRiverDir;  // which way the river runs
+vec4 gBoxTurn;   // cos and sin of the way the box faces, then of how far its lid is open
+float gBoxShiver;
+
+void sceneSetup() {
+  gOtherTurn = vec4(cos(uOther2.x), sin(uOther2.x), cos(uOther2.y), sin(uOther2.y));
+  gRiverDir = vec2(cos(uRiver.z), sin(uRiver.z));
+  float lid = max(uBox.y, 0.0) * 1.9;
+  gBoxTurn = vec4(cos(uBox.w), sin(uBox.w), cos(lid), sin(lid));
+  gBoxShiver = uBox.z * 0.025 * uBody.w * sin(uTime * 70.0);
+}
+
 // Long and many-sided: two eight-sided cuts at once, sixteen faces, a point at each end.
 // Returns both cuts in its own units; where they are equal is an edge.
 vec2 otherCuts(vec3 p) {
   vec3 q = (p - uOther.xyz) / uOther.w;
-  float c = cos(uOther2.x), s = sin(uOther2.x);
-  q.xz = mat2(c, s, -s, c) * q.xz;
-  c = cos(uOther2.y);
-  s = sin(uOther2.y);
-  q.xy = mat2(c, s, -s, c) * q.xy;
+  vec4 cs = gOtherTurn;
+  q.xz = mat2(cs.x, cs.y, -cs.y, cs.x) * q.xz;
+  q.xy = mat2(cs.z, cs.w, -cs.w, cs.z) * q.xy;
   q.y /= 1.6 + 0.6 * uOther2.z;
   vec3 a = abs(q);
   vec3 b = vec3(abs(q.x + q.z) * 0.70711, a.y, abs(q.x - q.z) * 0.70711);
@@ -147,7 +160,9 @@ vec3 foldSpace(vec3 p, out vec3 sgn, out float ang, out vec3 k, out float s) {
   float f = smoothstep(0.0, 1.0, uFold.x);
   vec3 q = p - uBody.xyz;
   ang = f * (uFold.y * 0.06 + 0.035 * length(q));
-  q.xz = foldRot(q.xz, ang);
+  // one turn, used both ways: space into the copies' frame, and the eye along with it
+  float c = cos(ang), sn = sin(ang);
+  q.xz = vec2(c * q.x - sn * q.z, sn * q.x + c * q.z);
   // the copies come in from far off, at a steady pace to the eye
   float S = uBody.w * 5.2 * exp(2.6 * (1.0 - f));
   k = floor(q / S + 0.5);
@@ -155,17 +170,24 @@ vec3 foldSpace(vec3 p, out vec3 sgn, out float ang, out vec3 k, out float s) {
   sgn = 1.0 - 2.0 * mod(k, 2.0);
   q *= sgn;
   if (dot(k, k) > 0.0) {
-    // where this copy stands in the room, and how far it is from the line between the eye and
-    // the one in the middle: the ones in the way, and the ones too close, make room
+    // where this copy stands, and how far it is from the line between the eye and the one in
+    // the middle: the ones in the way, and the ones too close, make room. Measured in the
+    // turned frame, so the copy need not be turned back.
     vec3 w = S * k;
-    w.xz = foldRot(w.xz, -ang);
-    w += uBody.xyz;
     vec3 e = uCamPos - uBody.xyz;
-    vec3 we = w - uBody.xyz;
-    float off = length(we - e * clamp(dot(we, e) / dot(e, e), 0.0, 1.2));
-    s = max(min(smoothstep(1.3 * uBody.w, 3.2 * uBody.w, off), smoothstep(1.5 * uBody.w, 4.0 * uBody.w, length(w - uCamPos))), 1e-3);
+    e.xz = vec2(c * e.x - sn * e.z, sn * e.x + c * e.z);
+    float off = length(w - e * clamp(dot(w, e) / dot(e, e), 0.0, 1.2));
+    s = max(min(smoothstep(1.3 * uBody.w, 3.2 * uBody.w, off), smoothstep(1.5 * uBody.w, 4.0 * uBody.w, length(w - e))), 1e-3);
   }
   return uBody.xyz + q / s;
+}
+
+// How far a step may go through the turned space. The turn grows with the distance from the
+// vertical through it, and stretches space by at most sqrt(1 + h * h) + h, where h is half the
+// turn per unit times that distance. Never a shorter step than the fixed 0.7 it replaces.
+float foldStep(vec3 p) {
+  float h = 0.0175 * smoothstep(0.0, 1.0, uFold.x) * length(p.xz - uBody.xz);
+  return max(sqrt(1.0 + h * h) - h, 0.7);
 }
 
 // The sky the room folds into: one sky, cut into mirrored wedges around the vertical and
@@ -198,17 +220,15 @@ vec3 foldSky(vec3 rd) {
 }
 // ---- end of the fold -------------------------------------------------------------------------
 
-// Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
+// Each triangle's outline: its base on y = 0 runs from x = TRI.x to TRI.y, its apex is at
+// TRI.zw (height about 1); then its thickness and edge rounding.
 // Order matches Consistency in burst.rs: milk, chrome, glass, jelly, stone, honey,
 // velvet, wax, ice, rubber, obsidian, moss.
-const vec2 TA[12] = vec2[12](vec2(-0.5, 0.0), vec2(-0.25, 0.0), vec2(-0.4, 0.0), vec2(-0.6, 0.0), vec2(-0.6, 0.0), vec2(-0.45, 0.0),
-                             vec2(-0.5, 0.0), vec2(-0.4, 0.0), vec2(-0.15, 0.0), vec2(-0.55, 0.0), vec2(-0.35, 0.0), vec2(-0.6, 0.0));
-const vec2 TB[12] = vec2[12](vec2(0.5, 0.0), vec2(0.25, 0.0), vec2(0.45, 0.0), vec2(0.6, 0.0), vec2(0.4, 0.0), vec2(0.45, 0.0),
-                             vec2(0.5, 0.0), vec2(0.4, 0.0), vec2(0.3, 0.0), vec2(0.55, 0.0), vec2(0.5, 0.0), vec2(0.6, 0.0));
-const vec2 TC[12] = vec2[12](vec2(0.0, 0.87), vec2(0.0, 1.0), vec2(-0.4, 0.9), vec2(0.05, 0.55), vec2(0.55, 0.8), vec2(-0.1, 0.8),
-                             vec2(0.3, 0.95), vec2(0.0, 0.7), vec2(-0.05, 1.0), vec2(0.0, 0.6), vec2(-0.2, 1.0), vec2(-0.3, 0.7));
-const float TTHICK[12] = float[12](0.12, 0.08, 0.06, 0.25, 0.2, 0.15, 0.14, 0.3, 0.07, 0.22, 0.1, 0.18);
-const float TROUND[12] = float[12](0.06, 0.01, 0.01, 0.12, 0.02, 0.08, 0.05, 0.1, 0.015, 0.1, 0.005, 0.04);
+const vec4 TRI[12] = vec4[12](vec4(-0.5, 0.5, 0.0, 0.87), vec4(-0.25, 0.25, 0.0, 1.0), vec4(-0.4, 0.45, -0.4, 0.9), vec4(-0.6, 0.6, 0.05, 0.55),
+                             vec4(-0.6, 0.4, 0.55, 0.8), vec4(-0.45, 0.45, -0.1, 0.8), vec4(-0.5, 0.5, 0.3, 0.95), vec4(-0.4, 0.4, 0.0, 0.7),
+                             vec4(-0.15, 0.3, -0.05, 1.0), vec4(-0.55, 0.55, 0.0, 0.6), vec4(-0.35, 0.5, -0.2, 1.0), vec4(-0.6, 0.6, -0.3, 0.7));
+const vec2 TSHAPE[12] = vec2[12](vec2(0.12, 0.06), vec2(0.08, 0.01), vec2(0.06, 0.01), vec2(0.25, 0.12), vec2(0.2, 0.02), vec2(0.15, 0.08),
+                                 vec2(0.14, 0.05), vec2(0.3, 0.1), vec2(0.07, 0.015), vec2(0.22, 0.1), vec2(0.1, 0.005), vec2(0.18, 0.04));
 // Materials: base colour, then (gloss, reflectivity, translucency, grain).
 const vec3 TCOL[12] = vec3[12](vec3(0.95, 0.94, 0.97), vec3(0.80, 0.82, 0.86), vec3(0.86, 0.96, 0.98), vec3(0.93, 0.22, 0.45),
                                vec3(0.62, 0.58, 0.53), vec3(0.96, 0.60, 0.14), vec3(0.16, 0.19, 0.56), vec3(0.96, 0.90, 0.78),
@@ -239,29 +259,32 @@ float sdTaper(vec3 p, vec3 a, vec3 b, float ra, float rb) {
 // Ripples and wobble for a surface direction n, in body radii.
 float surfaceDisp(vec3 n) {
   float disp = 0.012 * sin(n.x * 3.0 + uTime * 1.3) * sin(n.y * 4.0 - uTime * 1.1) * sin(n.z * 3.0 + uTime * 0.9);
+  // Ripples and buds share one loop.
   for (int i = ZERO; i < 8; i++) {
-    if (i >= uNR) break;
-    float a = acos(clamp(dot(n, uRip[i].xyz), -1.0, 1.0));
-    float t = uRipAge[i];
-    float A = uRip[i].w;
-    // The dent where it was touched...
-    disp -= 0.2 * A * exp(-a * a * 14.0) * exp(-7.0 * t) * (1.0 - exp(-60.0 * t));
-    // ...and a wave that travels around the surface from it.
-    float front = t * 1.5;
-    float x = a - front;
-    disp += 0.055 * A * exp(-1.3 * t) * cos(x * 12.0) * exp(-x * x * 5.0) * smoothstep(0.0, 0.25, t);
+    if (i >= uNR && i >= uNB) break;
+    if (i < uNR) {
+      float a = acos(clamp(dot(n, uRip[i].xyz), -1.0, 1.0));
+      float t = uRipAge[i];
+      float A = uRip[i].w;
+      // The dent where it was touched...
+      disp -= 0.2 * A * exp(-a * a * 14.0 - 7.0 * t) * (1.0 - exp(-60.0 * t));
+      // ...and a wave that travels around the surface from it.
+      float x = a - t * 1.5;
+      disp += 0.055 * A * cos(x * 12.0) * exp(-1.3 * t - x * x * 5.0) * smoothstep(0.0, 0.25, t);
+    }
+    // Buds: a pinch leaves a small sharp peak.
+    if (i < uNB) {
+      vec4 b = uBud[min(i, 4)];
+      disp += 0.3 * b.w * exp((dot(n, b.xyz) - 1.0) * 40.0);
+    }
   }
   // Watching: a slow swell toward the viewer.
   float g = acos(clamp(dot(n, uGaze.xyz), -1.0, 1.0));
-  disp += uGaze.w * (0.30 * exp(-g * g * 4.0) + 0.01 * sin(uTime * 2.1) * exp(-g * g * 2.0));
+  float e = exp(-g * g * 2.0);
+  disp += uGaze.w * e * (0.30 * e + 0.01 * sin(uTime * 2.1));
   // Agitation: the surface boils.
   float t = uTime;
   disp += uAgit * 0.045 * sin(n.x * 17.0 + t * 23.0) * sin(n.y * 15.0 - t * 19.0) * sin(n.z * 16.0 + t * 21.0);
-  // Buds: a pinch leaves a small sharp peak.
-  for (int i = ZERO; i < 5; i++) {
-    if (i >= uNB) break;
-    disp += 0.3 * uBud[i].w * exp((dot(n, uBud[i].xyz) - 1.0) * 40.0);
-  }
   // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
   float c = dot(n, uCut.xyz);
   disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
@@ -435,9 +458,9 @@ float filamentSdf(vec3 p) {
 // The box's own frame: turned to face its way, shivering when knocked.
 vec3 boxLocal(vec3 p) {
   vec3 q = p - uBody.xyz;
-  float c = cos(uBox.w), s = sin(uBox.w);
+  float c = gBoxTurn.x, s = gBoxTurn.y;
   q = vec3(c * q.x - s * q.z, q.y, s * q.x + c * q.z);
-  q.x += uBox.z * 0.025 * uBody.w * sin(uTime * 70.0);
+  q.x += gBoxShiver;
   return q;
 }
 
@@ -448,11 +471,10 @@ float boxSdf(vec3 p) {
   float lh = 0.12 * s;
   float k = 0.06 * s;
   float base = sdBox(q - vec3(0.0, -lh, 0.0), vec3(s, s - lh, s), k);
-  if (uBox.y <= 0.0) return min(base, sdBox(q - vec3(0.0, s - lh, 0.0), vec3(s, lh, s), k));
   // opened, it is hollow
-  base = max(base, -sdBox(q - vec3(0.0, 0.25 * s, 0.0), vec3(0.86 * s, s, 0.86 * s), 0.02 * s));
-  float a = uBox.y * 1.9;
-  float ca = cos(a), sa = sin(a);
+  if (uBox.y > 0.0) base = max(base, -sdBox(q - vec3(0.0, 0.25 * s, 0.0), vec3(0.86 * s, s, 0.86 * s), 0.02 * s));
+  // the lid, turned on its hinge (not at all while it is shut)
+  float ca = gBoxTurn.z, sa = gBoxTurn.w;
   vec3 v = q - vec3(0.0, s - 2.0 * lh, -s);
   v = vec3(v.x, v.y * ca - v.z * sa, v.y * sa + v.z * ca);
   float lid = sdBox(v - vec3(0.0, lh, s), vec3(s, lh, s), k);
@@ -473,9 +495,9 @@ float lakeMask(vec2 xz) { return smoothstep(uLake.z, uLake.z - 0.8, length(xz - 
 
 // Height of the liquid floor: rings from the impact, rings from touches, a slow swell.
 float lakeHeight(vec2 xz) {
-  float m = lakeMask(xz);
-  if (m <= 0.0) return 0.0;
   float dist = length(xz - uLake.xy);
+  float m = smoothstep(uLake.z, uLake.z - 0.8, dist);
+  if (m <= 0.0) return 0.0;
   float t = uLake.w;
   float front = t * 2.4;
   float h = 0.10 * exp(-t * 0.5) * sin(dist * 5.0 - t * 8.0) * exp(-dist * 0.22)
@@ -519,12 +541,14 @@ float shardSdf(vec3 p, int i) {
   q = vec3(c * q.x - s * q.z, q.y, s * q.x + c * q.z) / size;
   // a poke makes it wobble, more or less, by its consistency (burst.rs sets how much)
   q.x += uTriB[i].z * 0.07 * sin(q.y * 7.0 - uTime * 16.0) * q.y;
-  float d2 = sdTri2(q.xy, TA[i], TB[i], TC[i]);
-  float dz = abs(q.z) - TTHICK[i] * 0.5;
+  vec4 tri3 = TRI[i];
+  vec2 shape = TSHAPE[i];
+  float d2 = sdTri2(q.xy, vec2(tri3.x, 0.0), vec2(tri3.y, 0.0), tri3.zw);
+  float dz = abs(q.z) - shape.x * 0.5;
   // weather wears it down: the outline shrinks by as much as the edges round, so it keeps its size
   float w = uTriB[i].w;
   d2 += w; dz += w * 0.5;
-  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - TROUND[i] - w) * size;
+  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - shape.y - w) * size;
   // planted ones are cut off at the ground
   return max(mix(blob, tri, m), FLOOR_Y - p.y);
 }
@@ -543,7 +567,7 @@ float shards(vec3 p, out int id) {
 // Where xz is along the river (x) and across it from its winding middle (y). Mirrors River::local.
 vec2 riverLocal(vec2 xz) {
   vec2 d = xz - uRiver.xy;
-  vec2 dir = vec2(cos(uRiver.z), sin(uRiver.z));
+  vec2 dir = gRiverDir;
   float s = dot(d, dir);
   return vec2(s, dot(d, vec2(-dir.y, dir.x)) - 2.2 * sin(0.21 * s) - 1.1 * sin(0.47 * s + 1.3));
 }
@@ -590,7 +614,7 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   vec3 fsg, fk;
   float fang, fs;
   vec3 bp = foldSpace(p, fsg, fang, fk, fs);
-  body = uBurst.x > 0.5 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? 0.7 : 1.0);
+  body = uBurst.x > 0.5 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? foldStep(p) : 1.0);
   float d = body;
   piece = 1e3;
   id = -1;
@@ -635,6 +659,75 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   return d;
 }
 
+// Where the ray passes through the sphere at c of radius r, widening span s to take it in;
+// r below zero is no sphere. marchSpan() chooses with step() and pick() instead of branches.
+// a where m is 0, b where m is 1, exactly (mix() is not exact when a is huge).
+float pick(float a, float b, float m) { return a * (1.0 - m) + b * m; }
+vec2 pick(vec2 a, vec2 b, float m) { return a * (1.0 - m) + b * m; }
+vec4 pick(vec4 a, vec4 b, float m) { return a * (1.0 - m) + b * m; }
+
+vec2 spanSphere(vec3 ro, vec3 rd, vec3 c, float r, vec2 s) {
+  vec3 oc = ro - c;
+  float b = dot(oc, rd);
+  float h = b * b - dot(oc, oc) + r * abs(r);
+  float e = sqrt(max(h, 0.0));
+  float m = step(0.0, h);
+  return vec2(min(s.x, pick(1e9, -b - e, m)), max(s.y, pick(-1e9, -b + e, m)));
+}
+
+// 1.0 if a < b, else 0.0.
+float below(float a, float b) { return 1.0 - step(b, a); }
+
+// The stretches of the ray where scene() can reach zero: xy through the spheres that hold the
+// body and everything joined to it, zw through the layer over the floor where the lake, the
+// pieces and the columns are. Outside both there is nothing, so the march need not go there.
+// Each bound is grown by how far the smooth joins can pull a surface out.
+vec4 marchSpan(vec3 ro, vec3 rd) {
+  float r = uBody.w;
+  float lake = step(1e-9, uLake.z);
+  float grow = 0.05 + 0.25 * (uK.x * float(uNH) + uK.y * float(uND)) + 0.12 * r * lake;
+  vec2 s = vec2(1e9, -1e9);
+  // the furthest the ripples, the gaze, the boiling, the buds and the furrow push the body out
+  float disp = 0.012 + 0.31 * abs(uGaze.w) + 0.045 * abs(uAgit) + 0.32 * abs(uDiv.y);
+  // the highest the lake's waves reach, and the highest piece
+  float wave = 0.12;
+  float top = -1e9;
+  float pieces = step(1e-9, uBurst.w) * below(uRiver2.x, 0.99);
+  for (int i = ZERO; i < 12; i++) {
+    float fi = float(i);
+    disp += below(fi, float(uNR)) * 0.26 * abs(uRip[min(i, 7)].w);
+    disp += below(fi, float(uNB)) * 0.3 * abs(uBud[min(i, 4)].w);
+    wave += below(fi, float(uNLR)) * 0.06 * abs(uLakeRip[min(i, 5)].w);
+    s = spanSphere(ro, rd, uDrop[i].xyz, pick(-1.0, uDrop[i].w + grow, below(fi, float(uND))), s);
+    int h = min(i, 3);
+    vec3 a = uHA[h].xyz, b = uHB[h].xyz;
+    float rt = 0.5 * length(b - a) + max(max(uHA[h].w, uHB[h].w), uHBulb[h]) + 0.03 * r + grow;
+    s = spanSphere(ro, rd, 0.5 * (a + b), pick(-1.0, rt, below(fi, float(uNH))), s);
+    top = max(top, pick(-1e9, uTri[i].y + 0.874 * r * max(1.0, 0.5 * uTri[i].w) + 1.3 * uTri[i].w + 0.1 + grow, pieces));
+  }
+  float sc = max(max(uScale.x, uScale.y), max(uScale.z, 1.0));
+  float cluster = step(0.5, float(uNC));
+  float rb = (pick(2.0, max(2.5, 2.4 * uGrainR), cluster) + disp) * r * sc + grow * sc / max(min(uScale.x, uScale.y), 0.2);
+  rb = max(rb, step(1e-9, uBloom.x) * (1.8 * r + grow));
+  rb = max(rb, step(1e-9, uBox.x) * (3.0 * r + grow));
+  rb = max(rb, step(1e-9, uFil2.y) * (uFil.w + uFil2.x + length(uFilSwing) * (abs(uFil2.z) + 0.02) + grow));
+  // the slab it stands up into
+  rb = max(rb, cluster * step(1e-9, uStone.y) * (length(uSlab.xyz - uBody.xyz) + 2.6 * r + grow));
+  s = spanSphere(ro, rd, uBody.xyz, pick(-1.0, rb, step(uBurst.x, 0.5)), s);
+  s = spanSphere(ro, rd, uOther.xyz, pick(-1.0, uOther.w * max(1.0, 1.6 + 0.6 * uOther2.z) * 1.02 + 0.02, step(1e-9, uOther.w)), s);
+  // the lake, with the fountain's column and the drop it lets go of, and the columns
+  float jet = step(-0.3, uJet.w) * (max(uJet.z, uJet.w + 0.3) + 0.3);
+  top = max(top, pick(-1e9, FLOOR_Y + max(wave, jet) + grow / 0.8, lake));
+  top = max(top, pick(-1e9, FLOOR_Y + uRiver2.w + 0.1 + grow / 0.6, step(1e-9, uBurst.w) * step(1e-9, uRiver2.w)));
+  // the layer under that height: where the ray crosses it, and whether it comes down through it
+  float down = step(rd.y, 0.0);
+  float cross = (top - ro.y) / (abs(rd.y) < 1e-6 ? 1e-6 : rd.y);
+  float there = step(-1e8, top) * max(down, step(0.0, cross));
+  vec2 l = pick(vec2(1e9, -1e9), pick(vec2(0.0, cross), vec2(max(cross, 0.0), 1e9), down), there);
+  // folded space repeats everywhere: march all of it
+  return pick(vec4(s, l), vec4(0.0, 1e9, 1e9, -1e9), step(1e-9, uFold.x));
+}
+
 // Color at a surface point: blended through the same smooth joins as the shape.
 // `d` is bodySurface(p), which the caller already has.
 vec3 sceneColor(vec3 p, float d) {
@@ -660,6 +753,14 @@ float hash(vec3 p) {
   return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
+// The softbox overhead, normalize(-0.5, 0.8, 0.45), and the room's two softboxes.
+const vec3 KEY = vec3(-0.478365, 0.765384, 0.430528);
+const vec3 BOX_A = vec3(-0.496292, 0.744438, 0.446663);
+const vec3 BOX_B = vec3(0.798007, 0.249377, -0.548630);
+
+float pow4(float x) { x *= x; return x * x; }
+float pow5(float x) { return pow4(x) * x; }
+
 // Stars on the inside of a sphere around everything.
 vec3 stars(vec3 rd) {
   vec3 col = vec3(0.0);
@@ -676,7 +777,8 @@ vec3 stars(vec3 rd) {
     }
   }
   // A faint band of something far away.
-  float band = exp(-pow(dot(rd, normalize(vec3(0.3, 1.0, -0.2))) * 3.5, 2.0));
+  float bd = dot(rd, vec3(0.282216, 0.940721, -0.188144)) * 3.5;
+  float band = exp(-bd * bd);
   col += band * vec3(0.10, 0.08, 0.16) * (0.6 + 0.4 * hash(floor(rd * 400.0)));
   return col;
 }
@@ -688,8 +790,8 @@ vec3 nightSky(vec3 rd) {
 // Soft white studio: bright from above, gray toward the floor, two softboxes.
 vec3 env(vec3 r) {
   vec3 c = mix(vec3(0.70, 0.71, 0.74), vec3(1.0), smoothstep(-0.35, 0.55, r.y));
-  c += vec3(1.4) * smoothstep(0.90, 0.94, dot(r, normalize(vec3(-0.5, 0.75, 0.45))));
-  c += vec3(0.75, 0.70, 0.66) * smoothstep(0.93, 0.965, dot(r, normalize(vec3(0.8, 0.25, -0.55))));
+  c += vec3(1.4) * smoothstep(0.90, 0.94, dot(r, BOX_A));
+  c += vec3(0.75, 0.70, 0.66) * smoothstep(0.93, 0.965, dot(r, BOX_B));
   // a low strip of cold light behind it, and a warm one opposite: the only color the room has
   c += vec3(0.30, 0.42, 0.62) * smoothstep(0.12, 0.0, abs(r.y - 0.08)) * smoothstep(0.2, 0.8, -r.z);
   c += vec3(0.55, 0.36, 0.30) * smoothstep(0.1, 0.0, abs(r.y - 0.02)) * smoothstep(0.4, 0.9, r.x);
@@ -703,61 +805,59 @@ float sphOcc(vec3 pos, vec4 sph) {
   return max(0.0, di.y / l) * (sph.w * sph.w) / (l * l);
 }
 
-// The matte white floor at p, with the soft shadows of everything above it.
-vec3 floorMatte(vec3 p, vec3 bg) {
-  {
-    vec3 off = cellOffset();
-    float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
-    float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y)))
-                              : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
-    if (uFil2.y > 0.0) {
-      // the thread's shadow: a line of soft beads along it
-      for (int i = ZERO; i < 9; i++) {
-        float s = (float(i) - 4.0) * 1.2 * uFil2.y;
-        occ += sphOcc(p, vec4(uBody.xyz + uFil.xyz * s, uFil2.x * 1.6));
-      }
+// How much light reaches the matte white floor at p, under the soft shadows of everything
+// above it. main() asks once per pixel, for whichever floor point it shows.
+float floorShadow(vec3 p) {
+  vec3 off = cellOffset();
+  float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
+  float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y)))
+                            : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
+  if (uFil2.y > 0.0) {
+    // the thread's shadow: a line of soft beads along it
+    for (int i = ZERO; i < 9; i++) {
+      float s = (float(i) - 4.0) * 1.2 * uFil2.y;
+      occ += sphOcc(p, vec4(uBody.xyz + uFil.xyz * s, uFil2.x * 1.6));
     }
-    if (uNC > 0) {
-      occ = mix(sphOcc(p, vec4(uBody.xyz, uBody.w * 1.25)),
-                sphOcc(p, vec4(uSlab.x, FLOOR_Y + 0.7 * uBody.w, uSlab.z, 0.9 * uBody.w)), uStone.y);
-    }
-    for (int i = ZERO; i < 12; i++) {
-      if (i >= uND) break;
-      occ += sphOcc(p, uDrop[i]);
-    }
-    for (int i = ZERO; i < 4; i++) {
-      if (i >= uNH) break;
-      occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
-    }
-    if (uBurst.x > 0.5) occ = 0.0;
-    if (uOther.w > 0.0) occ += sphOcc(p, vec4(uOther.xyz, uOther.w * 1.3));
-    float fade = exp(-0.05 * dot(p.xz, p.xz));
-    // the pieces cast their own shadows wherever they stand
-    float socc = 0.0;
-    if (uBurst.w > 0.0) {
-      for (int i = ZERO; i < 12; i++) {
-        float h = uTri[i].w * mix(0.12, 0.4, uTriB[i].y);
-        socc += sphOcc(p, vec4(uTri[i].xyz + vec3(0.0, h, 0.0), uTri[i].w * mix(0.12, 0.38, uTriB[i].y)));
-      }
-    }
-    bg *= 1.0 - 0.55 * clamp(occ * fade + socc, 0.0, 1.0);
   }
-  return bg;
+  if (uNC > 0) {
+    occ = mix(sphOcc(p, vec4(uBody.xyz, uBody.w * 1.25)),
+              sphOcc(p, vec4(uSlab.x, FLOOR_Y + 0.7 * uBody.w, uSlab.z, 0.9 * uBody.w)), uStone.y);
+  }
+  for (int i = ZERO; i < 12; i++) {
+    if (i >= uND) break;
+    occ += sphOcc(p, uDrop[i]);
+  }
+  for (int i = ZERO; i < 4; i++) {
+    if (i >= uNH) break;
+    occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
+  }
+  if (uBurst.x > 0.5) occ = 0.0;
+  if (uOther.w > 0.0) occ += sphOcc(p, vec4(uOther.xyz, uOther.w * 1.3));
+  float fade = exp(-0.05 * dot(p.xz, p.xz));
+  // the pieces cast their own shadows wherever they stand
+  float socc = 0.0;
+  if (uBurst.w > 0.0) {
+    for (int i = ZERO; i < 12; i++) {
+      float h = uTri[i].w * mix(0.12, 0.4, uTriB[i].y);
+      socc += sphOcc(p, vec4(uTri[i].xyz + vec3(0.0, h, 0.0), uTri[i].w * mix(0.12, 0.38, uTriB[i].y)));
+    }
+  }
+  return 1.0 - 0.55 * clamp(occ * fade + socc, 0.0, 1.0);
 }
 
-vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db);
+vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db, vec3 er);
 vec3 galaxy(vec3 p, vec3 rd);
 vec3 caustic(vec3 p);
-vec3 drama(vec3 col, vec2 uv);
+vec3 drama(vec3 col, vec2 uv, vec2 c, vec3 w);
 
 // Dark and wet, lit by the room; brighter on each heartbeat.
 vec3 shadeBlood(vec3 rd, vec3 n, float depth) {
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 L = KEY;
   float ndv = max(dot(n, -rd), 0.0);
   vec3 col = mix(vec3(0.62, 0.05, 0.09), BLOOD * 0.5, depth) * (0.55 + 0.45 * max(dot(n, L), 0.0));
   col *= 1.0 + 0.9 * uRiver2.z;
   vec3 r = reflect(rd, n);
-  float fres = 0.03 + 0.97 * pow(1.0 - ndv, 5.0);
+  float fres = 0.03 + 0.97 * pow5(1.0 - ndv);
   col = mix(col, env(r) * vec3(1.0, 0.86, 0.86), fres * 0.85);
   return col + vec3(1.0, 0.9, 0.9) * pow(max(dot(r, L), 0.0), 160.0) * 0.9;
 }
@@ -798,8 +898,8 @@ vec3 riverFloor(vec3 p, vec3 rd, vec3 bg) {
 
 // A column out of the river: solid in one of the twelve's colors, or burning. Near its foot,
 // and all over while it is still short, it is wet with the river.
-vec3 shadePillar(vec3 p, vec3 rd, int slot, vec3 n, float ao) {
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+vec3 shadePillar(vec3 p, vec3 rd, int slot, vec3 n, float ao, vec3 er) {
+  vec3 L = KEY;
   float ndv = max(dot(n, -rd), 0.0);
   vec3 base = TCOL[slot % 12];
   float y = p.y - FLOOR_Y;
@@ -807,12 +907,12 @@ vec3 shadePillar(vec3 p, vec3 rd, int slot, vec3 n, float ao) {
   if (fract(sin(float(slot) * 78.233) * 43758.547) > 0.6) {
     // energy: light climbing it, hottest at the edges, flaring on the beat
     float band = 0.5 + 0.5 * sin(y * 5.0 - uTime * 9.0 + float(slot));
-    col = mix(base, vec3(1.0), 0.5) * (1.05 + 0.6 * band) + base * 1.4 * pow(1.0 - ndv, 2.0);
+    col = mix(base, vec3(1.0), 0.5) * (1.05 + 0.6 * band) + base * 1.4 * (1.0 - ndv) * (1.0 - ndv);
     col *= 1.0 + 0.6 * uRiver2.z;
   } else {
     col = base * (0.3 + 0.7 * max(dot(n, L), 0.0)) * (0.55 + 0.45 * ao);
     col += vec3(pow(max(dot(reflect(-L, n), -rd), 0.0), 40.0)) * 0.25;
-    col = mix(col, env(reflect(rd, n)), 0.04 + 0.3 * pow(1.0 - ndv, 5.0));
+    col = mix(col, er, 0.04 + 0.3 * pow5(1.0 - ndv));
   }
   float h = pillarHeight(slot);
   float wet = max(smoothstep(1.3, 0.05, y), 1.0 - smoothstep(0.6, 2.8, h));
@@ -820,7 +920,7 @@ vec3 shadePillar(vec3 p, vec3 rd, int slot, vec3 n, float ao) {
   wet = max(wet, smoothstep(0.55, 0.95, sin(dot(p.xz, vec2(7.0, 5.0)) + float(slot)) * 0.5 + 0.5) * smoothstep(h * 0.6, 0.0, y));
   // wet: dark red, and the light's highlight sharp on it
   vec3 blood = BLOOD * (0.6 + 0.6 * max(dot(n, L), 0.0)) * (1.0 + 0.9 * uRiver2.z)
-             + vec3(1.0, 0.85, 0.85) * (pow(max(dot(reflect(-L, n), -rd), 0.0), 120.0) + 0.25 * pow(1.0 - ndv, 4.0));
+             + vec3(1.0, 0.85, 0.85) * (pow(max(dot(reflect(-L, n), -rd), 0.0), 120.0) + 0.25 * pow4(1.0 - ndv));
   return mix(col, blood, wet);
 }
 
@@ -829,12 +929,12 @@ vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
   return mix(col, bg, smoothstep(6.0, 20.0, length(p - uCamPos)));
 }
 
-// `lake` is the liquid floor where this ray meets it, shaded by main().
-vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake) {
+// `lake` is the liquid floor where this ray meets it, shaded by main(); `shadow` is floorShadow() there.
+vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
   vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
   if (rd.y < 0.0) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
-    bg = floorMatte(p, bg);
+    bg *= shadow;
     bg += caustic(p) * bg;
     if (uRiver.w > 0.0) bg = riverFloor(p, rd, bg);
     // past the marcher's reach the liquid floor still shows, flat
@@ -959,31 +1059,33 @@ vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
     }
   }
 
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 L = KEY;
   col *= 0.9 + 0.1 * max(dot(n, L), 0.0);
   vec3 r = reflect(rd, n);
   col += vec3(pow(max(dot(r, L), 0.0), 90.0) * 0.8);
-  col += vec3(pow(max(dot(r, normalize(vec3(0.8, 0.25, -0.55))), 0.0), 40.0) * 0.12);
+  col += vec3(pow(max(dot(r, BOX_B), 0.0), 40.0) * 0.12);
   return col;
 }
 
 // Polished black stone: almost nothing of its own, only what it reflects.
-vec3 shadeStone(vec3 p, vec3 rd, vec3 n) {
+vec3 shadeStone(vec3 p, vec3 rd, vec3 n, vec3 er) {
   float ndv = clamp(dot(n, -rd), 0.0, 1.0);
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 L = KEY;
   vec3 col = vec3(0.016, 0.016, 0.02) * (0.5 + 0.5 * max(dot(n, L), 0.0));
   vec3 r = reflect(rd, n);
-  float fres = 0.05 + 0.95 * pow(1.0 - ndv, 5.0);
-  col += mix(env(r), nightSky(r) * 1.5, uNight) * fres * 0.8;
+  float fres = 0.05 + 0.95 * pow5(1.0 - ndv);
+  vec3 room = er;
+  if (uNight > 0.001) room = mix(room, nightSky(r) * 1.5, uNight);
+  col += room * fres * 0.8;
   col += vec3(pow(max(dot(r, L), 0.0), 240.0)) * 0.6;
   return col;
 }
 
 // One of the twelve, in its own material.
-vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n) {
+vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n, vec3 er) {
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 L = KEY;
   vec3 base = TCOL[i];
   vec4 mat = TMAT[i];
   float wrap = mat.z;
@@ -992,13 +1094,13 @@ vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n) {
   // light passing through the translucent ones, glowing at the thin edges
   col += base * mat.z * 0.35 * pow(1.0 - ndv, 1.5);
   if (mat.w > 0.0) col *= 1.0 - mat.w * hash(floor(p * 40.0));
-  if (i == 6) col += base * 1.6 * pow(1.0 - ndv, 3.0); // velvet sheen
+  if (i == 6) col += base * 1.6 * (1.0 - ndv) * (1.0 - ndv) * (1.0 - ndv); // velvet sheen
   if (i == 0) {
     vec3 irid = 0.5 + 0.5 * cos(6.2831 * ((1.0 - ndv) * 1.4 + uTime * 0.02 + vec3(0.0, 0.33, 0.67)));
     col = mix(col, irid, 0.3 * (1.0 - ndv));
   }
-  float fres = mat.y + (1.0 - mat.y) * pow(1.0 - ndv, 5.0) * 0.7;
-  col = mix(col, env(reflect(rd, n)) * (i == 1 ? base * 1.15 : vec3(1.0)), clamp(fres, 0.0, 1.0));
+  float fres = mat.y + (1.0 - mat.y) * pow5(1.0 - ndv) * 0.7;
+  col = mix(col, er * (i == 1 ? base * 1.15 : vec3(1.0)), clamp(fres, 0.0, 1.0));
   col += vec3(pow(max(dot(reflect(-L, n), v), 0.0), mat.x)) * min(mat.x / 120.0, 1.0);
   return col;
 }
@@ -1006,10 +1108,10 @@ vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n) {
 // ---- the other one (other.rs): its material ----------------------------------
 // Dark glass. The room is in its faces, each face a little different; light bent through
 // an edge splits into colors, more of them the more times it has been given back.
-vec3 shadeOther(vec3 p, vec3 rd, vec3 n, float ao) {
+vec3 shadeOther(vec3 p, vec3 rd, vec3 n, float ao, vec3 er) {
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 L = KEY;
   float face = hash(floor(n * 3.0 + 0.5));
   vec2 k = otherCuts(p);
   float edge = exp(-abs(k.x - k.y) * 26.0);
@@ -1020,12 +1122,12 @@ vec3 shadeOther(vec3 p, vec3 rd, vec3 n, float ao) {
   col += uOther3.rgb * 0.35 * pow(1.0 - ndv, 1.5);
   col += env(refract(rd, n, 0.66)) * fire * split * (0.25 + 0.75 * (1.0 - ndv));
   // the room in its faces, each face held at its own angle
-  float fres = 0.05 + 0.95 * pow(1.0 - ndv, 5.0);
-  col = mix(col, env(reflect(rd, n)) * vec3(0.8, 0.84, 0.96), clamp(0.12 + 0.5 * face * face + fres * 0.8, 0.0, 0.92));
+  float fres = 0.05 + 0.95 * pow5(1.0 - ndv);
+  col = mix(col, er * vec3(0.8, 0.84, 0.96), clamp(0.12 + 0.5 * face * face + fres * 0.8, 0.0, 0.92));
   col += fire * edge * (0.25 + 0.9 * uOther3.a);
   col += vec3(pow(max(dot(reflect(-L, n), v), 0.0), 260.0)) * 1.5;
   // struck, it rings cold and bright
-  col += vec3(0.74, 0.82, 1.0) * uOther2.w * (0.15 + 0.5 * pow(1.0 - ndv, 2.0) + edge);
+  col += vec3(0.74, 0.82, 1.0) * uOther2.w * (0.15 + 0.5 * (1.0 - ndv) * (1.0 - ndv) + edge);
   if (uNight > 0.001) {
     // in the dark only its edges show, burning
     vec3 night = vec3(0.01, 0.01, 0.025) * (0.5 + face) + fire * (edge * (0.6 + uOther3.a) + 0.08 * split);
@@ -1038,17 +1140,19 @@ vec3 shadeOther(vec3 p, vec3 rd, vec3 n, float ao) {
 // `far`: the liquid floor past the marcher's reach, where only the plain liquid is wanted.
 // main() probes the field around p in its march loop and hands over what it found:
 // the normal, ambient occlusion, the body's distance, and the nearest piece.
-vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float ds, int id) {
-  if (!far && id == OTHER && ds < db && ds < 0.01) return shadeOther(p, rd, n, ao);
+vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float ds, int id, float shadow) {
+  // the room in its skin, looked up once for whichever material it turns out to be
+  vec3 er = env(reflect(rd, n));
+  if (!far && id == OTHER && ds < db && ds < 0.01) return shadeOther(p, rd, n, ao, er);
   int shard = -1;
   if (uBurst.w > 0.0 && !far && id >= 0 && id != OTHER && ds < db) shard = id;
-  if (shard >= 16) return shadePillar(p, rd, shard - 16, n, ao);
+  if (shard >= 16) return shadePillar(p, rd, shard - 16, n, ao, er);
   // One call site for shadeLiquid, so the compiler builds it once here.
-  vec3 col = far || shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd, n, ao, db) : vec3(0.0);
+  vec3 col = far || shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd, n, ao, db, er) : vec3(0.0);
   if (far) return col;
   if (shard >= 0) {
     // in flight it is still the liquid; it takes on its material as it lands
-    return mix(col, shadeShard(p, rd, shard, n), uTriB[shard].y);
+    return mix(col, shadeShard(p, rd, shard, n, er), uTriB[shard].y);
   }
   // a body that has been hurt flushes
   col *= mix(vec3(1.0), vec3(1.0, 0.72, 0.78), uBurst.z * 0.9);
@@ -1058,11 +1162,11 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
     vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
     float lakeness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz);
     col = mix(col, lakeFade(col, p, bg), lakeness);
-    col = mix(col, floorMatte(p, bg), floorness);
+    col = mix(col, bg * shadow, floorness);
   }
   if (uDiv.z > 0.001 || uStone.x > 0.001) {
     if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
-    if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n), uStone.x);
+    if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n, er), uStone.x);
   }
   if (uOtherIn > 0.001) {
     // the other one, inside: a cold dark shape seen through the milk, its edges still splitting light
@@ -1103,12 +1207,13 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
 }
 
 // The lake as mirror, deep, and ice. `col` is the plain liquid underneath.
-vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
+// `er` is env(reflect(rd, n)), which the caller already has.
+vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres, vec3 er) {
   vec3 r = reflect(rd, n);
   float ndv = max(dot(n, -rd), 0.0);
   if (uMere.x > 0.0) {
     // still: the room, perfectly, and the object standing in it where it fell
-    vec3 mir = env(r) * vec3(0.93, 0.94, 0.96);
+    vec3 mir = er * vec3(0.93, 0.94, 0.96);
     vec3 gc = vec3(uLake.x, FLOOR_Y + uBody.w, uLake.y);
     vec3 oc = p - gc;
     float b = dot(oc, r);
@@ -1116,7 +1221,7 @@ vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
     if (disc > 0.0 && -b - sqrt(disc) > 0.0) {
       vec3 gn = normalize(p + r * (-b - sqrt(disc)) - gc);
       float gd = max(dot(gn, -r), 0.0);
-      vec3 ghost = mix(vec3(0.90, 0.91, 0.95) * (0.8 + 0.2 * gn.y), env(reflect(r, gn)), 0.15 + 0.85 * pow(1.0 - gd, 4.0));
+      vec3 ghost = mix(vec3(0.90, 0.91, 0.95) * (0.8 + 0.2 * gn.y), env(reflect(r, gn)), 0.15 + 0.85 * pow4(1.0 - gd));
       mir = mix(mir, ghost, 0.92);
     }
     col = mix(col, mir, uMere.x);
@@ -1124,7 +1229,7 @@ vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
   if (uMere.y > 0.0) {
     // deep: ink, and the object a faint moon far under it
     float dd = length(p.xz - uLake.xy);
-    vec3 ink = vec3(0.015, 0.02, 0.04) + env(r) * fres * 0.7
+    vec3 ink = vec3(0.015, 0.02, 0.04) + er * fres * 0.7
              + vec3(0.85, 0.88, 1.0) * 0.4 * exp(-dd * dd * 0.6) * (0.8 + 0.2 * sin(uTime * 0.8));
     col = mix(col, ink, uMere.y);
   }
@@ -1133,7 +1238,7 @@ vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
     // ice: frosted, pale, holding the shape it froze in, scored by every blow
     vec3 ice = mix(vec3(0.78, 0.86, 0.93), vec3(0.97, 0.99, 1.0), 0.5 + 0.5 * n.y);
     ice *= 0.93 + 0.07 * hash(floor(p * 55.0));
-    ice = mix(ice, env(r), 0.2 + 0.6 * pow(1.0 - ndv, 4.0));
+    ice = mix(ice, er, 0.2 + 0.6 * pow4(1.0 - ndv));
     float cr = 0.0;
     for (int i = ZERO; i < 6; i++) {
       if (i >= uNCrack) break;
@@ -1172,7 +1277,7 @@ vec3 galaxy(vec3 p, vec3 rd) {
   vec3 n = normalize(p - c);
   vec3 r = refract(rd, n, 0.8);
   vec3 col = vec3(0.012, 0.010, 0.032) + stars(r) * 0.9;
-  vec3 ax = normalize(vec3(0.25, 1.0, 0.35));
+  vec3 ax = vec3(0.229658, 0.918630, 0.321521);
   float den = dot(r, ax);
   float t = dot(c - p, ax) / (abs(den) > 1e-3 ? den : 1e-3);
   if (t > 0.0) {
@@ -1182,7 +1287,8 @@ vec3 galaxy(vec3 p, vec3 rd) {
     vec2 xy = vec2(dot(q, u), dot(q, w)) / R;
     float rho = length(xy);
     float phi = atan(xy.y, xy.x) - uCosmos.y;
-    float arms = pow(0.5 + 0.5 * cos(2.0 * phi - uCosmos.w * 4.5 * log(rho + 0.04)), 3.0);
+    float arms = 0.5 + 0.5 * cos(2.0 * phi - uCosmos.w * 4.5 * log(rho + 0.04));
+    arms *= arms * arms;
     float disc = exp(-rho * 3.0) * smoothstep(1.0, 0.6, rho);
     float dust = hash(floor(vec3(xy * 70.0, 3.0)));
     col += disc * arms * mix(vec3(0.45, 0.58, 1.0), vec3(1.0, 0.55, 0.78), step(0.9, dust)) * 1.7;
@@ -1190,18 +1296,16 @@ vec3 galaxy(vec3 p, vec3 rd) {
     col += exp(-rho * rho * 55.0) * vec3(1.0, 0.86, 0.62) * (1.4 + 4.0 * uCosmos.z);
   }
   float ndv = max(dot(n, -rd), 0.0);
-  float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  float fres = 0.04 + 0.96 * pow5(1.0 - ndv);
+  vec3 L = KEY;
   col = mix(col, env(reflect(rd, n)), clamp(fres * 0.9 + 0.04, 0.0, 1.0));
   col += vec3(pow(max(dot(reflect(-L, n), -rd), 0.0), 120.0));
   return col;
 }
 
 // ---- Color and drama ------------------------------------------------------
-// Light, film and the big moments. Nothing here marches, loops or calls scene():
-// it only colors what main() already found, so it adds no compile weight to the field.
-
-const vec3 KEY = vec3(-0.4851, 0.7762, 0.4366); // normalize(-0.5, 0.8, 0.45), the softbox overhead
+// Light, film and the big moments. Nothing here marches or calls scene(): it only
+// colors what main() already found, so it adds no compile weight to the field.
 
 // A soap film `d` thick (micrometres) seen at cosine `c`: the light that comes back,
 // red, green and blue each cancelled at their own thickness.
@@ -1218,7 +1322,13 @@ float filmThickness(vec3 n) {
 
 // The room seen through the body, each color bent its own amount.
 vec3 dispersed(vec3 rd, vec3 n) {
-  return vec3(env(refract(rd, n, 0.735)).r, env(refract(rd, n, 0.75)).g, env(refract(rd, n, 0.77)).b);
+  // one copy of the room, looked up once for each color
+  vec3 c = vec3(0.0);
+  for (int i = ZERO; i < 3; i++) {
+    vec3 e = env(refract(rd, n, i == 0 ? 0.735 : i == 1 ? 0.75 : 0.77));
+    c[i] = e[i];
+  }
+  return c;
 }
 
 // Light focused through the body onto the floor at p: a hot point inside its shadow
@@ -1229,7 +1339,8 @@ vec3 caustic(vec3 p) {
   vec2 o = (p.xz - uBody.xz) / (uBody.w * (0.8 + 0.25 * h));
   o += 0.06 * vec2(sin(o.y * 5.0 + uTime * 1.3), sin(o.x * 4.0 - uTime * 1.1));
   float r = length(o);
-  vec3 ring = exp(-pow((r - vec3(0.66, 0.60, 0.54)) * 6.5, vec3(2.0)));
+  vec3 rr = (r - vec3(0.66, 0.60, 0.54)) * 6.5;
+  vec3 ring = exp(-rr * rr);
   float core = exp(-r * r * 7.0);
   vec3 light = normalize(uBodyCol + 0.05) * 1.73;
   float clear = (1.0 - uCoat.y) * (1.0 - uCosmos.x) * (1.0 - uNight) * exp(-h * 0.35);
@@ -1255,17 +1366,17 @@ vec3 washColor(vec2 uv, vec2 c) {
 
 // Screen-wide: a ring of color thrown out from it on every shock, a kick of light,
 // the edges closing in while it is upset, and a beat in them while it is wounded.
-vec3 drama(vec3 col, vec2 uv) {
-  vec2 c = bodyOnScreen();
+// `c` is bodyOnScreen() and `w` the washColor() of the moment, which main() shares with the pop.
+vec3 drama(vec3 col, vec2 uv, vec2 c, vec3 w) {
   float s = clamp(uShock.x, 0.0, 1.0);
   float age = uShock.y;
   vec2 d = uv - c;
   float dist = length(d);
   if (s > 0.0) {
-    vec3 w = washColor(uv, c);
     // the ring: each color a little behind the last
     vec3 rad = age * 2.4 * vec3(1.0, 0.965, 0.93) + 0.1;
-    vec3 ring = exp(-pow((dist - rad) * 9.0, vec3(2.0))) * exp(-age * 1.8) * s;
+    vec3 rr = (dist - rad) * 9.0;
+    vec3 ring = exp(-rr * rr) * exp(-age * 1.8) * s;
     col = mix(col, w * (0.55 + 0.45 * ring), clamp(ring * 0.55, 0.0, 1.0));
     // a flash of light, then the color of the moment over everything, fading
     col *= 1.0 + 0.45 * s * exp(-age * 16.0);
@@ -1273,17 +1384,19 @@ vec3 drama(vec3 col, vec2 uv) {
   }
   // the room closes in around it
   float upset = max(uAgit, uBurst.z * (0.75 + 0.25 * sin(uTime * 7.5)));
-  float edge = smoothstep(0.5, 1.9, dist);
-  vec3 bruise = mix(vec3(0.28, 0.22, 0.35), vec3(0.55, 0.08, 0.16), clamp(upset * 1.5, 0.0, 1.0));
-  col = mix(col, col * bruise, edge * clamp(0.45 * upset + 0.4 * s, 0.0, 0.6) * (1.0 - 0.7 * uNight));
+  if (upset > 0.0 || s > 0.0) {
+    float edge = smoothstep(0.5, 1.9, dist);
+    vec3 bruise = mix(vec3(0.28, 0.22, 0.35), vec3(0.55, 0.08, 0.16), clamp(upset * 1.5, 0.0, 1.0));
+    col = mix(col, col * bruise, edge * clamp(0.45 * upset + 0.4 * s, 0.0, 0.6) * (1.0 - 0.7 * uNight));
+  }
   return col;
 }
 
-vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db) {
+vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db, vec3 er) {
   vec3 tint = formTint(p, sceneColor(p, db));
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
-  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 L = KEY;
 
   // Milky body with light scattering through it.
   float wrap = clamp((dot(n, L) + 0.6) / 1.6, 0.0, 1.0);
@@ -1306,25 +1419,26 @@ vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db) {
   col = mix(col, irid * 1.05 + 0.08, (0.05 + 0.5 * film * film + 0.15 * uGaze.w) * (1.0 - 0.6 * uAgit));
 
   // Glossy reflection.
-  float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
-  vec3 refl = env(reflect(rd, n)) * ao;
-  col = mix(col, refl, clamp(fres * 0.9 + 0.08, 0.0, 1.0));
+  float fres = 0.04 + 0.96 * pow5(1.0 - ndv);
+  vec3 r = reflect(rd, n);
+  col = mix(col, er * ao, clamp(fres * 0.9 + 0.08, 0.0, 1.0));
   float spec = pow(max(dot(reflect(-L, n), v), 0.0), 90.0);
   col += vec3(0.9) * spec;
 
   // The lake's own states (mere.rs), and what the object rose as.
   float lk = uLake.z > 0.0 ? smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz) : 0.0;
-  if (lk > 0.0) col = mix(col, mereSurface(p, rd, n, col, fres), lk);
-  vec3 r = reflect(rd, n);
-  col = mix(col, env(r) * vec3(0.86, 0.88, 0.92) + vec3(spec), uCoat.x * (1.0 - lk));
-  col = mix(col, vec3(0.018, 0.02, 0.032) + tint * 0.03 + env(r) * fres * 0.8 + vec3(spec) * 0.6, uCoat.y * (1.0 - lk));
+  if (lk > 0.0) col = mix(col, mereSurface(p, rd, n, col, fres, er), lk);
+  if (uCoat.x > 0.0) col = mix(col, er * vec3(0.86, 0.88, 0.92) + vec3(spec), uCoat.x * (1.0 - lk));
+  if (uCoat.y > 0.0) col = mix(col, vec3(0.018, 0.02, 0.032) + tint * 0.03 + er * fres * 0.8 + vec3(spec) * 0.6, uCoat.y * (1.0 - lk));
 
   if (uNight > 0.001) {
     // At night it becomes a lens: the sky seen through it, a rim of its own color.
     // The stars come back off its skin as well as through it, and its rim is the film's color.
-    vec3 inside = nightSky(refract(rd, n, 0.75)) * 1.6 + tint * 0.05;
-    float rim = pow(1.0 - ndv, 3.0);
-    vec3 night = inside + mix(tint, irid * 1.4, 0.5) * rim * 0.9 + nightSky(reflect(rd, n)) * (0.3 + 1.4 * fres)
+    // one copy of the stars, looked through and then off the skin
+    vec3 sky = vec3(0.0);
+    for (int i = ZERO; i < 2; i++) sky += nightSky(i == 0 ? refract(rd, n, 0.75) : r) * (i == 0 ? 1.6 : 0.3 + 1.4 * fres);
+    float rim = film * film * film;
+    vec3 night = sky + tint * 0.05 + mix(tint, irid * 1.4, 0.5) * rim * 0.9
                + vec3(0.8, 0.85, 1.0) * spec * 0.4;
     col = mix(col, night, uNight);
   }
@@ -1341,6 +1455,7 @@ void main() {
   // this the only place scene() is compiled: every extra call site copies the
   // whole scene again, and Direct3D's shader compiler (Edge and Chrome on
   // Windows) can take long enough on a big shader to crash the browser.
+  sceneSetup();
   float t = 0.0;
   bool hit = false;
   bool marching = true;
@@ -1356,7 +1471,20 @@ void main() {
   int j = 0;
   // the landscape is far bigger than the room, so look further when it exists
   float tMax = 14.0 + 36.0 * uBurst.w + 18.0 * uFold.x;
+  // march only where something can be: start where the ray first meets it, leap the gap
+  // between the spheres and the floor's layer, and stop once past both
+  vec4 span = marchSpan(ro, rd);
+  t = max(min(span.x, span.z), 0.0);
+  float tEnd = min(tMax, max(span.y, span.w));
+  float om = 1.3, tPrev = t, prevR = 0.0;
   for (int i = ZERO; i < 148; i++) {
+    if (marching && (hit || t > tEnd || i >= 140)) {
+      marching = false;
+      // past the marcher's reach the liquid floor is shaded where the ray meets the floor
+      sp = hit ? ro + rd * t : ro + rd * ((FLOOR_Y - ro.y) / min(rd.y, -1e-4));
+      far = !hit && rd.y < 0.0 && uLake.z > 0.0 && lakeMask(sp.xz) > 0.0;
+      if (!hit && !far) break;
+    }
     vec3 k = 2.0 * vec3((((j + 3) >> 1) & 1), ((j >> 1) & 1), (j & 1)) - 1.0;
     float h = 0.06 * float(j - 3);
     if (j == 4) n = normalize(g);
@@ -1365,18 +1493,15 @@ void main() {
     int near;
     float d = scene(q, body, piece, near);
     if (marching) {
-      bool stop = i >= 139;
-      if (d < 0.0012 * t) { hit = true; stop = true; }
+      float rr = d * 0.75;
+      if (om > 1.0 && rr + prevR < t - tPrev) { t = tPrev + prevR; om = 1.0; }
+      else if (d < 0.0012 * t) hit = true;
       else {
-        t += d * 0.75;
-        stop = stop || t > tMax;
-      }
-      if (stop) {
-        marching = false;
-        // past the marcher's reach the liquid floor is shaded where the ray meets the floor
-        sp = hit ? ro + rd * t : ro + rd * ((FLOOR_Y - ro.y) / min(rd.y, -1e-4));
-        far = !hit && rd.y < 0.0 && uLake.z > 0.0 && lakeMask(sp.xz) > 0.0;
-        if (!hit && !far) break;
+        tPrev = t;
+        prevR = rr;
+        t += rr * om;
+        if (t > span.y && t < span.z) { t = span.z; tPrev = t; prevR = 0.0; }
+        if (t > span.w && t < span.x) { t = span.x; tPrev = t; prevR = 0.0; }
       }
     } else {
       if (j < 4) {
@@ -1393,10 +1518,14 @@ void main() {
   }
   ao = clamp(1.0 - 0.18 * ao, 0.0, 1.0);
 
-  vec3 surf = hit || far ? shade(sp, rd, uv, far, n, ao, db, ds, id) : vec3(0.0);
   // in the fold, the far copies go into the sky
   float fog = hit ? uFold.x * smoothstep(6.0, tMax, t) : 1.0;
-  vec3 col = fog > 0.0 ? mix(surf, background(ro, rd, uv, surf), fog) : surf;
+  // the floor's shadows, measured once: where it touches the liquid floor, or where the ray meets the floor
+  float shadow = 1.0;
+  bool onFloor = hit && uLake.z > 0.0 && sp.y - FLOOR_Y < 0.3;
+  if (onFloor || (fog > 0.0 && rd.y < 0.0)) shadow = floorShadow(onFloor ? sp : ro + rd * ((FLOOR_Y - ro.y) / rd.y));
+  vec3 surf = hit || far ? shade(sp, rd, uv, far, n, ao, db, ds, id, shadow) : vec3(0.0);
+  vec3 col = fog > 0.0 ? mix(surf, background(ro, rd, uv, surf, shadow), fog) : surf;
   if (uBox.y > 0.0) {
     // light rising out of the open box
     vec2 dxz = rd.xz;
@@ -1409,10 +1538,14 @@ void main() {
       col += vec3(1.0, 0.93, 0.75) * uBox.y * above * exp(-off * off * 3.0) * 0.5;
     }
   }
-  col = drama(col, uv);
+  vec2 bc = bodyOnScreen();
+  vec3 wash = uShock.x > 0.0 || uBurst.y > 0.0 ? washColor(uv, bc) : vec3(0.0);
+  col = drama(col, uv, bc, wash);
   // the pop goes white, and comes back through every color
-  col = mix(col, vec3(1.0), uBurst.y);
-  col = mix(col, washColor(uv, bodyOnScreen()), uBurst.y * (1.0 - uBurst.y) * 1.4);
+  if (uBurst.y > 0.0) {
+    col = mix(col, vec3(1.0), uBurst.y);
+    col = mix(col, wash, uBurst.y * (1.0 - uBurst.y) * 1.4);
+  }
   col = pow(col, vec3(0.97));
   outColor = vec4(col, 1.0);
 }
