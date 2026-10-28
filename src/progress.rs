@@ -28,9 +28,16 @@ pub enum Discovery {
     Burst,
     Shards,
     Gather,
+    Cleave,
+    Grain,
+    Eye,
+    Shed,
+    Stone,
+    Slab,
+    Thaw,
 }
 
-pub const ALL: [Discovery; 25] = [
+pub const ALL: [Discovery; 32] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -56,6 +63,13 @@ pub const ALL: [Discovery; 25] = [
     Discovery::Burst,
     Discovery::Shards,
     Discovery::Gather,
+    Discovery::Cleave,
+    Discovery::Grain,
+    Discovery::Eye,
+    Discovery::Shed,
+    Discovery::Stone,
+    Discovery::Slab,
+    Discovery::Thaw,
 ];
 
 impl Discovery {
@@ -86,6 +100,13 @@ impl Discovery {
             Discovery::Burst => "burst",
             Discovery::Shards => "twelve",
             Discovery::Gather => "gather",
+            Discovery::Cleave => "cleave",
+            Discovery::Grain => "grain",
+            Discovery::Eye => "eye",
+            Discovery::Shed => "shed",
+            Discovery::Stone => "stone",
+            Discovery::Slab => "1 : 4 : 9",
+            Discovery::Thaw => "thaw",
         }
     }
 
@@ -116,6 +137,13 @@ impl Discovery {
             Discovery::Burst => "too much inside. the outside won.",
             Discovery::Shards => "twelve pieces. none of them agree.",
             Discovery::Gather => "broken is not the same as gone.",
+            Discovery::Cleave => "more of it. never more than it.",
+            Discovery::Grain => "too many to be cells. a material now.",
+            Discovery::Eye => "one of them stopped agreeing. it looks.",
+            Discovery::Shed => "it gave one up so the rest could close.",
+            Discovery::Stone => "every seam, closed from the inside.",
+            Discovery::Slab => "one, four, nine. it has decided.",
+            Discovery::Thaw => "even stone remembers being poured.",
         }
     }
 }
@@ -177,7 +205,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Gather as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Thaw as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
