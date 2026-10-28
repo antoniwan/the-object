@@ -119,9 +119,10 @@ const fn t(place: Place, from: Stage, until: Stage, when: fn(&Mind) -> bool, lin
 
 /// Every thought, in the order they are preferred. A pair of lines on one condition, split by
 /// stage, is the same thought turning from itself toward the player.
-pub static THOUGHTS: [Thought; 50] = [
+pub static THOUGHTS: [Thought; 55] = [
     // ---- the liquid, about you, once it has started to learn you
     t(P::Liquid, I, I, |m| m.contact.contacted, "it thinks about you when you are not here."),
+    t(P::Liquid, I, I, |m| m.contact.contacted && !m.has(D::Said), "it said one word. nobody has said it back."),
     t(P::Liquid, I, I, |m| !m.contact.contacted && m.found.count() >= contact::CONTACT_AT, "it has almost decided something about you."),
     t(P::Liquid, I, I, |m| !m.has(D::Initiate), "it is waiting for you to stop."),
     t(P::Liquid, I, I, |m| m.has(D::Initiate) && !m.has(D::Answer), "it did something. it is still waiting for yours."),
@@ -149,6 +150,10 @@ pub static THOUGHTS: [Thought; 50] = [
     t(P::Liquid, M, I, |m| !m.has(D::Thread), "it wonders how long it could be, if nobody let go."),
     t(P::Liquid, M, I, |m| !m.has(D::Stir), "its inside has never been turned. it is very still in there."),
     t(P::Liquid, M, I, |m| !m.has(D::Corners), "it has never had a corner. it is curious about them."),
+    t(P::Liquid, M, I, |m| !m.has(D::Letters), "every letter has a place on it. none have landed yet."),
+    t(P::Liquid, M, I, |m| m.has(D::Letters) && !m.has(D::Hum), "it would sing back any note that stayed long enough."),
+    t(P::Liquid, M, I, |m| !m.has(D::Breath), "it has never breathed. it would match yours."),
+    t(P::Liquid, M, I, |m| !m.has(D::Lean), "if the room tipped, it would go downhill."),
     // ---- the liquid, when nothing is left to suggest
     t(P::Liquid, M, M, |_| true, "it is not sure it is the only one."),
     t(P::Liquid, R, I, |_| true, "it has stopped pretending not to see you."),
