@@ -10,7 +10,7 @@
 //! does the rest by changing coordinates, so there is nothing new for it to march.
 
 use super::Event;
-use crate::math::smoothstep;
+use crate::math::{ease, fade, smoothstep};
 
 /// Turns past the universe, the way it was stirred, that open the fold.
 pub const FOLD_TURNS: f32 = 3.0;
@@ -154,11 +154,11 @@ impl Fold {
     pub fn step(&mut self, dt: f32) {
         self.quiet += dt;
         if self.quiet > PAUSE_SECS {
-            self.stirred *= (-dt / FORGET_SECS).exp();
+            self.stirred = fade(self.stirred, -dt / FORGET_SECS);
         }
         // Held, its time slows, stops and turns round; let go, it turns forward again.
         let goal = if self.held > BACKWARD_SECS { -1.0 } else { 1.0 };
-        self.pace += (goal - self.pace) * (1.0 - (-1.8 * dt).exp());
+        self.pace = ease(self.pace, goal, -1.8 * dt);
         if self.pace < -0.5 && !self.told_back {
             self.told_back = true;
             self.events.push(Event::Backward);
@@ -167,7 +167,7 @@ impl Fold {
             self.told_back = false;
         }
         self.clock += self.pace * dt * self.amount();
-        self.flash *= (-2.2 * dt).exp();
+        self.flash = fade(self.flash, -2.2 * dt);
         self.mirror_t = (self.mirror_t + dt / MIRROR_SECS).min(1.0);
         self.phase = match self.phase {
             Phase::Opening { t } if t + dt >= OPEN_SECS => {

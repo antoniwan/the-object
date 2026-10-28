@@ -13,6 +13,7 @@ cargo install wasm-bindgen-cli --version 0.2.100
 ./build.sh                         # compiles to web/pkg/; after this, web/ is the whole site
 python3 -m http.server -d web      # open http://localhost:8000
 cargo test                         # runs natively
+cargo run --release --example frame_bench   # times a frame of each scene, natively
 npm ci && npm test                 # the serverless function's helpers (api/)
 ```
 
@@ -82,6 +83,8 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
+| `build.rs` | Copies `shader.frag` into the build without its comments or indentation, keeping every line where it was, so a driver's error line still points at the source. |
+| `examples/frame_bench.rs` | Times the simulation scene by scene and prints a fingerprint of where each one ends up. A change made for speed should leave every fingerprint as it was. |
 | `src/shader.frag` | The one fragment shader that draws everything. |
 | `src/audio.rs` | Synthesized sounds, no samples. |
 | `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |

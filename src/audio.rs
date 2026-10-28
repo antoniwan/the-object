@@ -2,22 +2,50 @@
 
 use crate::game::Sound;
 use crate::sim::World;
+use std::cell::Cell;
 use wasm_bindgen::JsValue;
-use web_sys::{AudioContext, GainNode, OscillatorNode, OscillatorType};
+use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
 
 /// Major pentatonic steps, in semitones, across two octaves.
 const SCALE: [f32; 10] = [0.0, 2.0, 4.0, 7.0, 9.0, 12.0, 14.0, 16.0, 19.0, 21.0];
+
+/// A continuous sound's frequency and gain, and where each was last sent.
+struct Voice {
+    freq: Glide,
+    gain: Glide,
+}
+
+/// One parameter that glides toward a target. Sending the same target with the same time
+/// constant again would draw the same curve, so it is only sent when one of them changes.
+struct Glide {
+    param: AudioParam,
+    last: Cell<(f32, f64)>,
+}
+
+impl Glide {
+    fn new(param: AudioParam) -> Glide {
+        Glide { param, last: Cell::new((f32::NAN, 0.0)) }
+    }
+
+    fn toward(&self, ctx: &AudioContext, target: f32, tau: f64) {
+        if self.last.get() == (target, tau) {
+            return;
+        }
+        self.last.set((target, tau));
+        let _ = self.param.set_target_at_time(target, ctx.current_time(), tau);
+    }
+}
 
 pub struct Audio {
     ctx: AudioContext,
     master: GainNode,
     /// The hum while it is held still, and the low drone of the night.
-    warm: (OscillatorNode, GainNode),
-    drone: (OscillatorNode, OscillatorNode, GainNode),
+    warm: Voice,
+    drone: Glide,
     /// A letter held down, sung back (keys.rs).
-    hum: (OscillatorNode, GainNode),
+    hum: Voice,
     /// A note the player held, hummed back (senses.rs).
-    echo: (OscillatorNode, GainNode),
+    echo: Voice,
     pub muted: bool,
 }
 
@@ -30,14 +58,23 @@ impl Audio {
         master.connect_with_audio_node(&ctx.destination())?;
 
         let warm = Self::voice(&ctx, &master, OscillatorType::Sine, 196.0)?;
-        let (a, ga) = Self::voice(&ctx, &master, OscillatorType::Sine, 55.0)?;
+        let drone = Self::voice(&ctx, &master, OscillatorType::Sine, 55.0)?;
         let b = ctx.create_oscillator()?;
         b.frequency().set_value(82.6);
-        b.connect_with_audio_node(&ga)?;
+        b.connect_with_audio_node(&drone.1)?;
         b.start()?;
         let hum = Self::voice(&ctx, &master, OscillatorType::Sine, 130.8)?;
         let echo = Self::voice(&ctx, &master, OscillatorType::Sine, 110.0)?;
-        Ok(Audio { ctx, master, warm, drone: (a, b, ga), hum, echo, muted: false })
+        let glides = |(osc, g): (OscillatorNode, GainNode)| Voice { freq: Glide::new(osc.frequency()), gain: Glide::new(g.gain()) };
+        Ok(Audio {
+            master,
+            warm: glides(warm),
+            drone: Glide::new(drone.1.gain()),
+            hum: glides(hum),
+            echo: glides(echo),
+            ctx,
+            muted: false,
+        })
     }
 
     /// A continuously running oscillator behind a silent gain.
@@ -162,32 +199,29 @@ impl Audio {
     /// Continuous sounds that follow the world's state.
     /// `pitch` 0..1 picks a note from the scale, an octave under the pokes; `None` lets it fade.
     pub fn hum(&self, pitch: Option<f32>) {
-        let t = self.ctx.current_time();
         let Some(p) = pitch else {
-            let _ = self.hum.1.gain().set_target_at_time(0.0, t, 0.3);
+            self.hum.gain.toward(&self.ctx, 0.0, 0.3);
             return;
         };
         let step = SCALE[((p * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)];
-        let _ = self.hum.0.frequency().set_target_at_time(130.8 * 2f32.powf(step / 12.0), t, 0.05);
-        let _ = self.hum.1.gain().set_target_at_time(0.06, t, 0.25);
+        self.hum.freq.toward(&self.ctx, 130.8 * 2f32.powf(step / 12.0), 0.05);
+        self.hum.gain.toward(&self.ctx, 0.06, 0.25);
     }
 
     pub fn follow(&self, world: &World) {
-        let t = self.ctx.current_time();
         let c = world.body.color;
         let hum = if world.warming { 0.05 } else { 0.0 };
-        let _ = self.warm.1.gain().set_target_at_time(hum, t, 0.25);
-        let _ = self.warm.0.frequency().set_target_at_time(150.0 + 120.0 * (c.x - c.z + 0.5), t, 0.4);
-        let _ = self.drone.2.gain().set_target_at_time(0.07 * world.night, t, 0.5);
+        self.warm.gain.toward(&self.ctx, hum, 0.25);
+        self.warm.freq.toward(&self.ctx, 150.0 + 120.0 * (c.x - c.z + 0.5), 0.4);
+        self.drone.toward(&self.ctx, 0.07 * world.night, 0.5);
     }
 
     /// Sings a note the player held back to them, `(pitch, 0..1)`, or falls silent.
     pub fn echo(&self, hum: Option<(f32, f32)>) {
-        let t = self.ctx.current_time();
         let (f, k) = hum.unwrap_or((0.0, 0.0));
         if f > 0.0 {
-            let _ = self.echo.0.frequency().set_target_at_time(f, t, 0.03);
+            self.echo.freq.toward(&self.ctx, f, 0.03);
         }
-        let _ = self.echo.1.gain().set_target_at_time(0.06 * k, t, 0.08);
+        self.echo.gain.toward(&self.ctx, 0.06 * k, 0.08);
     }
 }

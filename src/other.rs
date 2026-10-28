@@ -243,17 +243,18 @@ pub fn strike(w: &mut World) {
 }
 
 pub fn step(w: &mut World, dt: f32, look: &Look) {
+    let plain = w.ordinary();
+    // Not here and not yet due: only its clock runs.
+    if w.other.phase == Phase::Absent && !(look.due && plain && look.visit > ARRIVE_AFTER && look.still > ARRIVE_STILL) {
+        w.other.time += dt;
+        return;
+    }
     let mut o = std::mem::take(&mut w.other);
     o.time += dt;
-    let plain = w.ordinary();
     let c = w.body.pos;
     let r = w.body.radius();
 
     if o.phase == Phase::Absent {
-        if !(look.due && plain && look.visit > ARRIVE_AFTER && look.still > ARRIVE_STILL) {
-            w.other = o;
-            return;
-        }
         o.phase = Phase::Arriving { t: 0.0 };
         o.pos = o.rest(c, look) + V3::UP * 7.0;
         o.vel = V3::ZERO;

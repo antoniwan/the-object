@@ -292,7 +292,7 @@ impl Burst {
         };
         for (i, s) in self.shards.iter_mut().enumerate() {
             let (_, decay) = CONSISTENCIES[i].give();
-            s.wobble *= (-decay * dt).exp();
+            s.wobble = fade(s.wobble, -decay * dt);
         }
         if self.phase == Phase::Landscape && !self.river.active {
             self.land.step(dt);

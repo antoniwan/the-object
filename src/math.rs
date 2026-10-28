@@ -106,3 +106,27 @@ pub fn sd_taper(p: V3, a: V3, b: V3, ra: f32, rb: f32) -> f32 {
     let h = (pa.dot(ba) / ba.dot(ba).max(1e-6)).clamp(0.0, 1.0);
     (pa - ba * h).len() - (ra + (rb - ra) * h)
 }
+
+/// `x * e^by`, for `by <= 0`: something dying away. Bit for bit the same as writing it
+/// out, but a value that is already zero skips the exponential.
+#[inline]
+pub fn fade(x: f32, by: f32) -> f32 {
+    if x == 0.0 {
+        x
+    } else {
+        x * by.exp()
+    }
+}
+
+/// `x + (goal - x) * (1 - e^by)`, for `by <= 0`: easing toward `goal`. Bit for bit the same
+/// as writing it out (a zero gap times a factor in 0..1 is the same zero), but a value that
+/// has arrived skips the exponential.
+#[inline]
+pub fn ease(x: f32, goal: f32, by: f32) -> f32 {
+    let d = goal - x;
+    if d == 0.0 {
+        x + d
+    } else {
+        x + d * (1.0 - by.exp())
+    }
+}

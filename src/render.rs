@@ -15,7 +15,8 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }"#;
 
-const FRAG: &str = include_str!("shader.frag");
+// The shader as built: src/shader.frag without its comments (see build.rs).
+const FRAG: &str = include_str!(concat!(env!("OUT_DIR"), "/shader.frag"));
 
 pub struct Renderer {
     gl: GL,

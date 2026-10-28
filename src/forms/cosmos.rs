@@ -4,7 +4,7 @@
 //! Poke it and a star ignites at the core. Stir the other way and it settles.
 
 use super::Event;
-use crate::math::smoothstep;
+use crate::math::{ease, fade, smoothstep};
 
 /// Turns of stirring (in one direction, without stopping long) that make the universe.
 pub const STIR_TURNS: f32 = 2.5;
@@ -99,16 +99,16 @@ impl Cosmos {
     pub fn step(&mut self, dt: f32) {
         self.quiet += dt;
         if self.quiet > PAUSE_SECS {
-            self.stirred *= (-dt / FORGET_SECS).exp();
+            self.stirred = fade(self.stirred, -dt / FORGET_SECS);
         }
         if self.stirred.abs() < 0.2 {
             self.told = false;
         }
         // It keeps turning on its own, slowly, the way it was stirred.
         let idle = 0.25 * self.sense * self.amount();
-        self.spin_vel += (idle - self.spin_vel) * (1.0 - (-0.8 * dt).exp());
+        self.spin_vel = ease(self.spin_vel, idle, -0.8 * dt);
         self.spin += self.spin_vel * dt * self.pace;
-        self.flare *= (-1.6 * dt).exp();
+        self.flare = fade(self.flare, -1.6 * dt);
         self.phase = match self.phase {
             Phase::Forming { t } if t + dt >= FORM_SECS => {
                 self.events.push(Event::Cosmos);

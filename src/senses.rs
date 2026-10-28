@@ -135,9 +135,15 @@ pub fn hear(samples: &[f32], rate: f32) -> Heard {
 
 fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
     // Every other sample is plenty for a voice, and a quarter of the work.
-    let x: Vec<f32> = samples.chunks_exact(2).map(|p| (p[0] + p[1]) * 0.5).take(1024).collect();
+    // Heard every frame, so both buffers live on the stack.
+    let mut halved = [0.0f32; 1024];
+    let mut n = 0;
+    for p in samples.chunks_exact(2).take(1024) {
+        halved[n] = (p[0] + p[1]) * 0.5;
+        n += 1;
+    }
+    let x = &halved[..n];
     let rate = rate * 0.5;
-    let n = x.len();
     let lo = (rate / PITCH_HI) as usize;
     let hi = ((rate / PITCH_LO) as usize).min(n / 2);
     if lo < 2 || hi <= lo + 2 {
@@ -152,7 +158,17 @@ fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
         }
         xy / (xx * yy).sqrt().max(1e-9)
     };
-    let c: Vec<f32> = (lo..=hi).map(corr).collect();
+    // hi is at most 512, so there are fewer lags than that.
+    let mut corrs = [0.0f32; 512];
+    let lags = hi - lo + 1;
+    let fours = lags - lags % 4;
+    for (k, four) in corrs[..fours].chunks_exact_mut(4).enumerate() {
+        four.copy_from_slice(&corr4(x, lo + 4 * k));
+    }
+    for (k, c) in corrs[..lags].iter_mut().enumerate().skip(fours) {
+        *c = corr(lo + k);
+    }
+    let c = &corrs[..lags];
     let best = c.iter().cloned().fold(f32::MIN, f32::max);
     if best < 0.82 {
         return None;
@@ -163,6 +179,41 @@ fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
     let (a, b, d) = (c[i - 1], c[i], c[i + 1]);
     let shift = 0.5 * (a - d) / (a - 2.0 * b + d).min(-1e-6);
     Some(rate / (lo as f32 + i as f32 + shift))
+}
+
+/// The correlation at `lag` .. `lag + 4`, in one pass. Each sum adds the same products in
+/// the same order as one lag at a time, so the numbers are the same; there are just four
+/// of them to work on while each waits for the last.
+fn corr4(x: &[f32], lag: usize) -> [f32; 4] {
+    let n = x.len();
+    let (mut xy0, mut xy1, mut xy2, mut xy3) = (0.0f32, 0.0f32, 0.0f32, 0.0f32);
+    let (mut yy0, mut yy1, mut yy2, mut yy3) = (0.0f32, 0.0f32, 0.0f32, 0.0f32);
+    // Until the shorter lags run on, all four add up the same squares in the same order.
+    let mut xx = 0.0f32;
+    let common = n - lag - 3;
+    for (i, &a) in x[..common].iter().enumerate() {
+        let y = &x[i + lag..i + lag + 4];
+        xx += a * a;
+        xy0 += a * y[0];
+        yy0 += y[0] * y[0];
+        xy1 += a * y[1];
+        yy1 += y[1] * y[1];
+        xy2 += a * y[2];
+        yy2 += y[2] * y[2];
+        xy3 += a * y[3];
+        yy3 += y[3] * y[3];
+    }
+    let mut s = [(xy0, xx, yy0), (xy1, xx, yy1), (xy2, xx, yy2), (xy3, xx, yy3)];
+    // The shorter lags run on a little further.
+    for (j, s) in s.iter_mut().enumerate() {
+        for i in common..n - lag - j {
+            let (a, b) = (x[i], x[i + lag + j]);
+            s.0 += a * b;
+            s.1 += a * a;
+            s.2 += b * b;
+        }
+    }
+    s.map(|(xy, xx, yy)| xy / (xx * yy).sqrt().max(1e-9))
 }
 
 /// One look, reduced to what it acts on.
@@ -180,6 +231,8 @@ pub struct Seen {
 #[derive(Default)]
 pub struct Retina {
     last: Vec<u8>,
+    /// This look's light, written into the buffer the look before last used.
+    luma: Vec<u8>,
 }
 
 impl Retina {
@@ -188,11 +241,13 @@ impl Retina {
         if w == 0 || h == 0 || rgba.len() < w * h * 4 {
             return Seen::default();
         }
-        let luma: Vec<u8> = rgba
-            .chunks_exact(4)
-            .take(w * h)
-            .map(|p| ((p[0] as u32 * 77 + p[1] as u32 * 150 + p[2] as u32 * 29) >> 8) as u8)
-            .collect();
+        let mut luma = std::mem::take(&mut self.luma);
+        luma.clear();
+        luma.extend(
+            rgba.chunks_exact(4)
+                .take(w * h)
+                .map(|p| ((p[0] as u32 * 77 + p[1] as u32 * 150 + p[2] as u32 * 29) >> 8) as u8),
+        );
         let light = luma.iter().map(|&l| l as f32).sum::<f32>() / (w * h) as f32 / 255.0;
         let mut seen = Seen { light, motion: 0.0, at: None };
         if self.last.len() == luma.len() {
@@ -216,7 +271,9 @@ impl Retina {
                 seen.at = Some((-x, -y));
             }
         }
-        self.last = luma;
+        // The look before is let go; only its room is kept, for the next look.
+        self.luma = std::mem::replace(&mut self.last, luma);
+        self.luma.clear();
         seen
     }
 
@@ -445,7 +502,7 @@ impl Senses {
         if self.see == Leave::Open {
             self.step_sight(dt, world, look);
         } else {
-            self.dark += (0.0 - self.dark) * (1.0 - (-2.0 * dt).exp());
+            self.dark = ease(self.dark, 0.0, -2.0 * dt);
         }
         world.dim = self.dark;
     }

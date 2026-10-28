@@ -91,6 +91,9 @@ struct Hud {
     queue: Vec<Line>,
     toast_until: f64,
     thought_until: f64,
+    /// Whether the toast and the thought carry `show`, so the class is only touched when that changes.
+    toast_shown: bool,
+    thought_shown: bool,
 }
 
 impl Hud {
@@ -107,6 +110,8 @@ impl Hud {
             queue: Vec::new(),
             toast_until: 0.0,
             thought_until: 0.0,
+            toast_shown: false,
+            thought_shown: false,
         })
     }
 
@@ -115,10 +120,14 @@ impl Hud {
         if let Some(line) = line {
             self.thought.set_text_content(Some(line));
             let _ = self.thought.class_list().add_1("show");
+            self.thought_shown = true;
             self.thought_until = now + THOUGHT_SECONDS;
         } else if now >= self.thought_until || !self.queue.is_empty() {
             self.thought_until = 0.0;
-            let _ = self.thought.class_list().remove_1("show");
+            if self.thought_shown {
+                self.thought_shown = false;
+                let _ = self.thought.class_list().remove_1("show");
+            }
         }
     }
 
@@ -133,7 +142,10 @@ impl Hud {
         if now < self.toast_until {
             return;
         }
-        let _ = self.toast.class_list().remove_1("show");
+        if self.toast_shown {
+            self.toast_shown = false;
+            let _ = self.toast.class_list().remove_1("show");
+        }
         if self.queue.is_empty() {
             return;
         }
@@ -151,6 +163,7 @@ impl Hud {
         };
         self.toast.set_inner_html(&format!("<b>{}</b><span{}>{}</span>", name, class, line));
         let _ = self.toast.class_list().add_1("show");
+        self.toast_shown = true;
         self.toast_until = now + linger;
         self.show_count(found);
         let _ = self.hint.class_list().add_1("gone");
@@ -158,6 +171,7 @@ impl Hud {
 }
 
 struct App {
+    window: web_sys::Window,
     game: Game,
     renderer: Renderer,
     canvas: HtmlCanvasElement,
@@ -175,8 +189,15 @@ struct App {
     awake: bool,
     /// The GPU dropped the context (driver reset, too much work); we wait for it to come back.
     lost: bool,
-    /// The aura last handed to the page, so the CSS only changes when the object does.
-    aura_shown: String,
+    /// The aura last handed to the page, in hundredths (tint r g b, unrest, x, y), so the CSS
+    /// only changes when the object does, and only the variables that moved are written.
+    aura_shown: [i32; 6],
+    /// The page root's style, where the aura is written.
+    root_style: Option<web_sys::CssStyleDeclaration>,
+    /// Canvas pixels per CSS pixel, measured once a frame in `resize`, so pointer events never ask for layout.
+    scale: (f64, f64),
+    /// The canvas cursor last set.
+    cursor: &'static str,
     /// The microphone and the camera, while it is let have them.
     ears: Option<Ears>,
     eyes: Option<Eyes>,
@@ -196,8 +217,7 @@ struct App {
 impl App {
     /// Pointer position in canvas pixels.
     fn pos(&self, e: &PointerEvent) -> (f32, f32) {
-        let sx = self.canvas.width() as f64 / self.canvas.client_width().max(1) as f64;
-        let sy = self.canvas.height() as f64 / self.canvas.client_height().max(1) as f64;
+        let (sx, sy) = self.scale;
         ((e.offset_x() as f64 * sx) as f32, (e.offset_y() as f64 * sy) as f32)
     }
 
@@ -213,8 +233,10 @@ impl App {
     }
 
     fn resize(&mut self) {
-        let (cw, ch) = (self.canvas.client_width() as f64, self.canvas.client_height() as f64);
-        let mut dpr = web_sys::window().unwrap().device_pixel_ratio().min(1.5);
+        let (cw, ch) = (self.canvas.client_width(), self.canvas.client_height());
+        let (cwi, chi) = (cw.max(1) as f64, ch.max(1) as f64);
+        let (cw, ch) = (cw as f64, ch as f64);
+        let mut dpr = self.window.device_pixel_ratio().min(1.5);
         dpr = dpr.min((MAX_PIXELS / (cw * ch).max(1.0)).sqrt()) * self.quality;
         let w = (cw * dpr).max(1.0) as u32;
         let h = (ch * dpr).max(1.0) as u32;
@@ -222,6 +244,7 @@ impl App {
             self.canvas.set_width(w);
             self.canvas.set_height(h);
         }
+        self.scale = (w as f64 / cwi, h as f64 / chi);
         self.game.w = w as f32;
         self.game.h = h as f32;
     }
@@ -255,20 +278,27 @@ impl App {
     /// Lets the words on the page take the object's color, unrest and place (see web/glyph.js).
     fn show_aura(&mut self) {
         let a = aura(&self.game.world, &self.game.cam, self.game.w, self.game.h);
-        let q = |v: f32| (v * 100.0).round() / 100.0;
-        let key = format!("{} {} {} {} {} {}", q(a.tint.x), q(a.tint.y), q(a.tint.z), q(a.unrest), q(a.x), q(a.y));
-        if key == self.aura_shown {
+        let n = |v: f32| (v * 100.0).round() as i32;
+        let now = [n(a.tint.x), n(a.tint.y), n(a.tint.z), n(a.unrest), n(a.x), n(a.y)];
+        let was = std::mem::replace(&mut self.aura_shown, now);
+        if now == was {
             return;
         }
-        self.aura_shown = key;
-        let Some(root) = web_sys::window().and_then(|w| w.document()).and_then(|d| d.document_element()) else { return };
-        let Ok(root) = root.dyn_into::<HtmlElement>() else { return };
-        let style = root.style();
-        let rgb = |v: f32| (q(v) * 255.0).round();
-        let _ = style.set_property("--tint", &format!("{} {} {}", rgb(a.tint.x), rgb(a.tint.y), rgb(a.tint.z)));
-        let _ = style.set_property("--unrest", &q(a.unrest).to_string());
-        let _ = style.set_property("--ox", &format!("{}%", q(a.x) * 100.0));
-        let _ = style.set_property("--oy", &format!("{}%", q(a.y) * 100.0));
+        let Some(style) = &self.root_style else { return };
+        let q = |i: usize| now[i] as f32 / 100.0;
+        if now[..3] != was[..3] {
+            let rgb = |i: usize| (q(i) * 255.0).round();
+            let _ = style.set_property("--tint", &format!("{} {} {}", rgb(0), rgb(1), rgb(2)));
+        }
+        if now[3] != was[3] {
+            let _ = style.set_property("--unrest", &q(3).to_string());
+        }
+        if now[4] != was[4] {
+            let _ = style.set_property("--ox", &format!("{}%", q(4) * 100.0));
+        }
+        if now[5] != was[5] {
+            let _ = style.set_property("--oy", &format!("{}%", q(5) * 100.0));
+        }
     }
 
     /// Stops hearing (or seeing) at once: the device is let go before anything else happens.
@@ -459,21 +489,22 @@ impl App {
                 _ => {}
             }
         }
-        let sounds = std::mem::take(&mut self.game.sounds);
         if self.audio.as_ref().is_some_and(|a| !a.muted) {
             // A microphone near the speaker would hear these; it is not to take them for the player.
-            for s in &sounds {
+            for s in &self.game.sounds {
                 self.game.senses.deafen(if *s == crate::game::Sound::Discover { 3.0 } else { 1.2 });
             }
         }
         if let Some(a) = &self.audio {
-            for s in sounds {
+            for s in self.game.sounds.drain(..) {
                 a.play(s);
             }
             a.follow(&self.game.world);
             a.hum(self.game.keys.hum());
             a.echo(self.game.senses.hum());
         }
+        // Emptied in place, so the list keeps its room for the next frame.
+        self.game.sounds.clear();
         // the fold is dark too (forms/fold.rs)
         let night = self.game.world.night.max(self.game.world.forms.fold.amount()) > 0.5;
         if night != self.night_shown {
@@ -546,6 +577,7 @@ pub fn start() -> Result<(), JsValue> {
     }
 
     let app = Rc::new(RefCell::new(App {
+        window: window.clone(),
         game,
         renderer,
         canvas: canvas.clone(),
@@ -559,7 +591,10 @@ pub fn start() -> Result<(), JsValue> {
         waiting: 0,
         awake: false,
         lost: false,
-        aura_shown: String::new(),
+        aura_shown: [i32::MIN; 6],
+        root_style: doc.document_element().and_then(|r| r.dyn_into::<HtmlElement>().ok()).map(|r| r.style()),
+        scale: (1.0, 1.0),
+        cursor: "",
         ears: None,
         eyes: None,
         answers: Rc::new(RefCell::new(Vec::new())),
@@ -599,7 +634,10 @@ pub fn start() -> Result<(), JsValue> {
             let dt = a.moved(e.pointer_id(), e.time_stamp());
             a.game.pointer_move(e.pointer_id(), x, y, dt);
             let cursor = if a.game.hovering_liquid(x, y) { "grab" } else { "default" };
-            let _ = c.style().set_property("cursor", cursor);
+            if cursor != a.cursor {
+                a.cursor = cursor;
+                let _ = c.style().set_property("cursor", cursor);
+            }
         })?;
     }
     for name in ["pointerup", "pointercancel"] {
@@ -720,9 +758,9 @@ pub fn start() -> Result<(), JsValue> {
     // requestAnimationFrame loop.
     let tick: Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>> = Rc::new(RefCell::new(None));
     let tick2 = tick.clone();
+    let w = window.clone();
     *tick2.borrow_mut() = Some(Closure::new(move |now: f64| {
         app.borrow_mut().frame(now);
-        let w = web_sys::window().unwrap();
         let _ = w.request_animation_frame(tick.borrow().as_ref().unwrap().as_ref().unchecked_ref());
     }));
     window.request_animation_frame(tick2.borrow().as_ref().unwrap().as_ref().unchecked_ref())?;

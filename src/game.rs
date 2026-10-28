@@ -52,7 +52,7 @@
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
 
-use crate::camera::{Camera, FOCAL};
+use crate::camera::{Basis, Camera, FOCAL};
 use crate::math::*;
 use crate::burst;
 use crate::contact::{self, Contact, Sense};
@@ -912,9 +912,8 @@ impl Game {
     }
 
     /// It learns the player back, and now and then does something about it.
-    fn update_contact(&mut self, dt: f32) {
+    fn update_contact(&mut self, dt: f32, b: &Basis) {
         use contact::Event as C;
-        let b = self.cam.basis();
         let sense = Sense {
             stage: self.stage(),
             found: self.progress.count(),
@@ -966,8 +965,7 @@ impl Game {
     }
 
     /// Hearing and sight, once the player has let it have them.
-    fn update_senses(&mut self, dt: f32) {
-        let b = self.cam.basis();
+    fn update_senses(&mut self, dt: f32, b: &Basis) {
         let look = senses::Look { stage: self.stage(), still: self.still, busy: self.contact.acting(), fwd: b.fwd, right: b.right, up: b.up };
         self.senses.step(dt, &mut self.world, &look);
         for d in self.senses.drain_found() {
@@ -1065,7 +1063,7 @@ impl Game {
         };
 
         if !matches!(self.gesture, Gesture::Squeezing { .. }) {
-            self.wheel_squeeze *= (-2.5 * dt).exp();
+            self.wheel_squeeze = fade(self.wheel_squeeze, -2.5 * dt);
             self.world.body.squeeze = self.wheel_squeeze;
         }
         crate::motion::step(self, dt);
@@ -1083,7 +1081,10 @@ impl Game {
             + 1.8 * self.world.forms.filament.morph()
             + 1.4 * self.world.forms.fold.amount();
         // Step back and level the eye to take in the slab.
-        let slab = self.world.division.morula.as_ref().map_or(0.0, |m| m.look().slab * (1.0 - m.look().thaw));
+        let slab = self.world.division.morula.as_ref().map_or(0.0, |m| {
+            let l = m.look();
+            l.slab * (1.0 - l.thaw)
+        });
         if slab > 0.0 {
             self.cam.dist += (SLAB_DIST - self.cam.dist) * slab;
             if !orbiting {
@@ -1105,8 +1106,9 @@ impl Game {
         };
         crate::other::step(&mut self.world, dt, &look);
         self.other_news();
-        self.update_contact(dt);
-        self.update_senses(dt);
+        // Only the camera's shake can have moved since `b`, and it moves the eye, not where it faces.
+        self.update_contact(dt, &b);
+        self.update_senses(dt, &b);
         self.update_heart(dt);
         let mind = Mind {
             found: &self.progress,
