@@ -3,6 +3,7 @@
 use crate::camera::{Camera, FOCAL};
 use crate::math::V3;
 use crate::sim::{World, K_DROP, K_HANDLE, MAX_DROPS, MAX_HANDLES, MAX_RIPPLES};
+use crate::morula;
 use wasm_bindgen::JsValue;
 use web_sys::{WebGl2RenderingContext as GL, WebGlProgram, WebGlShader};
 
@@ -100,6 +101,41 @@ impl Renderer {
         self.gl.uniform4fv_with_f32_array(loc.as_ref(), data);
     }
 
+    /// Past two cells: see morula.rs.
+    fn draw_morula(&self, world: &World, r: f32) {
+        let Some(m) = &world.division.morula else {
+            self.i("uNC", 0);
+            return;
+        };
+        let look = m.look();
+        let (mut cells, mut fate) = (Vec::new(), Vec::new());
+        for c in m.cells.iter().take(morula::MAX_CELLS) {
+            cells.extend([c.off.x * r, c.off.y * r, c.off.z * r, c.r * r]);
+            fate.extend([c.wounds as f32 / morula::WOUNDS_TO_DIE as f32, c.death.unwrap_or(0.0)]);
+        }
+        self.v4v("uCells", &cells);
+        if !fate.is_empty() {
+            let loc = self.gl.get_uniform_location(&self.program, "uCellF");
+            self.gl.uniform2fv_with_f32_array(loc.as_ref(), &fate);
+        }
+        self.i("uNC", (cells.len() / 4).max(1));
+        self.v4v("uMor", &[look.grain, m.grain as f32, m.prev_grain() as f32, look.fine]);
+        self.f("uGrainR", m.grain_radius());
+        self.v4v("uStone", &[look.stone, look.slab, look.thaw, m.slab_yaw]);
+        let c = morula::slab_center(world.body.pos, r);
+        self.v4v("uSlab", &[c.x, c.y, c.z, m.join() * r]);
+        // The eye sits on its cell until the cells have become grain, then on the grain body.
+        let e = m.eye_dir;
+        let ec = match m.eye {
+            Some(i) if look.grain < 0.5 => Some([m.cells[i].off.x * r, m.cells[i].off.y * r, m.cells[i].off.z * r, m.cells[i].r * r]),
+            Some(_) => Some([0.0, 0.0, 0.0, m.grain_radius() * r]),
+            None => None,
+        };
+        self.v4v("uEye", &[e.x, e.y, e.z, if ec.is_some() { m.eye_open } else { 0.0 }]);
+        let ec = ec.unwrap_or([0.0, 0.0, 0.0, r]);
+        self.v4v("uEyeC", &ec);
+    }
+
     pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32) {
         let gl = &self.gl;
         gl.viewport(0, 0, w as i32, h as i32);
@@ -164,7 +200,9 @@ impl Renderer {
         let loc = gl.get_uniform_location(&self.program, "uCut");
         gl.uniform4f(loc.as_ref(), div.axis.x, div.axis.y, div.axis.z, bl.split);
         let loc = gl.get_uniform_location(&self.program, "uDiv");
-        gl.uniform3f(loc.as_ref(), bl.flash, bl.furrow, bl.cell);
+        let flash = div.morula.as_ref().map_or(bl.flash, |m| m.look().flash);
+        gl.uniform3f(loc.as_ref(), flash, bl.furrow, bl.cell);
+        self.draw_morula(world, r);
         self.v3("uBodyCol", body.color);
         self.f("uAgit", world.agitation);
         self.f("uNight", world.night);
@@ -194,7 +232,7 @@ impl Renderer {
             cr.extend([c.x, c.z, c.age, c.seed]);
         }
         self.v4v("uCrack", &cr);
-        self.i("uNC", cr.len() / 4);
+        self.i("uNCrack", cr.len() / 4);
         let (jx, jz, column, drop) = match m.fountain {
             Some(f) => {
                 let (column, drop) = f.pose();

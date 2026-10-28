@@ -9,6 +9,9 @@
 //! - two-finger pinch or mouse wheel: squeeze
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
+//! - on two or more cells, swipe through again: every cell divides (see morula.rs);
+//!   poke one cell three times and it dies; hold a squeeze and it turns to stone;
+//!   press and hold the stone and it thaws
 //! - press and hold still: warm it (it changes color)
 //! - leave it alone: it starts to watch the pointer
 //! - stretch it and let go with a fast flick: throw it; thrown hard at the floor it fuses (see fusion.rs)
@@ -26,6 +29,7 @@ use crate::burst;
 use crate::fusion;
 use crate::meiosis::{self, Swipe};
 use crate::mere;
+use crate::morula;
 use crate::progress::{Discovery, Progress};
 use crate::sim::{Event, Hit, Target, World};
 
@@ -64,6 +68,8 @@ enum Gesture {
 
 /// A flick faster than this, in canvas heights per second, throws the object.
 const THROW_SPEED: f32 = 2.2;
+/// Camera distance from which the whole slab can be seen.
+const SLAB_DIST: f32 = 9.0;
 
 pub struct Game {
     pub world: World,
@@ -146,6 +152,11 @@ impl Game {
                 self.discover(Discovery::Poke);
                 if self.world.division.phase == meiosis::Phase::Two {
                     self.discover(Discovery::Twin);
+                }
+                let r = self.world.body.radius();
+                let at = (hit.pos - self.world.body.pos) * (1.0 / r);
+                if let Some(m) = &mut self.world.division.morula {
+                    m.wound(at);
                 }
                 if self.world.division.whole() && self.world.fusion.whole() {
                     self.world.burst.wound();
@@ -358,7 +369,7 @@ impl Game {
 
     /// Sample the drag segment finely, so a fast flick can't jump over the body.
     fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
-        if !self.world.division.whole() || !self.world.fusion.whole() || !self.world.burst.whole() {
+        if !self.world.division.can_slice() || !self.world.fusion.whole() || !self.world.burst.whole() {
             return;
         }
         let len = ((to.0 - from.0).powi(2) + (to.1 - from.1).powi(2)).sqrt();
@@ -378,6 +389,7 @@ impl Game {
     fn slice(&mut self, dx: f32, dy: f32) {
         let b = self.cam.basis();
         let along = b.right * dx - b.up * dy;
+        let first = self.world.division.whole();
         if self.world.division.slice(along.cross(b.fwd)) {
             self.hit_stop = meiosis::HIT_STOP_SECS;
             self.snapped = false;
@@ -385,7 +397,7 @@ impl Game {
             self.cam.yaw_vel = 0.0;
             self.cam.pitch_vel = 0.0;
             self.world.body.squash_vel -= 2.5;
-            self.discover(Discovery::Divide);
+            self.discover(if first { Discovery::Divide } else { Discovery::Cleave });
         }
     }
 
@@ -400,6 +412,35 @@ impl Game {
         let dir = (b.right * vx - b.up * vy).norm();
         self.world.body.vel += dir * (speed * 4.5).min(16.0);
         self.discover(Discovery::Throw);
+    }
+
+    fn morula_event(&mut self, e: morula::Event) {
+        match e {
+            morula::Event::Cleaved => self.discover(Discovery::Cleave),
+            morula::Event::BecameGrain => self.discover(Discovery::Grain),
+            morula::Event::Differentiated => self.discover(Discovery::Eye),
+            morula::Event::Died => {
+                self.discover(Discovery::Shed);
+                self.cam.shake = self.cam.shake.max(0.02);
+            }
+            morula::Event::Compacting => {
+                // The slab will stand facing whoever pressed it.
+                if let Some(m) = &mut self.world.division.morula {
+                    m.slab_yaw = self.cam.yaw;
+                }
+                self.discover(Discovery::Stone);
+            }
+            morula::Event::Slab => {
+                self.discover(Discovery::Slab);
+                self.cam.shake = 0.06;
+                self.hit_stop = 0.1;
+            }
+            morula::Event::Thawed => {
+                self.discover(Discovery::Thaw);
+                self.world.add_ripple(V3::UP, 0.9);
+                self.world.add_ripple(-V3::UP, 0.9);
+            }
+        }
     }
 
     /// Distance at which both cells, side by side, just fit across the screen.
@@ -445,6 +486,14 @@ impl Game {
             if self.world.time - since > 1.2 {
                 self.discover(Discovery::Warm);
             }
+            // Held long enough, stone remembers it was liquid.
+            if self.world.time - since > morula::THAW_HOLD_SECS {
+                if let Some(m) = &mut self.world.division.morula {
+                    if m.thaw() {
+                        self.cam.shake = 0.03;
+                    }
+                }
+            }
         }
 
         if self.pointers.is_empty() {
@@ -485,6 +534,14 @@ impl Game {
         let base = Camera::new().dist;
         let spread = self.world.burst.spread();
         self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread;
+        // Step back and level the eye to take in the slab.
+        let slab = self.world.division.morula.as_ref().map_or(0.0, |m| m.look().slab * (1.0 - m.look().thaw));
+        if slab > 0.0 {
+            self.cam.dist += (SLAB_DIST - self.cam.dist) * slab;
+            if !orbiting {
+                self.cam.pitch += (0.06 - self.cam.pitch) * (1.0 - (-1.2 * dt).exp()) * slab;
+            }
+        }
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);
@@ -538,7 +595,7 @@ impl Game {
                 mere::Event::Cracked => self.sounds.push(Sound::Poke { pitch: 1.0, size: 0.5 }),
                 mere::Event::Shattered => {
                     self.sounds.push(Sound::Tear);
-                    self.discover(Discovery::Thaw);
+                    self.discover(Discovery::Shatter);
                     self.cam.shake = self.cam.shake.max(0.05);
                     let cracks = self.world.fusion.mere.cracks.clone();
                     for c in cracks {
@@ -559,10 +616,14 @@ impl Game {
             self.cam.pitch += (0.62 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * lake;
         }
         for e in self.world.division.drain_events() {
-            if e == meiosis::Event::Rejoined {
-                self.discover(Discovery::Rejoin);
-                self.world.add_ripple(V3::UP, 0.7);
-                self.world.add_ripple(-V3::UP, 0.7);
+            match e {
+                meiosis::Event::Rejoined => {
+                    self.discover(Discovery::Rejoin);
+                    self.world.add_ripple(V3::UP, 0.7);
+                    self.world.add_ripple(-V3::UP, 0.7);
+                }
+                meiosis::Event::Many(e) => self.morula_event(e),
+                meiosis::Event::Divided => {}
             }
         }
 
@@ -669,6 +730,66 @@ mod tests {
         g.pointer_down(2, 577.0, 300.0);
         g.pointer_up(2);
         assert!(g.progress.has(Discovery::Twin));
+    }
+
+    fn swipe_down(g: &mut Game, id: i32, x: f32) {
+        g.pointer_down(id, x, 20.0);
+        for i in 1..=6 {
+            g.pointer_move(id, x, 20.0 + i as f32 * 95.0, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(id);
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+    }
+
+    #[test]
+    fn cut_again_and_again_it_multiplies_one_cell_dies_and_squeezed_it_turns_to_stone_until_held() {
+        let mut g = game();
+        swipe_down(&mut g, 1, 400.0);
+        assert_eq!(g.world.division.phase, meiosis::Phase::Two);
+        swipe_down(&mut g, 2, 577.0);
+        swipe_down(&mut g, 3, 400.0);
+        assert!(g.progress.has(Discovery::Cleave));
+        let m = g.world.division.morula.as_ref().unwrap();
+        assert_eq!(m.cells.len(), 8);
+        assert!(g.progress.has(Discovery::Eye));
+
+        for i in 0..3 {
+            g.pointer_down(10 + i, 400.0, 300.0);
+            g.pointer_up(10 + i);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Shed));
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.division.morula.as_ref().unwrap().cells.len(), 7);
+
+        for _ in 0..120 {
+            g.wheel(-200.0);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Stone));
+        for _ in 0..(60 * 7) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Slab));
+        assert!(g.cam.dist > 8.0);
+        assert!(g.pick(400.0, 300.0).is_some(), "the slab can be touched");
+
+        g.pointer_down(20, 400.0, 300.0);
+        for _ in 0..(60 * 3) {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(20);
+        for _ in 0..(60 * 4) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Thaw));
+        assert!(g.world.division.whole());
+        assert!(g.world.division.morula.is_none());
     }
 
     #[test]
@@ -823,7 +944,7 @@ mod tests {
             g.pointer_up(10 + i as i32);
             g.update(1.0 / 60.0);
         }
-        assert!(g.progress.has(Discovery::Thaw));
+        assert!(g.progress.has(Discovery::Shatter));
         for _ in 0..90 {
             g.update(1.0 / 60.0);
         }
