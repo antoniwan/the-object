@@ -53,11 +53,6 @@ pub struct Blend {
     pub zoom: f32,
 }
 
-fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
-    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
-
 fn dividing(t: f32) -> Blend {
     Blend {
         flash: (-t * 5.0).exp(),
@@ -209,7 +204,7 @@ impl Division {
     pub fn body_sdf(&self, p: V3, pos: V3, r: f32, scale: V3) -> f32 {
         let lip = scale.x.min(scale.y);
         if let Some(m) = &self.morula {
-            let q = (p - pos).div(scale) * (1.0 / r);
+            let q = (p - pos).cdiv(scale) * (1.0 / r);
             let mut d = m.sdf_local(q) * r * lip;
             let look = m.look();
             if look.slab > 0.0 {
@@ -222,7 +217,7 @@ impl Division {
         let split = self.blend().split;
         let ([a, b], rc) = self.cells(pos, r);
         // Squash about the body center, not each cell's, so it stays one gesture.
-        let q = (p - pos).div(scale) + pos;
+        let q = (p - pos).cdiv(scale) + pos;
         let da = (q - a).len() - rc;
         if split < 1e-4 {
             return (da - K_JOIN * r * 0.25) * lip;

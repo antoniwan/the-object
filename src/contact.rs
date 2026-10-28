@@ -269,8 +269,13 @@ impl Contact {
             self.taps.clear();
         }
         self.taps.push((self.time, dir, pitch));
-        if let Some((Await::Taps { got, .. }, _)) = &mut self.awaiting {
+        if let Some((Await::Taps { want, got }, _)) = &mut self.awaiting {
             *got += 1;
+            if *got >= *want {
+                // An answer, not a new rhythm: it isn't learned or echoed back.
+                self.taps.clear();
+                self.answer();
+            }
         }
         if let Some((Await::Touch, _)) = self.awaiting {
             self.answer();
@@ -448,11 +453,6 @@ impl Contact {
                 self.awaiting = None;
             }
         }
-        if let Some((Await::Taps { want, got }, _)) = self.awaiting {
-            if got >= want {
-                self.answer();
-            }
-        }
     }
 
     /// A rhythm tapped on it and then left alone: it gives it back.
@@ -538,7 +538,7 @@ impl Contact {
         let now = t + dt;
         self.contact = Some(now);
         world.agitation = 0.0;
-        world.body.vel = world.body.vel * (-3.0 * dt).exp();
+        world.body.vel *= (-3.0 * dt).exp();
         if t < CONTACT_REACH && now >= CONTACT_REACH {
             // four fingers, opened toward whoever is looking
             for a in 0..4 {
@@ -723,6 +723,25 @@ mod tests {
     }
 
     #[test]
+    fn a_rhythm_answered_is_not_echoed_back() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        c.habits = [5, 0, 0, 0, 0];
+        c.rhythm = vec![0.4, 0.4];
+        let s = sense(Stage::Initiative, 30, TURN_IDLE + 1.0);
+        let e = run(&mut c, &mut w, &s, 2.0);
+        assert!(e.contains(&Event::Turned(Turn::Rhythm)));
+        let mut heard = Vec::new();
+        for _ in 0..3 {
+            c.poked(V3::UP, 0.5);
+            heard.extend(run(&mut c, &mut w, &sense(Stage::Echo, 30, 0.0), 0.3));
+        }
+        heard.extend(run(&mut c, &mut w, &sense(Stage::Echo, 30, 0.0), 3.0));
+        assert!(heard.contains(&Event::Answered));
+        assert!(!heard.contains(&Event::Echoed), "{heard:?}");
+        assert_eq!(c.rhythm, vec![0.4, 0.4], "and the answer did not overwrite what it knew");
+    }
+
+    #[test]
     fn contact_comes_once_a_visit_after_enough_answers() {
         let (mut c, mut w) = (Contact::default(), World::new());
         c.answered = CONTACT_ANSWERS;
@@ -741,10 +760,8 @@ mod tests {
 
     #[test]
     fn the_reply_is_signs_made_from_you() {
-        let mut a = Contact::default();
-        a.habits = [12, 3, 0, 1, 0];
-        let mut b = Contact::default();
-        b.habits = [1, 0, 7, 0, 2];
+        let a = Contact { habits: [12, 3, 0, 1, 0], ..Default::default() };
+        let b = Contact { habits: [1, 0, 7, 0, 2], ..Default::default() };
         let (ra, rb) = (a.reply(), b.reply());
         assert!(ra.chars().all(|ch| ch == ' ' || SIGNS.contains(&ch)), "{ra}");
         assert_ne!(ra, rb);
@@ -753,12 +770,14 @@ mod tests {
 
     #[test]
     fn what_it_learned_survives_a_visit() {
-        let mut c = Contact::default();
-        c.habits = [4, 1, 0, 2, 9];
-        c.spot = v3(0.5, 1.5, -0.25);
-        c.rhythm = vec![0.3, 0.6];
-        c.answered = 2;
-        c.contacted = true;
+        let c = Contact {
+            habits: [4, 1, 0, 2, 9],
+            spot: v3(0.5, 1.5, -0.25),
+            rhythm: vec![0.3, 0.6],
+            answered: 2,
+            contacted: true,
+            ..Default::default()
+        };
         let d = Contact::load(&c.save());
         assert_eq!(d.habits, c.habits);
         assert!((d.spot - c.spot).len() < 0.01);
