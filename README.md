@@ -6,6 +6,8 @@ You can touch it.
 
 **[Touch it.](https://the-object.antoniwan.online/)**
 
+It is also on [itch.io](https://antoniwan.itch.io/the-object).
+
 ---
 
 An art project. Something liquid, in a white room, in your browser.
