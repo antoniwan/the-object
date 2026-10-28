@@ -1,4 +1,5 @@
-//! Browser glue: canvas, input events, the frame loop, and the small HUD.
+//! Browser glue: canvas, input events, the frame loop, the three lines of text
+//! (hint, toast, count), and what is saved between visits.
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};

@@ -6,6 +6,9 @@
 //! - press and drag the liquid: stretch (pull far enough and it tears)
 //! - drag a drop: carry it; let go fast to fling it
 //! - drag empty space: look around
+//! - tap empty space: call it; it reaches toward the place
+//! - a drop that touches the body runs back into it, mixing its color in; six drops free
+//!   at once and the world turns to night, until they have all come home
 //! - two-finger pinch or mouse wheel: squeeze
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
