@@ -88,6 +88,7 @@ impl Audio {
                 .pluck(Sine, 659.3, 659.3, 0.05, 2.4, 0.15)
                 .and_then(|_| self.pluck(Sine, 987.8, 987.8, 0.035, 2.6, 0.32))
                 .and_then(|_| self.pluck(Sine, 1318.5, 1318.5, 0.02, 2.8, 0.5)),
+            Sound::Call => self.pluck(Sine, 146.8, 196.0, 0.08, 0.7, 0.0),
             Sound::Provoked => self
                 .pluck(Triangle, 73.4, 69.0, 0.25, 1.4, 0.0)
                 .and_then(|_| self.pluck(Triangle, 77.8, 72.0, 0.2, 1.3, 0.0)),

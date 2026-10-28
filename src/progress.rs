@@ -17,9 +17,10 @@ pub enum Discovery {
     Open,
     Close,
     Return,
+    Call,
 }
 
-pub const ALL: [Discovery; 14] = [
+pub const ALL: [Discovery; 15] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -34,6 +35,7 @@ pub const ALL: [Discovery; 14] = [
     Discovery::Open,
     Discovery::Close,
     Discovery::Return,
+    Discovery::Call,
 ];
 
 impl Discovery {
@@ -53,6 +55,7 @@ impl Discovery {
             Discovery::Open => "open",
             Discovery::Close => "close",
             Discovery::Return => "return",
+            Discovery::Call => "call",
         }
     }
 
@@ -72,6 +75,7 @@ impl Discovery {
             Discovery::Open => "it was never empty.",
             Discovery::Close => "and it closed again.",
             Discovery::Return => "it remembers you.",
+            Discovery::Call => "it heard you.",
         }
     }
 }

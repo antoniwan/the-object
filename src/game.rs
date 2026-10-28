@@ -31,6 +31,7 @@ pub enum Sound {
     Merge,
     Discover,
     Provoked,
+    Call,
 }
 
 enum Gesture {
@@ -39,7 +40,7 @@ enum Gesture {
     Warming { start: (f32, f32), hit: Hit, since: f32 },
     Stretching { handle: u32, plane: V3 },
     Dragging { drop: u32, plane: V3, offset: V3 },
-    Orbiting { last: (f32, f32) },
+    Orbiting { start: (f32, f32), last: (f32, f32) },
     Squeezing { start_dist: f32 },
 }
 
@@ -118,7 +119,17 @@ impl Game {
                 }
             }
             Gesture::Squeezing { .. } => self.world.body.squeeze = 0.0,
-            Gesture::Orbiting { .. } | Gesture::Idle => {}
+            Gesture::Orbiting { start, last } => {
+                // A tap on empty space: it leans toward where you tapped.
+                let moved = ((last.0 - start.0).powi(2) + (last.1 - start.1).powi(2)).sqrt() / self.h;
+                if moved < TAP_SLOP {
+                    let to = self.plane_point(start.0, start.1, self.world.body.pos);
+                    self.world.reach(to - self.world.body.pos);
+                    self.sounds.push(Sound::Call);
+                    self.discover(Discovery::Call);
+                }
+            }
+            Gesture::Idle => {}
         }
     }
 
@@ -156,7 +167,7 @@ impl Game {
                 self.world.grab_drop(drop, center);
                 Gesture::Dragging { drop, plane: pos, offset: center - pos }
             }
-            None => Gesture::Orbiting { last: (x, y) },
+            None => Gesture::Orbiting { start: (x, y), last: (x, y) },
         };
     }
 
@@ -174,7 +185,7 @@ impl Game {
                     self.world.warming = false;
                     self.gesture = match self.world.begin_stretch(hit.pos) {
                         Some(handle) => Gesture::Stretching { handle, plane: hit.pos },
-                        None => Gesture::Orbiting { last: (x, y) },
+                        None => Gesture::Orbiting { start, last: (x, y) },
                     };
                     self.pointer_move(id, x, y, dt);
                 }
@@ -190,7 +201,7 @@ impl Game {
                 let to = self.plane_point(x, y, plane) + offset;
                 self.world.grab_drop(drop, to);
             }
-            Gesture::Orbiting { last } => {
+            Gesture::Orbiting { start, last } => {
                 let (dx, dy) = ((x - last.0) / self.h * 3.0, (y - last.1) / self.h * 3.0);
                 self.cam.orbit(dx, dy);
                 if dt > 0.0 {
@@ -201,7 +212,7 @@ impl Game {
                 if self.orbited > 1.5 {
                     self.discover(Discovery::LookAround);
                 }
-                self.gesture = Gesture::Orbiting { last: (x, y) };
+                self.gesture = Gesture::Orbiting { start, last: (x, y) };
             }
             Gesture::Squeezing { start_dist } if self.pointers.len() >= 2 => {
                 let ratio = self.pinch_dist() / start_dist;
@@ -421,6 +432,15 @@ mod tests {
         }
         assert!(g.world.drops.is_empty(), "{:?} drops left", g.world.drops.iter().map(|d| (d.pos.len(), d.vel.len(), d.target.is_some())).collect::<Vec<_>>());
         assert!(g.progress.has(Discovery::Close));
+    }
+
+    #[test]
+    fn tap_on_empty_space_makes_it_lean_toward_the_tap() {
+        let mut g = game();
+        g.pointer_down(1, 40.0, 300.0);
+        g.pointer_up(1);
+        assert!(g.progress.has(Discovery::Call));
+        assert!(g.world.gaze > 0.5 && g.world.gaze_dir.x < -0.5);
     }
 
     #[test]

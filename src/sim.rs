@@ -254,6 +254,12 @@ impl World {
         }
     }
 
+    /// Lean briefly toward something.
+    pub fn reach(&mut self, toward: V3) {
+        self.gaze_dir = toward.norm();
+        self.gaze = self.gaze.max(0.7);
+    }
+
     pub fn begin_stretch(&mut self, at: V3) -> Option<u32> {
         if self.handles.len() >= MAX_HANDLES {
             // Let go of the oldest stump that is still settling, if there is one.
