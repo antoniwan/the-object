@@ -565,7 +565,8 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv) {
     vec3 q = boxLocal(p);
     float s = HALF_SIDE * uBody.w;
     float inside = step(max(abs(q.x), abs(q.z)), 0.88 * s) * step(q.y, 0.75 * s);
-    col = mix(col, vec3(1.0, 0.94, 0.78) * 1.5, inside * uBox.y);
+    float deep = smoothstep(0.75 * s, -s, q.y);
+    col = mix(col, vec3(1.0, 0.94, 0.78) * (0.9 + 0.9 * deep), inside * uBox.y * 0.85);
   }
   // the cut: a hot seam where the slice plane crosses the surface
   float seam = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;

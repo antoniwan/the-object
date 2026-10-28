@@ -100,8 +100,12 @@ pub struct Game {
     pub announcements: Vec<Discovery>,
     pub sounds: Vec<Sound>,
     idle: f32,
-    /// The path of a drag on empty space, for noticing a square drawn around it.
+    /// The path of a drag on empty space, for noticing a square drawn around it. In canvas
+    /// heights, so it holds its shape if the canvas is resized halfway through.
     trace: Vec<(f32, f32)>,
+    /// Where the camera was when the drawing started, and whether to ease back there.
+    look_from: (f32, f32),
+    look_back: bool,
 }
 
 impl Game {
@@ -125,6 +129,8 @@ impl Game {
             sounds: Vec::new(),
             idle: 0.0,
             trace: Vec::new(),
+            look_from: (0.0, 0.0),
+            look_back: false,
         }
     }
 
@@ -198,12 +204,14 @@ impl Game {
                 // (A closed shape also ends where it started, so count the whole path.)
                 let trace = std::mem::take(&mut self.trace);
                 let path: f32 = trace.windows(2).map(|w| ((w[1].0 - w[0].0).powi(2) + (w[1].1 - w[0].1).powi(2)).sqrt()).sum();
-                let moved = (((last.0 - start.0).powi(2) + (last.1 - start.1).powi(2)).sqrt()).max(path) / self.h;
-                if moved >= TAP_SLOP && self.world.ordinary() && pandora::is_square(&trace, self.screen(self.world.body.pos), self.h) {
-                    // The camera went round with the drawing; leave it where it came back to.
+                let moved = (((last.0 - start.0).powi(2) + (last.1 - start.1).powi(2)).sqrt() / self.h).max(path);
+                let (cx, cy) = self.screen(self.world.body.pos);
+                if moved >= TAP_SLOP && self.world.ordinary() && pandora::is_square(&trace, (cx / self.h, cy / self.h), 1.0) {
+                    // The camera went round with the drawing; it drifts back to where it was.
                     self.cam.yaw_vel = 0.0;
                     self.cam.pitch_vel = 0.0;
-                    self.world.forms.pandora.corner(self.cam.yaw - 0.35);
+                    self.look_back = true;
+                    self.world.forms.pandora.corner(self.look_from.0 - 0.35);
                 } else if moved < TAP_SLOP {
                     let to = self.plane_point(start.0, start.1, self.world.body.pos);
                     self.world.reach(to - self.world.body.pos);
@@ -256,7 +264,10 @@ impl Game {
         self.cam.yaw_vel = 0.0;
         self.cam.pitch_vel = 0.0;
         self.swipe = Swipe::default();
-        self.trace = vec![(x, y)];
+        self.trace = vec![(x / self.h, y / self.h)];
+        if !self.look_back {
+            self.look_from = (self.cam.yaw, self.cam.pitch);
+        }
         self.idle = 0.0;
         self.world.watching = false;
         let since = self.world.time;
@@ -351,10 +362,11 @@ impl Game {
             Gesture::Orbiting { start, last } => {
                 self.track_swipe(last, (x, y));
                 if self.trace.len() < 2000 {
-                    self.trace.push((x, y));
+                    self.trace.push((x / self.h, y / self.h));
                 }
                 let (dx, dy) = ((x - last.0) / self.h * 3.0, (y - last.1) / self.h * 3.0);
                 self.cam.orbit(dx, dy);
+                self.look_back = false;
                 if dt > 0.0 {
                     self.cam.yaw_vel = self.cam.yaw_vel * 0.5 + dx / dt * 0.5;
                     self.cam.pitch_vel = self.cam.pitch_vel * 0.5 + dy / dt * 0.5;
@@ -529,6 +541,11 @@ impl Game {
             if self.world.drops.is_empty() {
                 self.world.forms.pandora.round();
             }
+        }
+        if self.look_back && !orbiting {
+            let k = 1.0 - (-2.5 * dt).exp();
+            self.cam.yaw += (self.look_from.0 - self.cam.yaw) * k;
+            self.cam.pitch += (self.look_from.1 - self.cam.pitch) * k;
         }
         // The camera rises to look into the flower.
         let open = self.world.forms.bloom.open();
