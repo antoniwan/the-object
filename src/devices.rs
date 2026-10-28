@@ -3,7 +3,12 @@
 //! window of samples and the camera a picture 32 x 24 pixels wide, senses.rs turns them into a
 //! few numbers, and they are dropped. Nothing is recorded, kept or sent. Closing stops every
 //! track at once, so the browser's own indicator goes out with ours.
+//!
+//! Also how a phone is held and moved, for motion.rs: two angles and one push a frame, turned to
+//! the screen, used and dropped.
 
+use crate::math::v3;
+use crate::motion::Felt;
 use crate::senses::{self, Heard, Kind, Retina, Seen};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -39,20 +44,139 @@ pub fn possible(kind: Kind) -> bool {
     if !w.is_secure_context() || get(&w.navigator(), "mediaDevices").is_undefined() {
         return false;
     }
-    let feature = match kind {
-        Kind::Hear => "microphone",
-        Kind::See => "camera",
-    };
+    match kind {
+        Kind::Hear => allowed(&w, &["microphone"]),
+        Kind::See => allowed(&w, &["camera"]),
+        Kind::Feel => false,
+    }
+}
+
+/// Whether the frame the page is in lets it use these.
+fn allowed(w: &web_sys::Window, features: &[&str]) -> bool {
     let doc: JsValue = w.document().map(Into::into).unwrap_or(JsValue::UNDEFINED);
     let mut policy = get(&doc, "permissionsPolicy");
     if policy.is_undefined() || policy.is_null() {
         policy = get(&doc, "featurePolicy");
     }
     if let Ok(allows) = get(&policy, "allowsFeature").dyn_into::<js_sys::Function>() {
-        return allows.call1(&policy, &JsValue::from_str(feature)).map(|v| v.is_truthy()).unwrap_or(false);
+        return features
+            .iter()
+            .all(|f| allows.call1(&policy, &JsValue::from_str(f)).map(|v| v.is_truthy()).unwrap_or(false));
     }
     // No way to ask: only the top of the page is trusted to have it.
     w.top().ok().flatten().is_some_and(|top| JsValue::from(top) == JsValue::from(w.clone()))
+}
+
+/// How this page may feel how the phone is held.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Feeling {
+    /// Never here: an old browser, an insecure page, a frame that forbids it.
+    Never,
+    /// Whenever the phone says anything (most phones; a desk says nothing).
+    Free,
+    /// Only once the browser has asked, inside the player's tap (iOS).
+    Ask,
+}
+
+pub fn feeling() -> Feeling {
+    let Some(w) = web_sys::window() else { return Feeling::Never };
+    let event = get(&w, "DeviceOrientationEvent");
+    if !w.is_secure_context() || event.is_undefined() || !allowed(&w, &["accelerometer", "gyroscope"]) {
+        return Feeling::Never;
+    }
+    // Desktop browsers have the question too, and nothing to ask about: only a hand-held
+    // screen is worth asking for.
+    if get(&event, "requestPermission").is_function() && coarse(&w) {
+        Feeling::Ask
+    } else {
+        Feeling::Free
+    }
+}
+
+/// Whether the page is mostly touched by a finger.
+fn coarse(w: &web_sys::Window) -> bool {
+    let Ok(f) = get(w, "matchMedia").dyn_into::<js_sys::Function>() else { return false };
+    f.call1(w, &JsValue::from_str("(pointer: coarse)")).map(|m| get(&m, "matches").is_truthy()).unwrap_or(false)
+}
+
+/// Asks the browser to let it feel the phone. Must be called inside the player's tap. Pushes
+/// `Ok` when it may, `Err(true)` when the player said no, `Err(false)` when it simply could not.
+pub fn ask_to_feel(answers: Rc<RefCell<Vec<Result<(), bool>>>>) {
+    let Some(w) = web_sys::window() else { return };
+    let ask = |name: &str| -> Option<js_sys::Promise> {
+        let event = get(&w, name);
+        let f = get(&event, "requestPermission").dyn_into::<js_sys::Function>().ok()?;
+        f.call0(&event).ok()?.dyn_into().ok()
+    };
+    // One question covers both on the phones that ask; both are asked inside the same tap.
+    let motion = ask("DeviceMotionEvent");
+    let Some(promise) = ask("DeviceOrientationEvent").or(motion) else {
+        answers.borrow_mut().push(Err(false));
+        return;
+    };
+    let yes = answers.clone();
+    let ok = Closure::once(move |s: JsValue| {
+        yes.borrow_mut().push(if s.as_string().as_deref() == Some("granted") { Ok(()) } else { Err(true) })
+    });
+    let err = Closure::once(move |_: JsValue| answers.borrow_mut().push(Err(false)));
+    let _ = promise.then2(&ok, &err);
+    ok.forget();
+    err.forget();
+}
+
+fn number(target: &JsValue, key: &str) -> Option<f32> {
+    get(target, key).as_f64().map(|v| v as f32)
+}
+
+/// Which way the screen is turned, in degrees: 0, 90, 180 or 270.
+fn turn(w: &web_sys::Window) -> f32 {
+    let screen = get(w, "screen");
+    number(&get(&screen, "orientation"), "angle")
+        .or_else(|| number(w, "orientation"))
+        .unwrap_or(0.0)
+        .rem_euclid(360.0)
+}
+
+/// Starts feeling how the phone is held and moved. Each reading lands in `felt`, which the
+/// frame takes and empties; the harder push since the last frame is the one kept.
+pub fn listen_to_feel(felt: Rc<RefCell<Felt>>) {
+    let Some(w) = web_sys::window() else { return };
+    let target: web_sys::EventTarget = w.clone().into();
+    let held = felt.clone();
+    let win = w.clone();
+    let on_held = Closure::<dyn FnMut(JsValue)>::new(move |e: JsValue| {
+        if let (Some(beta), Some(gamma)) = (number(&e, "beta"), number(&e, "gamma")) {
+            held.borrow_mut().held = Some((beta, gamma, turn(&win)));
+        }
+    });
+    // Where only the push with gravity in it is given, gravity is what stays: it is followed
+    // slowly and taken away.
+    let mut gravity: Option<(f32, f32, f32)> = None;
+    let win = w.clone();
+    let on_push = Closure::<dyn FnMut(JsValue)>::new(move |e: JsValue| {
+        let bare = get(&e, "acceleration");
+        let xyz = |a: &JsValue| Some((number(a, "x")?, number(a, "y")?, number(a, "z")?));
+        let (x, y, z) = match xyz(&bare) {
+            Some(a) => a,
+            None => {
+                let Some(a) = xyz(&get(&e, "accelerationIncludingGravity")) else { return };
+                let g = gravity.get_or_insert(a);
+                let k = 0.1;
+                *g = (g.0 + (a.0 - g.0) * k, g.1 + (a.1 - g.1) * k, g.2 + (a.2 - g.2) * k);
+                (a.0 - g.0, a.1 - g.1, a.2 - g.2)
+            }
+        };
+        let (s, c) = turn(&win).to_radians().sin_cos();
+        let p = v3(x * c - y * s, x * s + y * c, z);
+        let mut f = felt.borrow_mut();
+        if f.push.map_or(true, |q| p.len() > q.len()) {
+            f.push = Some(p);
+        }
+    });
+    let _ = target.add_event_listener_with_callback("deviceorientation", on_held.as_ref().unchecked_ref());
+    let _ = target.add_event_listener_with_callback("devicemotion", on_push.as_ref().unchecked_ref());
+    on_held.forget();
+    on_push.forget();
 }
 
 /// Asks the browser. Must be called inside the player's tap. The answer is pushed to `answers`.
@@ -68,6 +192,10 @@ pub fn ask(kind: Kind, answers: Rc<RefCell<Vec<Answer>>>) {
                 ("autoGainControl", false.into()),
             ]));
             c.set_video(&false.into());
+        }
+        Kind::Feel => {
+            answers.borrow_mut().push((kind, Err(false)));
+            return;
         }
         Kind::See => {
             c.set_audio(&false.into());

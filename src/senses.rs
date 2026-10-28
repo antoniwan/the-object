@@ -1,6 +1,8 @@
 //! It can be let hear you and see you. It never takes either; late in the arc it asks, once a
 //! visit, in one word, and only the player's own tap on that word lets the browser ask for the
-//! microphone or the camera (web.rs, devices.rs).
+//! microphone or the camera (web.rs, devices.rs). On phones that only let a page feel how they
+//! are held after asking, it asks for that the same way, a little earlier (`hold the room.`);
+//! what it does with it is in motion.rs.
 //!
 //! - hearing (offered once it echoes, `speak.`): a voice makes the surface tremble where its
 //!   pitch lands, high notes high on the body. A note held and then let go comes back as a hum
@@ -60,6 +62,8 @@ const STIR_MOTION: f32 = 0.004;
 pub enum Kind {
     Hear,
     See,
+    /// How a phone is held and moved (motion.rs).
+    Feel,
 }
 
 impl Kind {
@@ -68,6 +72,7 @@ impl Kind {
         match self {
             Kind::Hear => "speak.",
             Kind::See => "show yourself.",
+            Kind::Feel => "hold the room.",
         }
     }
 
@@ -76,6 +81,7 @@ impl Kind {
         match self {
             Kind::Hear => "silence is also something it can learn.",
             Kind::See => "it looks away. it will not ask again.",
+            Kind::Feel => "it will stay where it is put.",
         }
     }
 }
@@ -234,11 +240,16 @@ pub struct Look {
 pub struct Senses {
     pub hear: Leave,
     pub see: Leave,
-    /// The browser can give it a microphone / a camera here (set by web.rs).
+    /// Open from the start where the phone needs no asking; on a desk nothing ever arrives.
+    pub feel: Leave,
+    /// The browser can give it a microphone / a camera here, or must be asked before it can
+    /// feel how the phone is held (set by web.rs).
     pub can_hear: bool,
     pub can_see: bool,
+    pub can_feel: bool,
     offered_hear: bool,
     offered_see: bool,
+    offered_feel: bool,
     since_offer: f32,
     time: f32,
 
@@ -280,10 +291,13 @@ impl Default for Senses {
         Senses {
             hear: Leave::Closed,
             see: Leave::Closed,
+            feel: Leave::Closed,
             can_hear: false,
             can_see: false,
+            can_feel: false,
             offered_hear: false,
             offered_see: false,
+            offered_feel: false,
             since_offer: OFFER_GAP,
             time: 0.0,
             heard: Heard::default(),
@@ -317,6 +331,7 @@ impl Senses {
         match kind {
             Kind::Hear => &mut self.hear,
             Kind::See => &mut self.see,
+            Kind::Feel => &mut self.feel,
         }
     }
 
@@ -324,6 +339,7 @@ impl Senses {
         match kind {
             Kind::Hear => self.hear == Leave::Open,
             Kind::See => self.see == Leave::Open,
+            Kind::Feel => self.feel == Leave::Open,
         }
     }
 
@@ -372,6 +388,7 @@ impl Senses {
                 self.seen = None;
                 self.present = 0.0;
             }
+            Kind::Feel => {}
         }
         if was {
             self.events.push(Event::Closed(kind));
@@ -435,7 +452,7 @@ impl Senses {
 
     /// Once a visit for each, late enough in the arc, when nothing else is going on.
     fn step_offers(&mut self, dt: f32, world: &mut World, look: &Look) {
-        for kind in [Kind::Hear, Kind::See] {
+        for kind in [Kind::Feel, Kind::Hear, Kind::See] {
             if let Leave::Offered(left) = self.leave(kind) {
                 *left -= dt;
                 if *left <= 0.0 {
@@ -452,7 +469,11 @@ impl Senses {
         if !calm {
             return;
         }
-        let kind = if self.can_hear && !self.offered_hear && self.hear == Leave::Closed && look.stage >= Stage::Echo {
+        // Feeling first: it is the least of the three to be let have.
+        let kind = if self.can_feel && !self.offered_feel && self.feel == Leave::Closed && look.stage >= Stage::Regard {
+            self.offered_feel = true;
+            Kind::Feel
+        } else if self.can_hear && !self.offered_hear && self.hear == Leave::Closed && look.stage >= Stage::Echo {
             self.offered_hear = true;
             Kind::Hear
         } else if self.can_see && !self.offered_see && self.see == Leave::Closed && look.stage >= Stage::Initiative {
@@ -632,10 +653,10 @@ impl Senses {
         }
     }
 
-    /// `hear=no;see=no`: only refusals are kept.
+    /// `hear=no;see=no;feel=no`: only refusals are kept.
     pub fn save(&self) -> String {
         let no = |l: Leave| if l == Leave::Refused { "no" } else { "" };
-        format!("hear={};see={}", no(self.hear), no(self.see))
+        format!("hear={};see={};feel={}", no(self.hear), no(self.see), no(self.feel))
     }
 
     pub fn load(saved: &str) -> Senses {
@@ -644,6 +665,7 @@ impl Senses {
             match part.trim() {
                 "hear=no" => s.hear = Leave::Refused,
                 "see=no" => s.see = Leave::Refused,
+                "feel=no" => s.feel = Leave::Refused,
                 _ => {}
             }
         }
@@ -744,6 +766,24 @@ mod tests {
     }
 
     #[test]
+    fn it_asks_to_feel_first_and_earlier() {
+        let mut w = World::new();
+        let mut s = Senses { can_hear: true, can_feel: true, ..Default::default() };
+        run(&mut s, &mut w, &look(Stage::Matter, 30.0), 40.0, |_| {});
+        assert!(s.drain_events().is_empty(), "not before regard");
+        run(&mut s, &mut w, &look(Stage::Echo, 30.0), 1.0, |_| {});
+        assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Feel)]);
+        assert_eq!(Kind::Feel.word(), "hold the room.");
+        assert!(s.accept(Kind::Feel));
+        s.refused(Kind::Feel, true);
+        assert_eq!(s.drain_events(), vec![Event::Refused(Kind::Feel)]);
+        run(&mut s, &mut w, &look(Stage::Echo, 30.0), OFFER_GAP, |_| {});
+        assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Hear)], "then, later, to hear");
+        assert_eq!(Senses::load(&s.save()).feel, Leave::Refused);
+        assert_eq!(Senses::load("hear=no;see=").feel, Leave::Closed, "an older save still loads");
+    }
+
+    #[test]
     fn where_it_cannot_hear_it_never_asks() {
         let mut w = World::new();
         let mut s = Senses::default();
@@ -769,7 +809,7 @@ mod tests {
         let mut s = Senses::default();
         s.hear = Leave::Opening;
         s.refused(Kind::Hear, false);
-        assert_eq!((s.hear, s.save().as_str()), (Leave::Closed, "hear=;see="));
+        assert_eq!((s.hear, s.save().as_str()), (Leave::Closed, "hear=;see=;feel="));
     }
 
     #[test]

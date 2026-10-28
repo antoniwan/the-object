@@ -64,7 +64,8 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast, the count and its thoughts, saving to `localStorage`. |
 | `src/game.rs` | Pointer input to verbs. The header comment lists every gesture. |
 | `src/senses.rs` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers. Plain Rust, tested natively. |
-| `src/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track. |
+| `src/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
+| `src/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
 | `src/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
 | `src/meiosis.rs` | Slice it and it divides into two cells; squeeze them back into one. |
@@ -76,7 +77,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box). |
 | `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
 | `src/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 74 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 85 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
@@ -122,7 +123,7 @@ Four `localStorage` keys, all in the player's browser (the one answer that leave
 - `the-object.found`: which discoveries they have made.
 - `the-object.visits`: how many times they have come back.
 - `the-object.contact`: what the object has learned about them (`contact.rs`).
-- `the-object.senses`: only whether they ever told the browser no to the microphone or camera, so it never asks again (`senses.rs`).
+- `the-object.senses`: only whether they ever told the browser no to the microphone, the camera or feeling the phone (`hear=no;see=no;feel=no`), so it never asks again (`senses.rs`).
 
 The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses.rs` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
 

@@ -8,7 +8,7 @@
 //! - hold space: it draws itself up as you breathe in, and sighs out when you let go;
 //!   breathe slowly enough, several times, and it goes on breathing after you, at your pace
 //! - the arrow keys tip the room: it and any loose drops slide toward the low side,
-//!   and come home when the room is level
+//!   and come home when the room is level (a phone tipped in the hand does the same, motion.rs)
 //! - after it has said its one word, type that word back
 //!
 //! Everything here acts only on the ordinary liquid. The page passes keys in by their place
@@ -63,6 +63,8 @@ pub struct Keys {
     /// Left, right, up, down.
     arrows: [bool; 4],
     lean: (f32, f32),
+    /// How far a phone in the hand tips the room, right and away, -1..1 (motion.rs).
+    pub tilt: (f32, f32),
     leaned: f32,
     clock: f32,
 }
@@ -259,8 +261,8 @@ pub fn step(g: &mut Game, dt: f32) {
 
     // The room tips toward whichever way the arrows say.
     let a = k.arrows;
-    let side = (a[1] as i8 - a[0] as i8) as f32;
-    let away = (a[2] as i8 - a[3] as i8) as f32;
+    let side = ((a[1] as i8 - a[0] as i8) as f32 + k.tilt.0).clamp(-1.0, 1.0);
+    let away = ((a[2] as i8 - a[3] as i8) as f32 + k.tilt.1).clamp(-1.0, 1.0);
     let ease = 1.0 - (-4.0 * dt).exp();
     k.lean.0 += (side - k.lean.0) * ease;
     k.lean.1 += (away - k.lean.1) * ease;

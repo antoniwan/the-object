@@ -108,6 +108,8 @@ pub struct Mind<'a> {
     pub found: &'a Progress,
     pub world: &'a World,
     pub contact: &'a Contact,
+    /// A phone in the hand, and it can feel how it is held (motion.rs).
+    pub felt: bool,
 }
 
 impl Mind<'_> {
@@ -134,7 +136,7 @@ const fn t(place: Place, from: Stage, until: Stage, when: fn(&Mind) -> bool, lin
 
 /// Every thought, in the order they are preferred. A pair of lines on one condition, split by
 /// stage, is the same thought turning from itself toward the player.
-pub static THOUGHTS: [Thought; 55] = [
+pub static THOUGHTS: [Thought; 58] = [
     // ---- the liquid, about you, once it has started to learn you
     t(P::Liquid, I, I, |m| m.contact.contacted, "it thinks about you when you are not here."),
     t(P::Liquid, I, I, |m| m.contact.contacted && !m.has(D::Said), "it said one word. nobody has said it back."),
@@ -169,6 +171,9 @@ pub static THOUGHTS: [Thought; 55] = [
     t(P::Liquid, M, I, |m| m.has(D::Letters) && !m.has(D::Hum), "it would sing back any note that stayed long enough."),
     t(P::Liquid, M, I, |m| !m.has(D::Breath), "it has never breathed. it would match yours."),
     t(P::Liquid, M, I, |m| !m.has(D::Lean), "if the room tipped, it would go downhill."),
+    t(P::Liquid, M, M, |m| m.felt && !m.has(D::Shaken), "it has only known a room that keeps still."),
+    t(P::Liquid, R, I, |m| m.felt && !m.has(D::Shaken), "it wonders if you are what keeps the room still."),
+    t(P::Liquid, M, I, |m| m.has(D::Shaken) && !m.has(D::Scatter), "it held on to all of itself. only just."),
     // ---- the liquid, when nothing is left to suggest
     t(P::Liquid, M, M, |_| true, "it is not sure it is the only one."),
     t(P::Liquid, R, I, |_| true, "it has stopped pretending not to see you."),
@@ -267,9 +272,10 @@ mod tests {
     use crate::game::Game;
 
     /// Words that would say how.
-    const HOW: [&str; 24] = [
+    const HOW: [&str; 26] = [
         "poke", "tap", "touch", "press", "hold", "drag", "pull", "stretch", "tear", "pinch", "slice", "cut", "swipe",
-        "stir", "squeeze", "knock", "throw", "fling", "slam", "click", "try", "key", "wheel", "swirl",
+        "stir", "squeeze", "knock", "throw", "fling", "slam", "click", "try", "key", "wheel", "swirl", "shake",
+        "tilt",
     ];
 
     #[test]
@@ -301,7 +307,7 @@ mod tests {
     #[test]
     fn nothing_before_the_first_discovery() {
         let (w, found, c) = (World::new(), Progress::default(), Contact::default());
-        let mind = Mind { found: &found, world: &w, contact: &c };
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false };
         let mut th = Thoughts::default();
         for _ in 0..(120 * 60) {
             th.step(1.0 / 60.0, 60.0, &mind);
@@ -387,7 +393,7 @@ mod tests {
         let mut found = Progress::default();
         found.discover(D::Poke);
         let c = Contact::default();
-        let mind = Mind { found: &found, world: &w, contact: &c };
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false };
         let mut th = Thoughts::default();
         for _ in 0..(60 * 60) {
             th.step(1.0 / 60.0, 10.0, &mind);

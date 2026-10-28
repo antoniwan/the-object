@@ -12,6 +12,14 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-28
+
+### Added
+- A phone in the hand is the room: tipped, the room tips with it, as far as it is tipped; level is however it was held. (#PR)
+- Shaken, it sloshes against the far wall from each jolt and is upset; keep on and it comes loose, drops flung the way it was thrown, until the room goes dark. (#PR)
+- Where the browser must ask before the page can feel the phone, it asks once a visit, from early in the arc: `hold the room.` A no is answered and never asked again. On a desk nothing changes. (#PR)
+- Three thoughts for a room that has never moved. (#PR)
+
 ## [1.4.1] - 2026-10-28
 
 ### Changed
@@ -174,7 +182,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/antoniwan/the-object/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/antoniwan/the-object/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/antoniwan/the-object/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/antoniwan/the-object/compare/v1.3.0...v1.3.1
