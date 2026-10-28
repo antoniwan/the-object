@@ -78,9 +78,18 @@ pub enum Discovery {
     Breath,
     Lean,
     Said,
+    Voice,
+    Sing,
+    Whisper,
+    Blow,
+    Startle,
+    Seen,
+    Blind,
+    Watched,
+    Shout,
 }
 
-pub const ALL: [Discovery; 74] = [
+pub const ALL: [Discovery; 83] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -155,6 +164,15 @@ pub const ALL: [Discovery; 74] = [
     Discovery::Breath,
     Discovery::Lean,
     Discovery::Said,
+    Discovery::Voice,
+    Discovery::Sing,
+    Discovery::Whisper,
+    Discovery::Blow,
+    Discovery::Startle,
+    Discovery::Seen,
+    Discovery::Blind,
+    Discovery::Watched,
+    Discovery::Shout,
 ];
 
 impl Discovery {
@@ -234,6 +252,15 @@ impl Discovery {
             Discovery::Breath => "breath",
             Discovery::Lean => "lean",
             Discovery::Said => "said",
+            Discovery::Voice => "voice",
+            Discovery::Sing => "sing",
+            Discovery::Whisper => "whisper",
+            Discovery::Blow => "blow",
+            Discovery::Startle => "startle",
+            Discovery::Seen => "seen",
+            Discovery::Blind => "blind",
+            Discovery::Watched => "watched",
+            Discovery::Shout => "shout",
         }
     }
 
@@ -313,6 +340,15 @@ impl Discovery {
             Discovery::Breath => "it breathes now. it did not need to before.",
             Discovery::Lean => "the room tipped. it went where the room went.",
             Discovery::Said => "its one word, given back. it is still listening.",
+            Discovery::Voice => "it did not know you made sound.",
+            Discovery::Sing => "your note came back, lower, from somewhere inside.",
+            Discovery::Whisper => "it goes quiet to hear you better.",
+            Discovery::Blow => "your breath took a piece of it away.",
+            Discovery::Startle => "too fast. it remembers what fast means.",
+            Discovery::Seen => "it has seen you now. it cannot unsee you.",
+            Discovery::Blind => "you took the light away. the room went with it.",
+            Discovery::Watched => "the eye found the one looking back.",
+            Discovery::Shout => "it does not know the word. it knows the size of it.",
         }
     }
 }
@@ -377,7 +413,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Said as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Shout as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

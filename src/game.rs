@@ -36,6 +36,8 @@
 //!
 //! - and from the keyboard: type, hold a letter, breathe with space, tip the room with
 //!   the arrows (see keys.rs)
+//! - once it asks and is let (see senses.rs): speak, hum, whisper or blow at it; move, move
+//!   fast, or cover the camera
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
@@ -53,6 +55,7 @@ use crate::meiosis::{self, Swipe};
 use crate::mere;
 use crate::morula;
 use crate::progress::{Discovery, Progress};
+use crate::senses::{self, Senses};
 use crate::sim::{Event, Hit, Target, World};
 use crate::thoughts::{Mind, Thoughts};
 
@@ -160,6 +163,8 @@ pub struct Game {
     still: f32,
     /// Where the pointer last pointed, on the plane through the body.
     pointer_at: Option<V3>,
+    /// Whether it may hear and see the player, and what it does with it (senses.rs).
+    pub senses: Senses,
     /// After the river: the beat it kept. Seconds per beat, seconds into this one, beats left.
     heart: (f32, f32, u32),
     /// What it is thinking, for the page to show now and then.
@@ -193,6 +198,7 @@ impl Game {
             look_from: (0.0, 0.0),
             look_back: false,
             contact: Contact::default(),
+            senses: Senses::default(),
             still: 0.0,
             heart: (0.0, 0.0, 0),
             pointer_at: None,
@@ -899,6 +905,16 @@ impl Game {
         }
     }
 
+    /// Hearing and sight, once the player has let it have them.
+    fn update_senses(&mut self, dt: f32) {
+        let b = self.cam.basis();
+        let look = senses::Look { stage: self.stage(), still: self.still, busy: self.contact.acting(), fwd: b.fwd, right: b.right, up: b.up };
+        self.senses.step(dt, &mut self.world, &look);
+        for d in self.senses.drain_found() {
+            self.discover(d);
+        }
+    }
+
     pub fn wheel(&mut self, dy: f32) {
         self.wheel_squeeze = (self.wheel_squeeze - dy * 0.0025).clamp(-1.0, 1.0);
         if self.wheel_squeeze.abs() > 0.3 {
@@ -1013,6 +1029,7 @@ impl Game {
         }
         self.update_forms(dt, orbiting);
         self.update_contact(dt);
+        self.update_senses(dt);
         self.update_heart(dt);
         let mind = Mind { found: &self.progress, world: &self.world, contact: &self.contact };
         self.thoughts.step(dt, self.idle, &mind);

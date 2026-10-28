@@ -115,12 +115,13 @@ There is one screen, full bleed, no scroll, no chrome.
 | `edge-v` | `9vh` | the hint sits 9vh from the bottom; the toast 9vh from the top |
 | `thought` | `15vh` from the bottom, under the object's screen position (`--ox`, kept between 28% and 72%) | a thought; it drifts with the object over 3 s |
 | `edge-corner` | `16px` right, `14px` bottom | the count |
+| `edge-corner-left` | `16px` left, `14px` bottom | the marks while it hears or sees: `◍` hearing, `◉` seeing, in its tint at 70%, breathing |
 | `toast-name-gap` | `6px` | between the name and its line |
 | `seed` | `18px` | the loader's pearl, centered |
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
 | `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
 
-The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, and the rest of the keyboard is a second way to reach it (section 8), found by pressing.
+The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped.
 
 ## 5. Motion and time
 
@@ -138,6 +139,9 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
+| `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
+| `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
+| `HELD_SECS` / `HUM_SECS` | 0.8 s / 2.4 s | a note held this steady comes back, for this long |
 | `BREATH_SLOW` | 1.2 s | space held this long is a breath; three in a row, none more than 9 s apart, and it follows |
 
 ### Transformation durations
@@ -185,7 +189,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread.
-- **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), and a drone at night. Silence is the default.
+- **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
 
 A new form gets a sound only if it changes what the object is; use `Sound::Become` before inventing one.
 
@@ -203,7 +207,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 - Let it feel slightly off: a fact that should not be true, said calmly.
 - Keep it under about 60 characters. The longest one today is 61.
 - Address the player as "you" sparingly, and only when it is about what they did.
-- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
+- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `speak.` and `show yourself.` when it asks to hear and see). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
 
 **Examples from the game**
 
@@ -262,6 +266,20 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | arrow keys | (keyboard) | lean | the room tips; it and the loose drops slide downhill, and come home when level | `keys.rs` |
 | type its word | (keyboard), after contact | said | it reaches toward you | `keys.rs` |
 
+**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once.
+
+| What the player does | Verb | What it does | Module |
+| --- | --- | --- | --- |
+| speak | voice | trembles where the pitch lands, low notes low on it | `senses.rs` |
+| hold a note, then stop | sing | hums the note back, the same pitch, lower | `senses.rs` |
+| whisper | whisper | goes still and leans in | `senses.rs` |
+| blow | blow | a drop comes off the far side | `senses.rs` |
+| shout, keep shouting | shout | upset, shaking harder the longer it goes | `senses.rs` |
+| a sudden loud sound, or a fast movement | startle | flinches away | `senses.rs` |
+| move in front of it | seen | turns toward where you moved | `senses.rs` |
+| cover the camera | blind | the room goes dark until you uncover it | `senses.rs`, `sim.rs` `dim` |
+| be watched by the eye at eight cells | watched | the eye follows you | `senses.rs`, `morula.rs` |
+
 **The keyboard** is not a second mouse. Nothing on the pointer side is mapped to keys; each key reaches it from somewhere of its own (a letter from its place on the keyboard, space as breath, the arrows as the floor). Keys are read by place (`KeyboardEvent.code`), so the places hold on any layout. Like everything else, they act only on the ordinary liquid, and nothing explains them.
 
 **The grammar's rules**
@@ -294,5 +312,5 @@ These are in `CONTRIBUTING.md` in full. They are here because they limit what a 
 - **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game.rs` and `sim.rs` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
-- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. The object's memory of the player is `localStorage`.
+- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
 - **The site is the build.** `web/` is everything that is served; build output is never committed.

@@ -12,6 +12,14 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-28
+
+### Added
+- Late in the arc it asks to hear you (`speak.`) and later to see you (`show yourself.`), once a visit; only a tap on that word lets the browser ask. A no is answered in its voice and never asked again. (#41)
+- Heard: a voice makes it tremble where the pitch lands, a note held and let go is hummed back, a whisper stills it, a breath blows a drop off it, a shout upsets it, a sudden sound makes it flinch. (#41)
+- Seen: it turns toward where you move, flinches from fast movement, the room goes dark while the lens is covered, and the eye follows you. (#41)
+- A quiet mark in the corner while it hears or sees; tapping it, pressing Escape or leaving the tab stops both. Sound and picture become a few numbers in the browser and are dropped; nothing is recorded or sent. (#41)
+
 ## [1.3.1] - 2026-10-28
 
 ### Added
@@ -161,7 +169,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/antoniwan/the-object/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/antoniwan/the-object/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/antoniwan/the-object/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/antoniwan/the-object/compare/v1.1.2...v1.2.0

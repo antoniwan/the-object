@@ -1,13 +1,17 @@
-//! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the four lines of text
-//! (hint, toast, count, and now and then a thought), and what is saved between visits.
+//! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the lines of text
+//! (hint, toast, count, now and then a thought, and the marks while it hears or sees), what is
+//! saved between visits, and the microphone and camera once the player has let it have them
+//! (senses.rs, devices.rs).
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
 use crate::contact::{self, Contact, KEEP_STEPS};
+use crate::devices::{self, Answer, Ears, Eyes};
 use crate::game::Game;
 use crate::keys;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
+use crate::senses::{self, Kind, Senses};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -22,6 +26,8 @@ const KEY_FOUND: &str = "the-object.found";
 const KEY_VISITS: &str = "the-object.visits";
 /// What it has learned about whoever keeps visiting (see contact.rs).
 const KEY_CONTACT: &str = "the-object.contact";
+/// Whether the player ever told the browser no to the microphone or the camera (senses.rs).
+const KEY_SENSES: &str = "the-object.senses";
 /// The question stays up while the drop is held out.
 const ASK_SECONDS: f64 = 7.0;
 /// Its reply stays up longer than anything else it says.
@@ -68,6 +74,10 @@ enum Line {
     Asked,
     /// The drop was let go after this many steps, of KEEP_STEPS.
     Answer(u8),
+    /// It asks to hear or to see; the word can be tapped while it is up.
+    Offer(Kind),
+    /// The browser was told no.
+    Refused(Kind),
 }
 
 struct Hud {
@@ -75,6 +85,8 @@ struct Hud {
     toast: HtmlElement,
     count: HtmlElement,
     thought: HtmlElement,
+    /// The mark that shows it is hearing or seeing; tapped, it stops.
+    marks: HtmlElement,
     queue: Vec<Line>,
     toast_until: f64,
     thought_until: f64,
@@ -90,6 +102,7 @@ impl Hud {
             toast: get("toast")?,
             count: get("count")?,
             thought: get("thought")?,
+            marks: get("senses")?,
             queue: Vec::new(),
             toast_until: 0.0,
             thought_until: 0.0,
@@ -132,6 +145,8 @@ impl Hud {
                 let kept = "⟡".repeat(n as usize) + &"∴".repeat((KEEP_STEPS - n.min(KEEP_STEPS)) as usize);
                 (if n > 1 { "kept" } else { "let go" }, kept, alien, TOAST_SECONDS)
             }
+            Line::Offer(k) => ("it asks", k.word().to_string(), " class=\"offer\"", senses::OFFER_WINDOW as f64),
+            Line::Refused(k) => ("no", k.refused().to_string(), "", TOAST_SECONDS),
         };
         self.toast.set_inner_html(&format!("<b>{}</b><span{}>{}</span>", name, class, line));
         let _ = self.toast.class_list().add_1("show");
@@ -161,6 +176,15 @@ struct App {
     lost: bool,
     /// The aura last handed to the page, so the CSS only changes when the object does.
     aura_shown: String,
+    /// The microphone and the camera, while it is let have them.
+    ears: Option<Ears>,
+    eyes: Option<Eyes>,
+    /// What the browser answered, waiting for the next frame.
+    answers: Rc<RefCell<Vec<Answer>>>,
+    /// The word it asked with, and until when (seconds) it can be tapped.
+    offer: Option<(Kind, f64)>,
+    /// Made inside the tap that let it hear, waiting for the microphone.
+    ear_ctx: Option<web_sys::AudioContext>,
 }
 
 impl App {
@@ -241,6 +265,94 @@ impl App {
         let _ = style.set_property("--oy", &format!("{}%", q(a.y) * 100.0));
     }
 
+    /// Stops hearing (or seeing) at once: the device is let go before anything else happens.
+    fn close(&mut self, kind: Kind) {
+        self.game.senses.close(kind);
+        match kind {
+            Kind::Hear => self.ears.take().map(Ears::close),
+            Kind::See => self.eyes.take().map(Eyes::close),
+        };
+        if self.offer.is_some_and(|o| o.0 == kind) {
+            self.offer = None;
+        }
+        self.show_marks();
+    }
+
+    fn close_all(&mut self) {
+        self.close(Kind::Hear);
+        self.close(Kind::See);
+    }
+
+    /// One quiet mark for each thing it is let have, in the corner opposite the count.
+    fn show_marks(&self) {
+        let (ear, eye) = (self.ears.is_some(), self.eyes.is_some());
+        let marks: Vec<&str> = [(ear, "◍"), (eye, "◉")].iter().filter(|m| m.0).map(|m| m.1).collect();
+        self.hud.marks.set_text_content(Some(&marks.join(" ")));
+        let what = match (ear, eye) {
+            (true, true) => "it is listening and watching. tap here or press escape to stop.",
+            (true, false) => "it is listening. tap here or press escape to stop.",
+            (false, true) => "it is watching. tap here or press escape to stop.",
+            _ => "",
+        };
+        let _ = self.hud.marks.set_attribute("aria-label", what);
+        let _ = self.hud.marks.set_attribute("title", what);
+        let _ = self.hud.marks.class_list().toggle_with_force("on", ear || eye);
+    }
+
+    /// The word was tapped while it was up: now, inside the tap, the browser may ask.
+    fn take_offer(&mut self, now: f64) {
+        let Some((kind, until)) = self.offer.take() else { return };
+        if now / 1000.0 > until || !self.game.senses.accept(kind) {
+            return;
+        }
+        if kind == Kind::Hear {
+            self.ear_ctx = devices::ear_context();
+        }
+        devices::ask(kind, self.answers.clone());
+        self.hud.toast_until = 0.0;
+    }
+
+    /// What the browser answered; and, while it is let, what it hears and sees this frame.
+    fn sense(&mut self, now: f64) {
+        let answers = std::mem::take(&mut *self.answers.borrow_mut());
+        for (kind, answer) in answers {
+            let waiting = match kind {
+                Kind::Hear => self.game.senses.hear == senses::Leave::Opening,
+                Kind::See => self.game.senses.see == senses::Leave::Opening,
+            };
+            match answer {
+                // Stopped while the browser was still asking: let it go unused.
+                Ok(stream) if !waiting => devices::stop(&stream),
+                Ok(stream) => {
+                    let opened = match kind {
+                        Kind::Hear => match self.ear_ctx.take() {
+                            Some(ctx) => Ears::new(ctx, stream.clone()).map(|e| self.ears = Some(e)),
+                            None => Err(JsValue::from_str("no audio context")),
+                        },
+                        Kind::See => Eyes::new(stream.clone()).map(|e| self.eyes = Some(e)),
+                    };
+                    match opened {
+                        Ok(()) => self.game.senses.opened(kind),
+                        Err(e) => {
+                            web_sys::console::warn_1(&e);
+                            devices::stop(&stream);
+                            self.game.senses.refused(kind, false);
+                        }
+                    }
+                    self.show_marks();
+                }
+                Err(no) => self.game.senses.refused(kind, no),
+            }
+        }
+        if let Some(ears) = &mut self.ears {
+            let heard = ears.listen();
+            self.game.senses.heard(heard);
+        }
+        if let Some(seen) = self.eyes.as_mut().and_then(|e| e.look(now)) {
+            self.game.senses.seen(seen);
+        }
+    }
+
     fn frame(&mut self, now: f64) {
         if self.lost || !self.wake() {
             self.last_frame = None;
@@ -268,6 +380,7 @@ impl App {
         }
 
         self.resize();
+        self.sense(now);
         self.game.update(dt as f32);
         if !self.game.announcements.is_empty() {
             if let Some(s) = storage() {
@@ -278,6 +391,23 @@ impl App {
             self.game.contact.dirty = false;
             if let Some(s) = storage() {
                 let _ = s.set_item(KEY_CONTACT, &self.game.contact.save());
+            }
+        }
+        if self.game.senses.dirty {
+            self.game.senses.dirty = false;
+            if let Some(s) = storage() {
+                let _ = s.set_item(KEY_SENSES, &self.game.senses.save());
+            }
+        }
+        for e in self.game.senses.drain_events() {
+            match e {
+                senses::Event::Offer(k) => {
+                    self.hud.toast_until = 0.0;
+                    self.hud.queue.insert(0, Line::Offer(k));
+                    self.offer = Some((k, now / 1000.0 + senses::OFFER_WINDOW as f64));
+                }
+                senses::Event::Refused(k) => self.hud.queue.insert(0, Line::Refused(k)),
+                senses::Event::Closed(_) => {}
             }
         }
         self.hud.queue.extend(self.game.announcements.drain(..).map(Line::Found));
@@ -297,12 +427,19 @@ impl App {
             }
         }
         let sounds = std::mem::take(&mut self.game.sounds);
+        if self.audio.as_ref().is_some_and(|a| !a.muted) {
+            // A microphone near the speaker would hear these; it is not to take them for the player.
+            for s in &sounds {
+                self.game.senses.deafen(if *s == crate::game::Sound::Discover { 3.0 } else { 1.2 });
+            }
+        }
         if let Some(a) = &self.audio {
             for s in sounds {
                 a.play(s);
             }
             a.follow(&self.game.world);
             a.hum(self.game.keys.hum());
+            a.echo(self.game.senses.hum());
         }
         let night = self.game.world.night > 0.5;
         if night != self.night_shown {
@@ -354,12 +491,16 @@ pub fn start() -> Result<(), JsValue> {
         let _ = s.set_item(KEY_VISITS, &visits.to_string());
         game.progress = Progress::load(&found);
         game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
+        game.senses = Senses::load(&s.get_item(KEY_SENSES).ok().flatten().unwrap_or_default());
         hud.show_count(game.progress.count());
         if visits > 1 && game.progress.count() > 0 {
             game.discover(Discovery::Return);
             game.sounds.clear();
         }
     }
+
+    game.senses.can_hear = devices::possible(Kind::Hear);
+    game.senses.can_see = devices::possible(Kind::See);
 
     let app = Rc::new(RefCell::new(App {
         game,
@@ -376,6 +517,11 @@ pub fn start() -> Result<(), JsValue> {
         awake: false,
         lost: false,
         aura_shown: String::new(),
+        ears: None,
+        eyes: None,
+        answers: Rc::new(RefCell::new(Vec::new())),
+        offer: None,
+        ear_ctx: None,
     }));
     app.borrow_mut().resize();
 
@@ -419,6 +565,9 @@ pub fn start() -> Result<(), JsValue> {
             match &a.audio {
                 Some(audio) => audio.resume(),
                 None => a.audio = Audio::new().ok(),
+            }
+            if let Some(ears) = &a.ears {
+                ears.resume();
             }
         })?;
     }
@@ -473,6 +622,9 @@ pub fn start() -> Result<(), JsValue> {
                     audio.toggle_mute();
                 }
             }
+            if e.key() == "Escape" {
+                a.close_all();
+            }
             if !e.repeat() && keys::down(&mut a.game, &e.code()) {
                 e.prevent_default();
             } else if e.repeat() && (e.code() == "Space" || e.code().starts_with("Arrow")) {
@@ -487,9 +639,32 @@ pub fn start() -> Result<(), JsValue> {
         })?;
     }
     {
+        // Its word, tapped while it is up, is the only thing that lets the browser ask.
+        let app = app.clone();
+        let toast: web_sys::EventTarget = app.borrow().hud.toast.clone().into();
+        listen(&toast, "click", true, move |e: web_sys::MouseEvent| {
+            app.borrow_mut().take_offer(e.time_stamp());
+        })?;
+    }
+    {
         let app = app.clone();
         listen(window.as_ref(), "blur", true, move |_: web_sys::Event| {
             keys::release(&mut app.borrow_mut().game);
+        })?;
+    }
+    {
+        let app = app.clone();
+        let marks: web_sys::EventTarget = app.borrow().hud.marks.clone().into();
+        listen(&marks, "click", true, move |_: web_sys::MouseEvent| app.borrow_mut().close_all())?;
+    }
+    {
+        // Nobody is looking at the page: it stops hearing and seeing.
+        let app = app.clone();
+        let d = doc.clone();
+        listen(doc.as_ref(), "visibilitychange", true, move |_: web_sys::Event| {
+            if d.hidden() {
+                app.borrow_mut().close_all();
+            }
         })?;
     }
 

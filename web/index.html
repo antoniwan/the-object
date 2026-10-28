@@ -6,7 +6,7 @@
 <title>the object</title>
 <meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
 <meta name="author" content="Antonio Rodríguez Martínez">
-<meta name="version" content="1.3.1">
+<meta name="version" content="1.4.0">
 <meta name="theme-color" content="#f8f7f5">
 <link rel="canonical" href="https://the-object.antoniwan.online/">
 <link rel="author" href="https://antoniwan.online">
@@ -57,7 +57,7 @@
       "inLanguage": "en",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "softwareVersion": "1.3.1",
+      "softwareVersion": "1.4.0",
       "datePublished": "2026-10-28",
       "author": { "@id": "https://antoniwan.online/#person" },
       "creator": { "@id": "https://antoniwan.online/#person" },
@@ -101,6 +101,11 @@
   /* What it is thinking: under it, wherever it is, quieter than anything found (src/thoughts.rs). */
   #thought { left: clamp(28%, var(--ox, 50%), 72%); bottom: 15vh; width: min(84vw, 30em); transform: translate(-50%, 4px); text-align: center; font-size: 15px; letter-spacing: .1em; color: #9a9aa3; opacity: 0; transition: opacity 2.4s ease-in-out, transform 2.4s ease-in-out, left 3s ease-in-out, color 3s; }
   #thought.show { opacity: .8; transform: translate(-50%, 0); }
+  /* Its word when it asks to hear or see you (src/senses.rs): the only words that can be tapped. */
+  #toast.show .offer { pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
+  /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. */
+  #senses { left: 16px; bottom: 14px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s; pointer-events: none; }
+  #senses.on { opacity: .7; pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
   #count { right: 16px; bottom: 14px; font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
   #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font: 400 10px/1.4 var(--mono); z-index: 3; }
 
@@ -144,6 +149,7 @@
   @media (prefers-reduced-motion: reduce) {
     #seed i { animation: none !important; }
     #whisper > span:first-child { opacity: 1; }
+    #toast .offer, #senses.on { animation: none; }
   }
 </style>
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -160,6 +166,7 @@
 <div id="toast" class="hud" data-glyph></div>
 <div id="count" class="hud" data-glyph></div>
 <div id="thought" class="hud" data-glyph></div>
+<div id="senses" class="hud" data-glyph role="button" tabindex="-1"></div>
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>
 <script type="module">

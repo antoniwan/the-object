@@ -16,6 +16,8 @@ pub struct Audio {
     drone: (OscillatorNode, OscillatorNode, GainNode),
     /// A letter held down, sung back (keys.rs).
     hum: (OscillatorNode, GainNode),
+    /// A note the player held, hummed back (senses.rs).
+    echo: (OscillatorNode, GainNode),
     pub muted: bool,
 }
 
@@ -34,7 +36,8 @@ impl Audio {
         b.connect_with_audio_node(&ga)?;
         b.start()?;
         let hum = Self::voice(&ctx, &master, OscillatorType::Sine, 130.8)?;
-        Ok(Audio { ctx, master, warm, drone: (a, b, ga), hum, muted: false })
+        let echo = Self::voice(&ctx, &master, OscillatorType::Sine, 110.0)?;
+        Ok(Audio { ctx, master, warm, drone: (a, b, ga), hum, echo, muted: false })
     }
 
     /// A continuously running oscillator behind a silent gain.
@@ -170,5 +173,15 @@ impl Audio {
         let _ = self.warm.1.gain().set_target_at_time(hum, t, 0.25);
         let _ = self.warm.0.frequency().set_target_at_time(150.0 + 120.0 * (c.x - c.z + 0.5), t, 0.4);
         let _ = self.drone.2.gain().set_target_at_time(0.07 * world.night, t, 0.5);
+    }
+
+    /// Sings a note the player held back to them, `(pitch, 0..1)`, or falls silent.
+    pub fn echo(&self, hum: Option<(f32, f32)>) {
+        let t = self.ctx.current_time();
+        let (f, k) = hum.unwrap_or((0.0, 0.0));
+        if f > 0.0 {
+            let _ = self.echo.0.frequency().set_target_at_time(f, t, 0.03);
+        }
+        let _ = self.echo.1.gain().set_target_at_time(0.06 * k, t, 0.08);
     }
 }
