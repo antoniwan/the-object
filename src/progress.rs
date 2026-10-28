@@ -89,9 +89,17 @@ pub enum Discovery {
     Shout,
     Shaken,
     Scatter,
+    Another,
+    Ring,
+    Near,
+    Clash,
+    Inside,
+    Give,
+    Between,
+    Distance,
 }
 
-pub const ALL: [Discovery; 85] = [
+pub const ALL: [Discovery; 93] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -177,6 +185,14 @@ pub const ALL: [Discovery; 85] = [
     Discovery::Shout,
     Discovery::Shaken,
     Discovery::Scatter,
+    Discovery::Another,
+    Discovery::Ring,
+    Discovery::Near,
+    Discovery::Clash,
+    Discovery::Inside,
+    Discovery::Give,
+    Discovery::Between,
+    Discovery::Distance,
 ];
 
 impl Discovery {
@@ -267,6 +283,14 @@ impl Discovery {
             Discovery::Shout => "shout",
             Discovery::Shaken => "shaken",
             Discovery::Scatter => "scatter",
+            Discovery::Another => "another",
+            Discovery::Ring => "ring",
+            Discovery::Near => "near",
+            Discovery::Clash => "clash",
+            Discovery::Inside => "inside",
+            Discovery::Give => "given back",
+            Discovery::Between => "between",
+            Discovery::Distance => "distance",
         }
     }
 
@@ -357,6 +381,14 @@ impl Discovery {
             Discovery::Shout => "it does not know the word. it knows the size of it.",
             Discovery::Shaken => "the room moved. it had thought rooms could not.",
             Discovery::Scatter => "it came loose where it was thinnest.",
+            Discovery::Another => "it was never the only one.",
+            Discovery::Ring => "it rang. the soft one felt it first.",
+            Discovery::Near => "one of them reached. the other let it.",
+            Discovery::Clash => "neither gave. both will remember.",
+            Discovery::Inside => "it took the other one in. it is heavier now.",
+            Discovery::Give => "it gave the other one back. neither is the color it was.",
+            Discovery::Between => "you hurt the soft one. the hard one came between.",
+            Discovery::Distance => "they keep a distance. neither will say why.",
         }
     }
 }
@@ -421,7 +453,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Scatter as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Distance as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
