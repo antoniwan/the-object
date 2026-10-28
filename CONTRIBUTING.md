@@ -24,6 +24,7 @@ Never commit build output. `web/pkg/` and `target/` are ignored on purpose.
 - **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, then a full `./build.sh`. Both must pass before a PR merges.
 - **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh`, and serves `web/`. Settings are in `vercel.json`.
 - **Only `main` deploys.** Preview deployments are turned off in the Vercel project settings, so branches and pull requests build nothing there. Merging is deploying.
+- **itch.io** gets the same object as a zip. `./scripts/itch.sh` packs `web/` into `dist/the-object-itch.zip` with `index.html` at its root, minus the Vercel analytics and the root-absolute links that break when itch serves the game from a subfolder in an iframe. `.github/workflows/itch.yml` does this on a `v*` tag (or by hand from the Actions tab) and attaches the zip to a GitHub release. With an `ITCH_TARGET` repository variable (`user/game`) and a `BUTLER_API_KEY` secret it also pushes the zip to the itch page.
 - Vercel Web Analytics is loaded by `web/index.html` and counts page views. The object's own memory of a player stays in their browser (see Saved state).
 
 ## How a frame happens

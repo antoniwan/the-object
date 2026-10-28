@@ -1,0 +1,54 @@
+# Packs the object for itch.io (scripts/itch.sh) and attaches the zip to a GitHub release.
+# Runs when a v* tag is pushed, or by hand from the Actions tab with a tag name.
+# If the repo has an ITCH_TARGET variable (user/game) and a BUTLER_API_KEY secret,
+# it also pushes the zip straight to the itch page's html5 channel.
+name: itch
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to create or update
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  itch:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.100
+      - run: cargo test
+      - run: ./build.sh && ./scripts/itch.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: the-object-itch
+          path: dist/the-object-itch.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: the object ${{ env.TAG }}
+          body: The HTML5 build for itch.io. Upload the zip as is; index.html is at its root.
+          files: dist/the-object-itch.zip
+      - name: Push to itch
+        if: ${{ vars.ITCH_TARGET != '' }}
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          [ -n "$BUTLER_API_KEY" ] || { echo "no BUTLER_API_KEY secret; skipping"; exit 0; }
+          curl -sSfL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler && chmod +x butler/butler
+          ./butler/butler push dist/the-object-itch.zip "${{ vars.ITCH_TARGET }}:html5" --userversion "$TAG"
