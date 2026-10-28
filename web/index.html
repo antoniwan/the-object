@@ -4,18 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Chaos Object</title>
+<link rel="preload" href="fonts/cormorant-garamond-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/noto-sans-math-glyphs.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  :root { color-scheme: light; }
+  @font-face { font-family: "Cormorant Garamond"; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/cormorant-garamond-latin-400-italic.woff2) format("woff2"); }
+  @font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/cormorant-garamond-latin-500-normal.woff2) format("woff2"); }
+  @font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
+  @font-face { font-family: "Glyphs"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/noto-sans-math-glyphs.woff2) format("woff2"); }
+  /* --tint, --unrest, --ox, --oy come from the object every frame (src/aura.rs). */
+  :root { color-scheme: light; --tint: 120 120 132; --words: "Cormorant Garamond", Georgia, serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
   html, body { margin: 0; height: 100%; background: #f8f7f5; overflow: hidden; }
   #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  .hud { position: fixed; pointer-events: none; font: 400 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #8a8a90; letter-spacing: .08em; text-transform: lowercase; }
+  .hud { position: fixed; pointer-events: none; font: italic 400 17px/1.4 var(--words); color: #7d7d86; letter-spacing: .04em; text-transform: lowercase; }
   #hint { left: 0; right: 0; bottom: 9vh; text-align: center; transition: opacity 1.2s; animation: breathe 3.5s ease-in-out infinite; }
   #hint.gone { opacity: 0 !important; animation: none; }
   #toast { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; transform: translateY(-6px); transition: opacity .6s, transform .6s; }
   #toast.show { opacity: 1; transform: none; }
-  #toast b { display: block; font-weight: 500; color: #4a4a52; font-size: 15px; letter-spacing: .25em; margin-bottom: 4px; }
-  #count { right: 16px; bottom: 14px; font-size: 11px; }
-  #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font-size: 11px; z-index: 3; }
+  #toast b { display: block; font: normal 500 13px/1.4 var(--words); color: #4a4a52; letter-spacing: .5em; margin: 0 0 6px .5em; }
+  #count { right: 16px; bottom: 14px; font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
+  #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font: 400 10px/1.4 var(--mono); z-index: 3; }
+
+  /* A word in the middle of becoming itself (web/glyph.js). */
+  .gw { display: inline-block; white-space: nowrap; }
+  .gw i { display: inline-flex; justify-content: center; font-style: inherit; will-change: transform; }
+  .gw i.hid { visibility: hidden; }
+  .gw i.g { font-family: "Glyphs", var(--mono); font-style: normal; font-weight: 400; }
+  .gw i.s0 { color: rgb(var(--tint) / .4); }
+  .gw i.s1 { color: rgb(var(--tint) / .7); }
+  .gw i.s2 { color: rgb(var(--tint)); text-shadow: 0 0 .6em rgb(var(--tint) / .55); }
+  .gw i.s3 { font-family: var(--mono); color: color-mix(in oklab, rgb(var(--tint)) 45%, currentColor); }
   body.night .hud { color: #6d7088; }
   body.night #toast b { color: #c9cbe0; }
   .hud { transition: color 3s; }
@@ -29,26 +46,23 @@
   #seed .film { background: conic-gradient(from 0deg, #f6c3d8, #c6dcf6, #d4f3e3, #f3e6c2, #f6c3d8); mix-blend-mode: soft-light; opacity: .55; animation: pulse 4.2s ease-in-out infinite, turn 11s linear infinite; }
   #seed .ring { border: 1px solid rgba(120, 120, 140, .35); animation: ring 4.2s cubic-bezier(.1, .6, .3, 1) infinite; }
   #seed .ring + .ring { animation-delay: 2.1s; }
-  #whisper { position: absolute; left: 0; right: 0; top: calc(50% + 92px); text-align: center; font: 400 11px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .42em; text-transform: lowercase; color: #a3a3ab; }
-  #whisper span { position: absolute; left: 0; right: 0; opacity: 0; animation: murmur 15s ease-in-out infinite; }
-  #whisper span:nth-child(2) { animation-delay: 5s; }
-  #whisper span:nth-child(3) { animation-delay: 10s; }
-  #whisper .lost { animation: none; }
+  #whisper { position: absolute; left: 0; right: 0; top: calc(50% + 88px); text-align: center; font: italic 400 16px/1.4 var(--words); letter-spacing: .08em; text-transform: lowercase; color: #9a9aa3; }
+  #whisper > span { position: absolute; left: 0; right: 0; opacity: 0; }
+  #whisper > span.on { opacity: 1; }
   @keyframes pulse { 0%, 100% { transform: scale(.82) } 50% { transform: scale(1.08) } }
   @keyframes turn { to { rotate: 1turn } }
   @keyframes ring { 0% { transform: scale(1); opacity: .9 } 100% { transform: scale(6); opacity: 0 } }
-  @keyframes murmur { 0%, 4% { opacity: 0; filter: blur(3px) } 10%, 27% { opacity: 1; filter: blur(0) } 33%, 100% { opacity: 0; filter: blur(3px) } }
   body:not(.awake) #hint { visibility: hidden; }
   body.awake #veil { opacity: 0; visibility: hidden; pointer-events: none; }
   body.awake #seed .pearl { transform: scale(9); filter: blur(10px); opacity: 0; }
   body.awake #seed .ring, body.awake #seed .film, body.awake #whisper { opacity: 0; transition: opacity .6s; }
   body.failed #seed i { animation: none; }
-  body.failed #seed .ring, body.failed #seed .film, body.failed #whisper span { display: none; }
+  body.failed #seed .ring, body.failed #seed .film, body.failed #whisper > span { display: none; }
   body.failed #seed .pearl { transform: scale(.6); filter: grayscale(1); opacity: .5; transition: all 3s; }
   body.failed #whisper .lost { display: block; opacity: 1; transition: opacity 2s; }
   @media (prefers-reduced-motion: reduce) {
-    #seed i, #whisper span { animation: none !important; }
-    #whisper span:first-child { opacity: 1; }
+    #seed i { animation: none !important; }
+    #whisper > span:first-child { opacity: 1; }
   }
 </style>
 </head>
@@ -56,12 +70,13 @@
 <canvas id="stage"></canvas>
 <div id="veil" aria-label="loading">
   <div id="seed"><i class="ring"></i><i class="ring"></i><i class="pearl"></i><i class="film"></i></div>
-  <div id="whisper"><span>it is gathering</span><span>it has not decided</span><span>do not look away</span><span class="lost" hidden>it would not come</span></div>
+  <div id="whisper"><span>something is choosing a surface</span><span>it has not yet agreed to a shape</span><span>it is shy of being seen</span><span class="lost" hidden>it stayed on the other side</span></div>
 </div>
-<div id="hint" class="hud">touch it</div>
-<div id="toast" class="hud"></div>
-<div id="count" class="hud"></div>
+<div id="hint" class="hud" data-glyph>lay a hand on it</div>
+<div id="toast" class="hud" data-glyph></div>
+<div id="count" class="hud" data-glyph></div>
 <div id="error" class="hud"></div>
+<script type="module" src="glyph.js"></script>
 <script type="module">
 try {
   const { default: init } = await import('./pkg/chaos_object.js');
