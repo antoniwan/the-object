@@ -13,6 +13,8 @@
 //! - no sooner than GAP seconds after the last one;
 //! - each line at most once a visit. Nothing about thoughts is saved.
 //!
+//! On a first visit it is less patient: `FIRST_VISIT` holds shorter times for the same gates.
+//!
 //! Which thought: the first line in `THOUGHTS` that belongs to where it is now, to how far it
 //! has come in learning the player (earlier lines are about itself, later ones about them),
 //! and whose condition still holds, which mostly means something there is not yet found.
@@ -33,6 +35,19 @@ pub const QUIET: f32 = 3.5;
 pub const SETTLE: f32 = 8.0;
 /// Seconds between two thoughts.
 pub const GAP: f32 = 45.0;
+
+/// The gates, in seconds: into the visit, without a discovery, in one place, between thoughts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pace {
+    pub first_after: f32,
+    pub stuck: f32,
+    pub settle: f32,
+    pub gap: f32,
+}
+
+pub const RETURNING: Pace = Pace { first_after: FIRST_AFTER, stuck: STUCK, settle: SETTLE, gap: GAP };
+/// Someone who has never been here: it thinks out loud sooner.
+pub const FIRST_VISIT: Pace = Pace { first_after: 12.0, stuck: 10.0, settle: 5.0, gap: 25.0 };
 
 /// Where it is, as far as thinking goes. Halfway between two places, it is nowhere.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,6 +208,8 @@ pub struct Thoughts {
     here_for: f32,
     /// Seconds since a key last went down; the keyboard is a hand too.
     since_key: f32,
+    /// Whether this is the player's first visit (set by the page); it thinks sooner then.
+    pub first_visit: bool,
     /// Lines for the page to show, oldest first.
     pub out: Vec<&'static str>,
 }
@@ -221,12 +238,13 @@ impl Thoughts {
         }
         self.here_for += dt;
         let Some(here) = here else { return };
+        let pace = if self.first_visit { FIRST_VISIT } else { RETURNING };
         let ready = self.found > 0
-            && self.visit > FIRST_AFTER
-            && self.since_found > STUCK
+            && self.visit > pace.first_after
+            && self.since_found > pace.stuck
             && quiet > QUIET
-            && self.here_for > SETTLE
-            && (self.said.is_empty() || self.since_said > GAP)
+            && self.here_for > pace.settle
+            && (self.said.is_empty() || self.since_said > pace.gap)
             && !mind.contact.acting();
         if !ready {
             return;
@@ -303,6 +321,23 @@ mod tests {
         quiet_for(&mut g, 20.0);
         assert_eq!(g.thoughts.out.len(), 2);
         assert_ne!(g.thoughts.out[0], g.thoughts.out[1]);
+    }
+
+    #[test]
+    fn a_first_visit_hears_it_sooner() {
+        let mut g = Game::new();
+        g.thoughts.first_visit = true;
+        g.discover(D::Poke);
+        g.discover(D::Patience);
+        quiet_for(&mut g, 16.0);
+        assert_eq!(g.thoughts.out.len(), 1);
+        quiet_for(&mut g, 26.0);
+        assert_eq!(g.thoughts.out.len(), 2);
+        let mut back = Game::new();
+        back.discover(D::Poke);
+        back.discover(D::Patience);
+        quiet_for(&mut back, 16.0);
+        assert!(back.thoughts.out.is_empty());
     }
 
     #[test]
