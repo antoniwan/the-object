@@ -155,6 +155,21 @@
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>
 <script type="module">
+// After contact it asks one question (src/contact.rs). The answer goes to api/rating, and what
+// all the answers come to goes into the structured data above, once there is at least one.
+addEventListener('the-object:answer', (e) => {
+  fetch('/api/rating', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ v: e.detail }), keepalive: true }).catch(() => {});
+});
+fetch('/api/rating').then((r) => (r.ok ? r.json() : null)).then((a) => {
+  if (!a || !(a.count >= 1)) return;
+  const ld = document.querySelector('script[type="application/ld+json"]');
+  const data = JSON.parse(ld.textContent);
+  const game = data['@graph'].find((n) => n['@id'].endsWith('#the-object'));
+  game.aggregateRating = { '@type': 'AggregateRating', ratingValue: a.value, ratingCount: a.count, bestRating: a.best, worstRating: a.worst };
+  ld.textContent = JSON.stringify(data);
+}).catch(() => {});
+</script>
+<script type="module">
 try {
   const { default: init } = await import('./pkg/chaos_object.js');
   await init();
