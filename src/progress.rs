@@ -313,12 +313,14 @@ impl Progress {
         self.found.iter().map(|d| d.name()).collect::<Vec<_>>().join(",")
     }
 
+    /// Unknown names are skipped and repeats counted once, so a hand-edited or
+    /// stale save can never inflate the count the contact arc is gated on.
     pub fn load(saved: &str) -> Progress {
-        let found = saved
-            .split(',')
-            .filter_map(|n| ALL.iter().copied().find(|d| d.name() == n))
-            .collect();
-        Progress { found }
+        let mut p = Progress::default();
+        for d in saved.split(',').filter_map(|n| ALL.iter().copied().find(|d| d.name() == n.trim())) {
+            p.discover(d);
+        }
+        p
     }
 }
 
@@ -336,6 +338,7 @@ mod tests {
         assert_eq!(q.count(), 2);
         assert_eq!(Progress::load("").count(), 0);
         assert_eq!(Progress::load("nonsense,poke").count(), 1);
+        assert_eq!(Progress::load("poke,poke,tear,poke").count(), 2);
     }
 
     #[test]
