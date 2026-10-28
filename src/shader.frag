@@ -418,11 +418,16 @@ float shards(vec3 p, out int id) {
   return d;
 }
 
-float scene(vec3 p) {
-  float d = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
+// Also hands back the body alone, and the nearest piece and its distance, so
+// shade() can use them without compiling bodySurface() and shards() again.
+float scene(vec3 p, out float body, out float piece, out int id) {
+  body = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
+  float d = body;
+  piece = 1e3;
+  id = -1;
   if (uBurst.w > 0.0) {
-    int id;
-    d = min(d, shards(p, id));
+    piece = shards(p, id);
+    d = min(d, piece);
   }
   if (uLake.z > 0.0) {
     // the body melts into the floor through a smooth join
@@ -450,8 +455,8 @@ float scene(vec3 p) {
 }
 
 // Color at a surface point: blended through the same smooth joins as the shape.
-vec3 sceneColor(vec3 p) {
-  float d = bodySurface(p);
+// `d` is bodySurface(p), which the caller already has.
+vec3 sceneColor(vec3 p, float d) {
   vec3 col = uBodyCol;
   for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
@@ -497,16 +502,6 @@ vec3 stars(vec3 rd) {
 
 vec3 nightSky(vec3 rd) {
   return vec3(0.010, 0.012, 0.028) + stars(rd);
-}
-
-// Tetrahedral gradient, as a loop so scene() is compiled once here, not four times.
-vec3 calcNormal(vec3 p) {
-  vec3 n = vec3(0.0);
-  for (int i = ZERO; i < 4; i++) {
-    vec3 k = 2.0 * vec3((((i + 3) >> 1) & 1), ((i >> 1) & 1), (i & 1)) - 1.0;
-    n += k * scene(p + k * 0.0015);
-  }
-  return normalize(n);
 }
 
 // Soft white studio: bright from above, gray toward the floor, two softboxes.
@@ -565,7 +560,7 @@ vec3 floorMatte(vec3 p, vec3 bg) {
   return bg;
 }
 
-vec3 shadeLiquid(vec3 p, vec3 rd);
+vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db);
 vec3 galaxy(vec3 p, vec3 rd);
 
 // The liquid floor dissolves into the white with distance, so it has no far edge.
@@ -573,13 +568,14 @@ vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
   return mix(col, bg, smoothstep(6.0, 20.0, length(p - uCamPos)));
 }
 
-vec3 background(vec3 ro, vec3 rd, vec2 uv) {
+// `lake` is the liquid floor where this ray meets it, shaded by main().
+vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake) {
   vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
   if (rd.y < 0.0) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
     bg = floorMatte(p, bg);
     // past the marcher's reach the liquid floor still shows, flat
-    if (uLake.z > 0.0) bg = mix(bg, lakeFade(shadeLiquid(p, rd), p, bg), lakeMask(p.xz));
+    if (uLake.z > 0.0) bg = mix(bg, lakeFade(lake, p, bg), lakeMask(p.xz));
   }
   if (uNight > 0.001) {
     vec3 sky = nightSky(rd);
@@ -715,8 +711,7 @@ vec3 shadeStone(vec3 p, vec3 rd, vec3 n) {
 }
 
 // One of the twelve, in its own material.
-vec3 shadeShard(vec3 p, vec3 rd, int i) {
-  vec3 n = calcNormal(p);
+vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n) {
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
   vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
@@ -739,19 +734,18 @@ vec3 shadeShard(vec3 p, vec3 rd, int i) {
   return col;
 }
 
-vec3 shade(vec3 p, vec3 rd, vec2 uv) {
+// `far`: the liquid floor past the marcher's reach, where only the plain liquid is wanted.
+// main() probes the field around p in its march loop and hands over what it found:
+// the normal, ambient occlusion, the body's distance, and the nearest piece.
+vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float ds, int id) {
   int shard = -1;
-  if (uBurst.w > 0.0) {
-    int id;
-    float ds = shards(p, id);
-    float db = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
-    if (id >= 0 && ds < db) shard = id;
-  }
+  if (uBurst.w > 0.0 && !far && id >= 0 && ds < db) shard = id;
   // One call site for shadeLiquid, so the compiler builds it once here.
-  vec3 col = shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd) : vec3(0.0);
+  vec3 col = far || shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd, n, ao, db) : vec3(0.0);
+  if (far) return col;
   if (shard >= 0) {
     // in flight it is still the liquid; it takes on its material as it lands
-    return mix(col, shadeShard(p, rd, shard), uTriB[shard].y);
+    return mix(col, shadeShard(p, rd, shard, n), uTriB[shard].y);
   }
   // a body that has been hurt flushes
   col *= mix(vec3(1.0), vec3(1.0, 0.72, 0.78), uBurst.z * 0.9);
@@ -764,7 +758,6 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv) {
     col = mix(col, floorMatte(p, bg), floorness);
   }
   if (uDiv.z > 0.001 || uStone.x > 0.001) {
-    vec3 n = calcNormal(p);
     if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
     if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n), uStone.x);
   }
@@ -880,20 +873,11 @@ vec3 galaxy(vec3 p, vec3 rd) {
   return col;
 }
 
-vec3 shadeLiquid(vec3 p, vec3 rd) {
-  vec3 n = calcNormal(p);
-  vec3 tint = formTint(p, sceneColor(p));
+vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db) {
+  vec3 tint = formTint(p, sceneColor(p, db));
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
   vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
-
-  // Cheap ambient occlusion from the field itself.
-  float ao = 0.0;
-  for (int i = ZERO + 1; i <= 4; i++) {
-    float h = 0.06 * float(i);
-    ao += (h - scene(p + n * h)) / h;
-  }
-  ao = clamp(1.0 - 0.18 * ao, 0.0, 1.0);
 
   // Milky body with light scattering through it.
   float wrap = clamp((dot(n, L) + 0.6) / 1.6, 0.0, 1.0);
@@ -937,19 +921,65 @@ void main() {
   vec3 ro = uCamPos;
   vec3 rd = normalize(uCamRight * uv.x + uCamUp * uv.y + uCamFwd * uFocal);
 
+  // One loop evaluates scene() for the march and then, at the point it found,
+  // for the normal (tetrahedral gradient) and ambient occlusion. That makes
+  // this the only place scene() is compiled: every extra call site copies the
+  // whole scene again, and Direct3D's shader compiler (Edge and Chrome on
+  // Windows) can take long enough on a big shader to crash the browser.
   float t = 0.0;
   bool hit = false;
+  bool marching = true;
+  bool far = false;
+  vec3 sp = ro;
+  vec3 g = vec3(0.0);
+  vec3 n = vec3(0.0, 1.0, 0.0);
+  float ao = 0.0;
+  // the four gradient samples sit symmetrically around p, so their mean is the value at p
+  float db = 0.0;
+  float ds = 0.0;
+  int id = -1;
+  int j = 0;
   // the landscape is far bigger than the room, so look further when it exists
   float tMax = 14.0 + 36.0 * uBurst.w;
-  for (int i = ZERO; i < 140; i++) {
-    vec3 p = ro + rd * t;
-    float d = scene(p);
-    if (d < 0.0012 * t) { hit = true; break; }
-    t += d * 0.75;
-    if (t > tMax) break;
+  for (int i = ZERO; i < 148; i++) {
+    vec3 k = 2.0 * vec3((((j + 3) >> 1) & 1), ((j >> 1) & 1), (j & 1)) - 1.0;
+    float h = 0.06 * float(j - 3);
+    if (j == 4) n = normalize(g);
+    vec3 q = marching ? ro + rd * t : (j < 4 ? sp + k * 0.0015 : sp + n * h);
+    float body, piece;
+    int near;
+    float d = scene(q, body, piece, near);
+    if (marching) {
+      bool stop = i >= 139;
+      if (d < 0.0012 * t) { hit = true; stop = true; }
+      else {
+        t += d * 0.75;
+        stop = stop || t > tMax;
+      }
+      if (stop) {
+        marching = false;
+        // past the marcher's reach the liquid floor is shaded where the ray meets the floor
+        sp = hit ? ro + rd * t : ro + rd * ((FLOOR_Y - ro.y) / min(rd.y, -1e-4));
+        far = !hit && rd.y < 0.0 && uLake.z > 0.0 && lakeMask(sp.xz) > 0.0;
+        if (!hit && !far) break;
+      }
+    } else {
+      if (j < 4) {
+        g += k * d;
+        db += body * 0.25;
+        ds += piece * 0.25;
+        id = near;
+      } else {
+        ao += (h - d) / h;
+      }
+      j++;
+      if (j == 8) break;
+    }
   }
+  ao = clamp(1.0 - 0.18 * ao, 0.0, 1.0);
 
-  vec3 col = hit ? shade(ro + rd * t, rd, uv) : background(ro, rd, uv);
+  vec3 surf = hit || far ? shade(sp, rd, uv, far, n, ao, db, ds, id) : vec3(0.0);
+  vec3 col = hit ? surf : background(ro, rd, uv, surf);
   if (uBox.y > 0.0) {
     // light rising out of the open box
     vec2 dxz = rd.xz;
