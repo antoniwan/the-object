@@ -1,7 +1,7 @@
 //! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the lines of text
 //! (hint, toast, count, now and then a thought, and the marks while it hears or sees), what is
-//! saved between visits, and the microphone and camera once the player has let it have them
-//! (senses.rs, devices.rs).
+//! saved between visits, the microphone and camera once the player has let it have them
+//! (senses.rs, devices.rs), and how a phone is held and moved (motion.rs).
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
@@ -9,6 +9,7 @@ use crate::contact::{self, Contact, KEEP_STEPS};
 use crate::devices::{self, Answer, Ears, Eyes};
 use crate::game::Game;
 use crate::keys;
+use crate::motion::Felt;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
 use crate::senses::{self, Kind, Senses};
@@ -185,6 +186,11 @@ struct App {
     offer: Option<(Kind, f64)>,
     /// Made inside the tap that let it hear, waiting for the microphone.
     ear_ctx: Option<web_sys::AudioContext>,
+    /// How the phone was held and pushed since the last frame, and whether it is being felt.
+    felt: Rc<RefCell<Felt>>,
+    feeling: bool,
+    /// What the browser answered when asked to let it feel.
+    feel_answers: Rc<RefCell<Vec<Result<(), bool>>>>,
 }
 
 impl App {
@@ -271,6 +277,7 @@ impl App {
         match kind {
             Kind::Hear => self.ears.take().map(Ears::close),
             Kind::See => self.eyes.take().map(Eyes::close),
+            Kind::Feel => None,
         };
         if self.offer.is_some_and(|o| o.0 == kind) {
             self.offer = None;
@@ -305,20 +312,33 @@ impl App {
         if now / 1000.0 > until || !self.game.senses.accept(kind) {
             return;
         }
-        if kind == Kind::Hear {
-            self.ear_ctx = devices::ear_context();
+        match kind {
+            Kind::Feel => devices::ask_to_feel(self.feel_answers.clone()),
+            Kind::Hear => {
+                self.ear_ctx = devices::ear_context();
+                devices::ask(kind, self.answers.clone());
+            }
+            Kind::See => devices::ask(kind, self.answers.clone()),
         }
-        devices::ask(kind, self.answers.clone());
         self.hud.toast_until = 0.0;
     }
 
-    /// What the browser answered; and, while it is let, what it hears and sees this frame.
+    /// Starts feeling the phone, once.
+    fn feel(&mut self) {
+        if !self.feeling {
+            self.feeling = true;
+            devices::listen_to_feel(self.felt.clone());
+        }
+    }
+
+    /// What the browser answered; and, while it is let, what it hears, sees and feels this frame.
     fn sense(&mut self, now: f64) {
         let answers = std::mem::take(&mut *self.answers.borrow_mut());
         for (kind, answer) in answers {
             let waiting = match kind {
                 Kind::Hear => self.game.senses.hear == senses::Leave::Opening,
                 Kind::See => self.game.senses.see == senses::Leave::Opening,
+                Kind::Feel => false,
             };
             match answer {
                 // Stopped while the browser was still asking: let it go unused.
@@ -330,6 +350,7 @@ impl App {
                             None => Err(JsValue::from_str("no audio context")),
                         },
                         Kind::See => Eyes::new(stream.clone()).map(|e| self.eyes = Some(e)),
+                        Kind::Feel => Err(JsValue::from_str("nothing to open")),
                     };
                     match opened {
                         Ok(()) => self.game.senses.opened(kind),
@@ -344,6 +365,18 @@ impl App {
                 Err(no) => self.game.senses.refused(kind, no),
             }
         }
+        let felt = std::mem::take(&mut *self.feel_answers.borrow_mut());
+        for answer in felt {
+            match answer {
+                Ok(()) => {
+                    self.game.senses.opened(Kind::Feel);
+                    self.feel();
+                }
+                Err(no) => self.game.senses.refused(Kind::Feel, no),
+            }
+        }
+        let f = std::mem::take(&mut *self.felt.borrow_mut());
+        self.game.motion.feel(f);
         if let Some(ears) = &mut self.ears {
             let heard = ears.listen();
             self.game.senses.heard(heard);
@@ -485,11 +518,14 @@ pub fn start() -> Result<(), JsValue> {
 
     // It keeps count, across visits.
     let mut game = Game::new();
+    // Without storage every visit is a first one.
+    game.thoughts.first_visit = true;
     let hud = Hud::new(&doc)?;
     if let Some(s) = storage() {
         let found = s.get_item(KEY_FOUND).ok().flatten().unwrap_or_default();
         let visits = s.get_item(KEY_VISITS).ok().flatten().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0) + 1;
         let _ = s.set_item(KEY_VISITS, &visits.to_string());
+        game.thoughts.first_visit = visits == 1;
         game.progress = Progress::load(&found);
         game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
         game.senses = Senses::load(&s.get_item(KEY_SENSES).ok().flatten().unwrap_or_default());
@@ -502,6 +538,12 @@ pub fn start() -> Result<(), JsValue> {
 
     game.senses.can_hear = devices::possible(Kind::Hear);
     game.senses.can_see = devices::possible(Kind::See);
+    let feeling = devices::feeling();
+    match feeling {
+        devices::Feeling::Free => game.senses.feel = senses::Leave::Open,
+        devices::Feeling::Ask => game.senses.can_feel = true,
+        devices::Feeling::Never => {}
+    }
 
     let app = Rc::new(RefCell::new(App {
         game,
@@ -523,8 +565,14 @@ pub fn start() -> Result<(), JsValue> {
         answers: Rc::new(RefCell::new(Vec::new())),
         offer: None,
         ear_ctx: None,
+        felt: Rc::new(RefCell::new(Felt::default())),
+        feeling: false,
+        feel_answers: Rc::new(RefCell::new(Vec::new())),
     }));
     app.borrow_mut().resize();
+    if feeling == devices::Feeling::Free {
+        app.borrow_mut().feel();
+    }
 
     let target: &web_sys::EventTarget = canvas.as_ref();
     {

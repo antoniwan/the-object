@@ -87,13 +87,15 @@ pub enum Discovery {
     Blind,
     Watched,
     Shout,
+    Shaken,
+    Scatter,
     Everywhere,
     Facet,
     Backward,
     Crease,
 }
 
-pub const ALL: [Discovery; 87] = [
+pub const ALL: [Discovery; 89] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -177,6 +179,8 @@ pub const ALL: [Discovery; 87] = [
     Discovery::Blind,
     Discovery::Watched,
     Discovery::Shout,
+    Discovery::Shaken,
+    Discovery::Scatter,
     Discovery::Everywhere,
     Discovery::Facet,
     Discovery::Backward,
@@ -269,6 +273,8 @@ impl Discovery {
             Discovery::Blind => "blind",
             Discovery::Watched => "watched",
             Discovery::Shout => "shout",
+            Discovery::Shaken => "shaken",
+            Discovery::Scatter => "scatter",
             Discovery::Everywhere => "everywhere",
             Discovery::Facet => "facet",
             Discovery::Backward => "backward",
@@ -361,6 +367,8 @@ impl Discovery {
             Discovery::Blind => "you took the light away. the room went with it.",
             Discovery::Watched => "the eye found the one looking back.",
             Discovery::Shout => "it does not know the word. it knows the size of it.",
+            Discovery::Shaken => "the room moved. it had thought rooms could not.",
+            Discovery::Scatter => "it came loose where it was thinnest.",
             Discovery::Everywhere => "it was never only one. the room was the outside of it.",
             Discovery::Facet => "one more mirror. it is in all of them.",
             Discovery::Backward => "it unturned. the stars went back where they were.",
