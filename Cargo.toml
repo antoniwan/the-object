@@ -43,6 +43,7 @@ features = [
   "OscillatorNode",
   "OscillatorType",
   "AudioContextState",
+  "console",
 ]
 
 [profile.release]

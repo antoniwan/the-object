@@ -2,6 +2,10 @@
 // Raymarched liquid. sdBody/scene mirror World::sdf in sim.rs, plus cosmetic
 // ripples and idle wobble that only exist here.
 precision highp float;
+// A zero the compiler can't see through. Loops start from it so they stay loops:
+// unrolled, every scene() call would be copied dozens of times and some GPU
+// drivers take minutes (or crash the browser) compiling the result.
+#define ZERO min(uNH, 0)
 out vec4 outColor;
 
 uniform vec2 uRes;
@@ -81,7 +85,7 @@ float sdTaper(vec3 p, vec3 a, vec3 b, float ra, float rb) {
 // Ripples and wobble for a surface direction n, in body radii.
 float surfaceDisp(vec3 n) {
   float disp = 0.012 * sin(n.x * 3.0 + uTime * 1.3) * sin(n.y * 4.0 - uTime * 1.1) * sin(n.z * 3.0 + uTime * 0.9);
-  for (int i = 0; i < 8; i++) {
+  for (int i = ZERO; i < 8; i++) {
     if (i >= uNR) break;
     float a = acos(clamp(dot(n, uRip[i].xyz), -1.0, 1.0));
     float t = uRipAge[i];
@@ -141,7 +145,7 @@ float lakeHeight(vec2 xz) {
   float front = t * 2.4;
   float h = 0.10 * exp(-t * 0.5) * sin(dist * 5.0 - t * 8.0) * exp(-dist * 0.22)
             * smoothstep(front + 0.6, front - 0.6, dist);
-  for (int i = 0; i < 6; i++) {
+  for (int i = ZERO; i < 6; i++) {
     if (i >= uNLR) break;
     float di = length(xz - uLakeRip[i].xy);
     float a = uLakeRip[i].z;
@@ -189,7 +193,7 @@ float shardSdf(vec3 p, int i) {
 float shards(vec3 p, out int id) {
   float d = 1e3;
   id = -1;
-  for (int i = 0; i < 12; i++) {
+  for (int i = ZERO; i < 12; i++) {
     float di = shardSdf(p, i);
     if (di < d) { d = di; id = i; }
   }
@@ -206,13 +210,13 @@ float scene(vec3 p) {
     // the body melts into the floor through a smooth join
     d = smin(d, (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8, 0.45 * uBody.w);
   }
-  for (int i = 0; i < 4; i++) {
+  for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
     float stem = sdTaper(p, uHA[i].xyz, uHB[i].xyz, uHA[i].w, uHB[i].w);
     float tendril = smin(stem, length(p - uHB[i].xyz) - uHBulb[i], 0.12 * uBody.w);
     d = smin(d, tendril, uK.x);
   }
-  for (int i = 0; i < 12; i++) {
+  for (int i = ZERO; i < 12; i++) {
     if (i >= uND) break;
     d = smin(d, length(p - uDrop[i].xyz) - uDrop[i].w, uK.y);
   }
@@ -223,12 +227,12 @@ float scene(vec3 p) {
 vec3 sceneColor(vec3 p) {
   float d = bodySurface(p);
   vec3 col = uBodyCol;
-  for (int i = 0; i < 4; i++) {
+  for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
     float stem = sdTaper(p, uHA[i].xyz, uHB[i].xyz, uHA[i].w, uHB[i].w);
     d = smin(d, stem, uK.x);
   }
-  for (int i = 0; i < 12; i++) {
+  for (int i = ZERO; i < 12; i++) {
     if (i >= uND) break;
     float dd = length(p - uDrop[i].xyz) - uDrop[i].w;
     float h = clamp(0.5 + 0.5 * (d - dd) / uK.y, 0.0, 1.0);
@@ -247,7 +251,7 @@ float hash(vec3 p) {
 // Stars on the inside of a sphere around everything.
 vec3 stars(vec3 rd) {
   vec3 col = vec3(0.0);
-  for (int layer = 0; layer < 2; layer++) {
+  for (int layer = ZERO; layer < 2; layer++) {
     float scale = layer == 0 ? 60.0 : 140.0;
     vec3 q = rd * scale;
     vec3 id = floor(q);
@@ -269,11 +273,14 @@ vec3 nightSky(vec3 rd) {
   return vec3(0.010, 0.012, 0.028) + stars(rd);
 }
 
+// Tetrahedral gradient, as a loop so scene() is compiled once here, not four times.
 vec3 calcNormal(vec3 p) {
-  const vec2 k = vec2(1.0, -1.0);
-  const float e = 0.0015;
-  return normalize(k.xyy * scene(p + k.xyy * e) + k.yyx * scene(p + k.yyx * e) +
-                   k.yxy * scene(p + k.yxy * e) + k.xxx * scene(p + k.xxx * e));
+  vec3 n = vec3(0.0);
+  for (int i = ZERO; i < 4; i++) {
+    vec3 k = 2.0 * vec3((((i + 3) >> 1) & 1), ((i >> 1) & 1), (i & 1)) - 1.0;
+    n += k * scene(p + k * 0.0015);
+  }
+  return normalize(n);
 }
 
 // Soft white studio: bright from above, gray toward the floor, two softboxes.
@@ -298,11 +305,11 @@ vec3 floorMatte(vec3 p, vec3 bg) {
     float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
     float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1))
                               : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
-    for (int i = 0; i < 12; i++) {
+    for (int i = ZERO; i < 12; i++) {
       if (i >= uND) break;
       occ += sphOcc(p, uDrop[i]);
     }
-    for (int i = 0; i < 4; i++) {
+    for (int i = ZERO; i < 4; i++) {
       if (i >= uNH) break;
       occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
     }
@@ -311,7 +318,7 @@ vec3 floorMatte(vec3 p, vec3 bg) {
     // the pieces cast their own shadows wherever they stand
     float socc = 0.0;
     if (uBurst.w > 0.0) {
-      for (int i = 0; i < 12; i++) {
+      for (int i = ZERO; i < 12; i++) {
         float h = uTri[i].w * mix(0.12, 0.4, uTriB[i].y);
         socc += sphOcc(p, vec4(uTri[i].xyz + vec3(0.0, h, 0.0), uTri[i].w * mix(0.12, 0.38, uTriB[i].y)));
       }
@@ -339,7 +346,7 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv) {
   if (uNight > 0.001) {
     vec3 sky = nightSky(rd);
     // Free drops glow like small suns at night.
-    for (int i = 0; i < 12; i++) {
+    for (int i = ZERO; i < 12; i++) {
       if (i >= uND) break;
       vec3 c = uDrop[i].xyz - ro;
       float along = max(dot(c, rd), 0.0);
@@ -386,7 +393,7 @@ vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
 
   // cytoplasm granules
   float g = 0.0;
-  for (int i = 0; i < 6; i++) {
+  for (int i = ZERO; i < 6; i++) {
     float fi = float(i);
     vec3 gd = normalize(vec3(hash(vec3(fi, twin, 1.0)), hash(vec3(twin, fi, 2.0)), hash(vec3(2.0, fi, twin))) - 0.5);
     vec3 gp = cc + rr * 0.62 * gd + 0.06 * rr * vec3(sin(uTime * 0.7 + fi), cos(uTime * 0.5 + fi * 2.0), 0.0);
@@ -428,17 +435,19 @@ vec3 shadeShard(vec3 p, vec3 rd, int i) {
 }
 
 vec3 shade(vec3 p, vec3 rd, vec2 uv) {
+  int shard = -1;
   if (uBurst.w > 0.0) {
     int id;
     float ds = shards(p, id);
     float db = uBurst.x > 0.5 ? 1e3 : bodySurface(p);
-    if (id >= 0 && ds < db) {
-      // in flight it is still the liquid; it takes on its material as it lands
-      float m = uTriB[id].y;
-      return mix(shadeLiquid(p, rd), shadeShard(p, rd, id), m);
-    }
+    if (id >= 0 && ds < db) shard = id;
   }
-  vec3 col = uDiv.z < 0.999 ? shadeLiquid(p, rd) : vec3(0.0);
+  // One call site for shadeLiquid, so the compiler builds it once here.
+  vec3 col = shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd) : vec3(0.0);
+  if (shard >= 0) {
+    // in flight it is still the liquid; it takes on its material as it lands
+    return mix(col, shadeShard(p, rd, shard), uTriB[shard].y);
+  }
   // a body that has been hurt flushes
   col *= mix(vec3(1.0), vec3(1.0, 0.72, 0.78), uBurst.z * 0.9);
   if (uLake.z > 0.0) {
@@ -465,7 +474,7 @@ vec3 shadeLiquid(vec3 p, vec3 rd) {
 
   // Cheap ambient occlusion from the field itself.
   float ao = 0.0;
-  for (int i = 1; i <= 4; i++) {
+  for (int i = ZERO + 1; i <= 4; i++) {
     float h = 0.06 * float(i);
     ao += (h - scene(p + n * h)) / h;
   }
@@ -510,7 +519,7 @@ void main() {
   bool hit = false;
   // the landscape is far bigger than the room, so look further when it exists
   float tMax = 14.0 + 36.0 * uBurst.w;
-  for (int i = 0; i < 140; i++) {
+  for (int i = ZERO; i < 140; i++) {
     vec3 p = ro + rd * t;
     float d = scene(p);
     if (d < 0.0012 * t) { hit = true; break; }
