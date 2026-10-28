@@ -69,7 +69,7 @@ When it bursts, each piece is its own material. Index-matched in `burst.rs` `CON
 | `--tint` | from the object every frame; at rest about `#787884` | glyphs in the middle of decoding, the alien reply (`aura.rs`) |
 | `words` | `#7d7d86` | hint, toast line, count |
 | `words-strong` | `#4a4a52` | the toast's name (the discovery's one word) |
-| `words-faint` | `#9a9aa3` | the loader's whisper, errors |
+| `words-faint` | `#9a9aa3` | the loader's whisper, errors, its thoughts (at 80%) |
 | `words-night` | `#6d7088`, names `#c9cbe0` | the same, after dark (3 s transition) |
 | loader film | `#f6c3d8` `#c6dcf6` `#d4f3e3` `#f3e6c2` | conic gradient over the loader's pearl, soft-light at 55% |
 
@@ -84,6 +84,7 @@ Three free fonts from Fontsource, self-hosted in `web/fonts/` with their license
 | voice | Cormorant Garamond italic 400 | 17px / 1.4 | 0.04em | lowercase | hint, discovery lines |
 | name | Cormorant Garamond upright 500 | 13px / 1.4 | 0.5em | lowercase | the discovery's name above its line |
 | whisper | Cormorant Garamond italic 400 | 16px / 1.4 | 0.08em | lowercase | loader lines |
+| thought | Cormorant Garamond italic 400 | 15px / 1.4 | 0.1em | lowercase | what it is thinking (`thoughts.rs`) |
 | count | JetBrains Mono 400 | 10px / 1 | 0.3em | lowercase roman numerals | how many it has shown you (`aura.rs` `roman()`) |
 | system | JetBrains Mono 400 | 10px / 1.4 | normal | as is | errors only |
 | alien | Noto Sans Math, subset ("Glyphs") | inherits | 0.4em | n/a | its reply at contact, the kept-steps answer |
@@ -112,13 +113,14 @@ There is one screen, full bleed, no scroll, no chrome.
 | Token | Value | Where |
 | --- | --- | --- |
 | `edge-v` | `9vh` | the hint sits 9vh from the bottom; the toast 9vh from the top |
+| `thought` | `15vh` from the bottom, under the object's screen position (`--ox`, kept between 28% and 72%) | a thought; it drifts with the object over 3 s |
 | `edge-corner` | `16px` right, `14px` bottom | the count |
 | `toast-name-gap` | `6px` | between the name and its line |
 | `seed` | `18px` | the loader's pearl, centered |
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
 | `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
 
-The object is always the center of attention. Words go above it (what was found) and below it (what to try), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. The only key is `m`, which mutes, and it is not announced.
+The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. The only key is `m`, which mutes, and it is not announced.
 
 ## 5. Motion and time
 
@@ -164,6 +166,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- |
 | glyph step | 85 ms per stage, 28 ms stagger, 650 ms spread, 60 ms flicker |
 | toast | in over 0.6 s, stays 4.2 s; the question 7 s; the reply 10 s |
+| thought | rises over 2.4 s, stays 7 s, sinks over 2.4 s; anything found or said sends it away. The first comes no sooner than 30 s into a visit, after 20 s without a discovery, 3.5 s with no hand on anything and 8 s in one place; then at most one every 45 s |
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
@@ -224,6 +227,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 ### Other text
 
 - **The hint** is one invitation, then gone: `lay a hand on it`.
+- **Thoughts** (`thoughts.rs`) are what can be seen of its mind when the player has stopped finding things. They are its hints, so they follow the strictest version of the voice: never a gesture, a verb from the grammar table, a count or a tip; suggest what it has not been yet, from its side (`it has never had a corner. it is curious about them.`). Always "it", never "i": its own words are still the signs. Early thoughts are about itself; once it has started to learn the player, the same thought turns toward them (`it does not know yet how far it goes.` becomes `it wonders how far you would take it.`). Never the same thought twice in a visit. A test in `thoughts.rs` checks the words.
 - **The loader** whispers in the object's uncertainty: `something is choosing a surface`, `it has not yet agreed to a shape`, `it is shy of being seen`. On failure: `it stayed on the other side`. Never "loading" or a percentage.
 - **The object's own words** are the twelve signs, never letters, until the one word `you`.
 - **README and metadata** use the same register in sentence case: short declarative sentences, no adjectives of praise, nothing that names it. ("There is an object. You can touch it.")

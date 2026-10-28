@@ -61,7 +61,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 
 | File | What it holds |
 | --- | --- |
-| `src/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast and the count, saving to `localStorage`. |
+| `src/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast, the count and its thoughts, saving to `localStorage`. |
 | `src/game.rs` | Pointer input to verbs. The header comment lists every gesture. |
 | `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
 | `src/meiosis.rs` | Slice it and it divides into two cells; squeeze them back into one. |
@@ -72,6 +72,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/landscape.rs` | What the twelve pieces do once they have landed. |
 | `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box). |
 | `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
+| `src/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 66 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
@@ -80,7 +81,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/audio.rs` | Synthesized sounds, no samples. |
 | `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
 | `src/math.rs` | Small vector math, so the simulation has no dependencies. |
-| `web/index.html` | The page: canvas, loader, the three lines of text, styles. |
+| `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
 | `web/llms.txt`, `robots.txt`, `sitemap.xml`, `og.png` | For crawlers and link previews. |
@@ -107,7 +108,7 @@ The page also guards against slow machines: the loader stays up while the shader
 
 ## Words on screen
 
-Every visible line (`#hint`, `#toast`, `#count`) carries `data-glyph`. The Rust side only sets text and classes; `web/glyph.js` watches those elements and decodes each letter through circles, shapes, signs and markup before it settles. New on-screen text should carry `data-glyph` too.
+Every visible line (`#hint`, `#toast`, `#count`, `#thought`) carries `data-glyph`. The Rust side only sets text and classes; `web/glyph.js` watches those elements and decodes each letter through circles, shapes, signs and markup before it settles. New on-screen text should carry `data-glyph` too.
 
 Fonts are self-hosted from Fontsource. The math font is cut down to just the glyphs `glyph.js` uses, so if you add a glyph there, subset the font again (`web/fonts/README.md` says how).
 
