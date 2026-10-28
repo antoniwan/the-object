@@ -15,9 +15,9 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.6.0] - 2026-10-28
 
 ### Added
-- Its universe, stirred on the same way long after it holds one, gets out: the floor goes, the white room comes apart along the seams of a sky cut by mirrors, and it is everywhere, in every direction, each copy turning its own galaxy. (#PR)
-- In there, a poke gives the room another mirror; a hand held still runs its time backward until it is let go; the other way round folds the room back up around one of it. (#PR)
-- Four discoveries for it, and five thoughts for a universe that has not been let out. (#PR)
+- Its universe, stirred on the same way long after it holds one, gets out: the floor goes, the white room comes apart along the seams of a sky cut by mirrors, and it is everywhere, in every direction, each copy turning its own galaxy. (#46)
+- In there, a poke gives the room another mirror; a hand held still runs its time backward until it is let go; the other way round folds the room back up around one of it. (#46)
+- Four discoveries for it, and five thoughts for a universe that has not been let out. (#46)
 ## [1.5.0] - 2026-10-28
 
 ### Added
