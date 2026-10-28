@@ -18,6 +18,8 @@ Three rules follow from that, and every other rule bends to them:
 
 The world is almost white, the object is almost white, and color is something the object earns or is given. Use color the way a wound uses red: rarely, and because something happened.
 
+Color at rest lives in light, not in paint: the film on its skin, the room bent through it, the light it gathers on the floor. The room itself stays white. Saturated color over the whole screen belongs only to a moment (see *The moment* below), and fades.
+
 ### The room
 
 | Token | Hex | Where |
@@ -25,6 +27,8 @@ The world is almost white, the object is almost white, and color is something th
 | `room` | `#f8f7f5` | page background, loader veil, `theme-color`, shader `bg` `vec3(0.972, 0.970, 0.962)` |
 | `room-vignette` | room darkened by `0.015 × distance from center` | `shader.frag` `background()` |
 | `room-sky-low` | `#b2b5bd` | lower half of the reflected environment, `env()` |
+| `room-lights` | key `#ffffff` × 1.4, fill `#bfb3a8` × 1 | the two softboxes it reflects, hard-edged, `env()` |
+| `room-gels` | cold `#4d6b9e` low behind it, warm `#8c5c4d` low to its right | the only color the room has, and only in reflections, `env()` |
 | `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars |
 
 ### The object (its own palettes)
@@ -32,7 +36,10 @@ The world is almost white, the object is almost white, and color is something th
 | Palette | Hex | What it means | Source |
 | --- | --- | --- | --- |
 | pearl | `#f5f5fa` body, `#b2bdd6` deep, `#f7f7fc` lit | at rest; milky, light passing through | `sim.rs` `PEARL`, `shadeLiquid()` |
-| pearl film | thin-film iridescence at grazing angles, 38% max | it is never quite one color | `shadeLiquid()` `irid` |
+| pearl film | soap-film interference (film 0.2 – 0.7 µm, n 1.33): 5% across its face, up to 55% at the edges; thinner and brighter while it looks at you | it is never quite one color | `filmColor()`, `filmThickness()` |
+| bent light | the room through it, red, green and blue bent at 0.735 / 0.75 / 0.77; 16% looking straight through | it is not quite solid | `dispersed()` |
+| focus | its own color, a hot point in its shadow with a ring split red / green / blue outside it | light passes through it and gathers | `caustic()` |
+| heat | `#ff294d` from inside, brightest where it is thickest; beats at 1.2 Hz while wounded | upset, something shows through | `shadeLiquid()` `hurt` |
 | flush | `#c74c6b` (words), `#bf7380` multiplier (body) | upset: agitation, or the wounds before a burst | `aura.rs` `FLUSH`, `uAgit` |
 | warmth | a slow cosine cycle: `#ff8e8e` `#d966da` `#8c8bff` `#66d7d7` `#8cff8b` `#d9da66` | held still, it changes color through these | `sim.rs` `palette()` |
 | night lens | the sky seen through it, a rim of its own color | six drops free and the room goes dark | `shadeLiquid()` `uNight` |
@@ -48,6 +55,19 @@ The world is almost white, the object is almost white, and color is something th
 | blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game.rs` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
+
+### The moment
+
+Every shock (whatever shakes the room: a cut, a slam, the burst, the lid, the slab, a heartbeat of the river, a jolt of the phone) throws a ring of color out from where it is on screen, kicks the light, and washes the room in the color of what happened. Strength is the shake over 0.09, so a burst and a slam are whole and a jolt is faint. `drama()` in `shader.frag`, fed by `camera.rs` `shock()`.
+
+| What happened | Wash | Hex |
+| --- | --- | --- |
+| a blow, a fall, anything else | cold | `#80a8ff` |
+| a cut | the seam's pink | `#ff4d9e` |
+| the lid | the box's light | `#ffd173` |
+| the river's beat | blood | `#bf0a17` |
+| the burst | every color at once, around it | spectrum by angle |
+| upset or wounded (no shock needed) | the edges bruise toward `#473859`, then `#8c1429` | at most 60%, less at night |
 
 ### The twelve
 
@@ -170,6 +190,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
+| shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
 
 ### The page
 
@@ -319,6 +340,7 @@ A checklist. Most of it is enforced by review, some of it by tests.
 These are in `CONTRIBUTING.md` in full. They are here because they limit what a design may ask for.
 
 - **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
+- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`web.rs` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game.rs` and `sim.rs` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
 - **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.

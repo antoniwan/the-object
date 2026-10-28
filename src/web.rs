@@ -485,7 +485,7 @@ impl App {
         self.hud.think(now / 1000.0, thought);
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
-        self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height());
+        self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height(), self.quality as f32);
     }
 }
 

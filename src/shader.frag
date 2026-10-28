@@ -84,6 +84,8 @@ uniform vec4 uFil2;      // x its thickness, y sphere→thread 0..1, z ringing n
 uniform vec3 uFilSwing;  // which way it swings when plucked
 uniform vec4 uCosmos;    // x liquid→universe 0..1, y how far the galaxy has turned, z a star igniting, w which way it turns
 uniform vec4 uBox;       // x round→box 0..1, y the lid open 0..1, z rattle of a knock, w which way it faces
+uniform vec2 uShock;     // x how hard the last shock was 0..1, y seconds since it (camera.rs)
+uniform float uFine;     // 1 while frames keep up; 0 leaves out the light bent through it and focused under it
 const float HALF_SIDE = 0.806;
 
 // Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
@@ -566,8 +568,11 @@ vec3 nightSky(vec3 rd) {
 // Soft white studio: bright from above, gray toward the floor, two softboxes.
 vec3 env(vec3 r) {
   vec3 c = mix(vec3(0.70, 0.71, 0.74), vec3(1.0), smoothstep(-0.35, 0.55, r.y));
-  c += vec3(1.4) * smoothstep(0.86, 0.97, dot(r, normalize(vec3(-0.5, 0.75, 0.45))));
-  c += vec3(0.7) * smoothstep(0.90, 0.99, dot(r, normalize(vec3(0.8, 0.25, -0.55))));
+  c += vec3(1.4) * smoothstep(0.90, 0.94, dot(r, normalize(vec3(-0.5, 0.75, 0.45))));
+  c += vec3(0.75, 0.70, 0.66) * smoothstep(0.93, 0.965, dot(r, normalize(vec3(0.8, 0.25, -0.55))));
+  // a low strip of cold light behind it, and a warm one opposite: the only color the room has
+  c += vec3(0.30, 0.42, 0.62) * smoothstep(0.12, 0.0, abs(r.y - 0.08)) * smoothstep(0.2, 0.8, -r.z);
+  c += vec3(0.55, 0.36, 0.30) * smoothstep(0.1, 0.0, abs(r.y - 0.02)) * smoothstep(0.4, 0.9, r.x);
   c *= 1.0 - 0.3 * exp(-abs(r.y + 0.05) * 9.0);
   return c;
 }
@@ -621,6 +626,8 @@ vec3 floorMatte(vec3 p, vec3 bg) {
 
 vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db);
 vec3 galaxy(vec3 p, vec3 rd);
+vec3 caustic(vec3 p);
+vec3 drama(vec3 col, vec2 uv);
 
 // Dark and wet, lit by the room; brighter on each heartbeat.
 vec3 shadeBlood(vec3 rd, vec3 n, float depth) {
@@ -707,6 +714,7 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake) {
   if (rd.y < 0.0) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
     bg = floorMatte(p, bg);
+    bg += caustic(p) * bg;
     if (uRiver.w > 0.0) bg = riverFloor(p, rd, bg);
     // past the marcher's reach the liquid floor still shows, flat
     if (uLake.z > 0.0) bg = mix(bg, lakeFade(lake, p, bg), lakeMask(p.xz));
@@ -1008,6 +1016,88 @@ vec3 galaxy(vec3 p, vec3 rd) {
   return col;
 }
 
+// ---- Color and drama ------------------------------------------------------
+// Light, film and the big moments. Nothing here marches, loops or calls scene():
+// it only colors what main() already found, so it adds no compile weight to the field.
+
+const vec3 KEY = vec3(-0.4851, 0.7762, 0.4366); // normalize(-0.5, 0.8, 0.45), the softbox overhead
+
+// A soap film `d` thick (micrometres) seen at cosine `c`: the light that comes back,
+// red, green and blue each cancelled at their own thickness.
+vec3 filmColor(float d, float c) {
+  float ct = sqrt(1.0 - (1.0 - c * c) / 1.77);
+  return 0.5 - 0.5 * cos(4.0 * PI * 1.33 * d * ct / vec3(0.65, 0.53, 0.44));
+}
+
+// How thick the film is at surface direction n: thicker below, swirling slowly, thinned by gaze.
+float filmThickness(vec3 n) {
+  return 0.42 + 0.18 * n.y + 0.09 * sin(dot(n, vec3(3.1, 1.7, -2.3)) + uTime * 0.21)
+         + 0.05 * sin(dot(n, vec3(-5.3, 4.1, 2.9)) - uTime * 0.13) - 0.12 * uGaze.w;
+}
+
+// The room seen through the body, each color bent its own amount.
+vec3 dispersed(vec3 rd, vec3 n) {
+  return vec3(env(refract(rd, n, 0.735)).r, env(refract(rd, n, 0.75)).g, env(refract(rd, n, 0.77)).b);
+}
+
+// Light focused through the body onto the floor at p: a hot point inside its shadow
+// with a ring of split color around it, wavering with the surface.
+vec3 caustic(vec3 p) {
+  if (uFine < 0.5 || uBurst.x > 0.5 || uNC > 0 || uBox.x > 0.5) return vec3(0.0);
+  float h = max(uBody.y - FLOOR_Y, 0.0);
+  vec2 o = (p.xz - uBody.xz) / (uBody.w * (0.8 + 0.25 * h));
+  o += 0.06 * vec2(sin(o.y * 5.0 + uTime * 1.3), sin(o.x * 4.0 - uTime * 1.1));
+  float r = length(o);
+  vec3 ring = exp(-pow((r - vec3(0.66, 0.60, 0.54)) * 6.5, vec3(2.0)));
+  float core = exp(-r * r * 7.0);
+  vec3 light = normalize(uBodyCol + 0.05) * 1.73;
+  float clear = (1.0 - uCoat.y) * (1.0 - uCosmos.x) * (1.0 - uNight) * exp(-h * 0.35);
+  return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit);
+}
+
+// Where the body is on screen, in the same units as uv.
+vec2 bodyOnScreen() {
+  vec3 rel = uBody.xyz - uCamPos;
+  return vec2(dot(rel, uCamRight), dot(rel, uCamUp)) * uFocal / max(dot(rel, uCamFwd), 0.1);
+}
+
+// The color of the moment: what just happened decides it.
+vec3 washColor(vec2 uv, vec2 c) {
+  vec3 w = vec3(0.50, 0.66, 1.0);                                           // cold: a blow, a fall
+  w = mix(w, vec3(1.0, 0.30, 0.62), clamp(uDiv.x * 3.0, 0.0, 1.0));          // the seam's pink
+  w = mix(w, vec3(1.0, 0.82, 0.45), step(0.001, uBox.y));                     // the box's light
+  w = mix(w, vec3(0.75, 0.04, 0.09), step(0.001, uRiver2.x));                 // the river's red
+  float a = atan(uv.y - c.y, uv.x - c.x) / (2.0 * PI);
+  vec3 spectrum = 0.55 + 0.45 * cos(2.0 * PI * (a + uTime * 0.05 + vec3(0.0, 0.33, 0.67)));
+  return mix(w, spectrum, step(0.5, uBurst.x));                               // the twelve: every color at once
+}
+
+// Screen-wide: a ring of color thrown out from it on every shock, a kick of light,
+// the edges closing in while it is upset, and a beat in them while it is wounded.
+vec3 drama(vec3 col, vec2 uv) {
+  vec2 c = bodyOnScreen();
+  float s = clamp(uShock.x, 0.0, 1.0);
+  float age = uShock.y;
+  vec2 d = uv - c;
+  float dist = length(d);
+  if (s > 0.0) {
+    vec3 w = washColor(uv, c);
+    // the ring: each color a little behind the last
+    vec3 rad = age * 2.4 * vec3(1.0, 0.965, 0.93) + 0.1;
+    vec3 ring = exp(-pow((dist - rad) * 9.0, vec3(2.0))) * exp(-age * 1.8) * s;
+    col = mix(col, w * (0.55 + 0.45 * ring), clamp(ring * 0.55, 0.0, 1.0));
+    // a flash of light, then the color of the moment over everything, fading
+    col *= 1.0 + 0.45 * s * exp(-age * 16.0);
+    col = mix(col, col * mix(vec3(1.0), w * 1.25, 0.6), 0.35 * s * exp(-age * 2.2));
+  }
+  // the room closes in around it
+  float upset = max(uAgit, uBurst.z * (0.75 + 0.25 * sin(uTime * 7.5)));
+  float edge = smoothstep(0.5, 1.9, dist);
+  vec3 bruise = mix(vec3(0.28, 0.22, 0.35), vec3(0.55, 0.08, 0.16), clamp(upset * 1.5, 0.0, 1.0));
+  col = mix(col, col * bruise, edge * clamp(0.45 * upset + 0.4 * s, 0.0, 0.6) * (1.0 - 0.7 * uNight));
+  return col;
+}
+
 vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db) {
   vec3 tint = formTint(p, sceneColor(p, db));
   vec3 v = -rd;
@@ -1019,13 +1109,20 @@ vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db) {
   vec3 deep = vec3(0.70, 0.74, 0.84);
   vec3 lit = vec3(0.97, 0.97, 0.99);
   vec3 col = mix(deep * tint, lit * tint, wrap) * mix(0.8, 1.0, ao);
-  // Upset, it darkens and flushes.
+  // Upset, it darkens and flushes, and something hot shows through from inside:
+  // brightest where it is thickest, beating while it is wounded.
   col = mix(col, col * vec3(0.75, 0.45, 0.5), uAgit * 0.6);
+  float hurt = max(uAgit, uBurst.z * (0.8 + 0.2 * sin(uTime * 7.5)));
+  col += vec3(1.0, 0.16, 0.30) * pow(ndv, 2.5) * hurt * 0.42;
 
-  // Thin-film sheen at grazing angles, slowly drifting.
-  float film = (1.0 - ndv);
-  vec3 irid = 0.5 + 0.5 * cos(6.2831 * (film * 1.4 + n.y * 0.15 + uTime * 0.02 + vec3(0.0, 0.33, 0.67)));
-  col = mix(col, irid * 0.95 + 0.1, 0.38 * film * film);
+  // The room seen through it, each color bent its own amount: faint, and only
+  // where it looks straight through.
+  if (uFine > 0.5) col = mix(col, dispersed(rd, n) * tint, 0.16 * ndv * ndv * (1.0 - uAgit));
+
+  // A thin film over all of it: faint across its face, whole colors at the edges.
+  float film = 1.0 - ndv;
+  vec3 irid = filmColor(filmThickness(n), ndv);
+  col = mix(col, irid * 1.05 + 0.08, (0.05 + 0.5 * film * film + 0.15 * uGaze.w) * (1.0 - 0.6 * uAgit));
 
   // Glossy reflection.
   float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);
@@ -1043,9 +1140,11 @@ vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db) {
 
   if (uNight > 0.001) {
     // At night it becomes a lens: the sky seen through it, a rim of its own color.
+    // The stars come back off its skin as well as through it, and its rim is the film's color.
     vec3 inside = nightSky(refract(rd, n, 0.75)) * 1.6 + tint * 0.05;
     float rim = pow(1.0 - ndv, 3.0);
-    vec3 night = inside + tint * rim * 0.9 + nightSky(reflect(rd, n)) * fres + vec3(0.8, 0.85, 1.0) * spec * 0.4;
+    vec3 night = inside + mix(tint, irid * 1.4, 0.5) * rim * 0.9 + nightSky(reflect(rd, n)) * (0.3 + 1.4 * fres)
+               + vec3(0.8, 0.85, 1.0) * spec * 0.4;
     col = mix(col, night, uNight);
   }
   return col;
@@ -1127,7 +1226,10 @@ void main() {
       col += vec3(1.0, 0.93, 0.75) * uBox.y * above * exp(-off * off * 3.0) * 0.5;
     }
   }
+  col = drama(col, uv);
+  // the pop goes white, and comes back through every color
   col = mix(col, vec3(1.0), uBurst.y);
+  col = mix(col, washColor(uv, bodyOnScreen()), uBurst.y * (1.0 - uBurst.y) * 1.4);
   col = pow(col, vec3(0.97));
   outColor = vec4(col, 1.0);
 }

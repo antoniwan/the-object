@@ -12,6 +12,17 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-28
+
+### Added
+- Every shock throws a ring of color out from it, a kick of light and a wash in the color of what happened: pink for a cut, cold for a fall, gold for the lid, red for the river's beat, every color for the burst.
+- Upset, the edges of the room bruise; wounded, they beat, and something hot shows through it from inside.
+- Light passes through it: the room bent through its body in split color, and gathered on the floor in its shadow with a ring of color around it.
+
+### Changed
+- Its skin carries a moving film of whole colors, faint across its face and strong at the edges, brighter while it looks at you; at night its rim takes the film's colors and the stars come back off it.
+- The room's lights are sharper in its reflections, with a cold strip and a warm one low on either side.
+
 ## [1.5.0] - 2026-10-28
 
 ### Added
@@ -182,7 +193,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/antoniwan/the-object/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/antoniwan/the-object/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/antoniwan/the-object/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/antoniwan/the-object/compare/v1.3.1...v1.4.0
