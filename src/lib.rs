@@ -1,5 +1,5 @@
-//! The object. Everything outside render.rs, web.rs and audio.rs is plain Rust with no
-//! browser types, so it builds and tests natively; those three only exist in the wasm build.
+//! The object. Everything outside render.rs, web.rs, audio.rs and devices.rs is plain Rust with no
+//! browser types, so it builds and tests natively; those four only exist in the wasm build.
 
 pub mod aura;
 pub mod burst;
@@ -15,6 +15,7 @@ pub mod mere;
 pub mod morula;
 pub mod progress;
 pub mod river;
+pub mod senses;
 pub mod sim;
 pub mod version;
 
@@ -24,3 +25,5 @@ mod render;
 mod web;
 #[cfg(target_arch = "wasm32")]
 mod audio;
+#[cfg(target_arch = "wasm32")]
+mod devices;

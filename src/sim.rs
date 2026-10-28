@@ -174,6 +174,8 @@ pub struct World {
     pub gaze: f32,
     /// 0..1: how far it turns toward the pointer even while someone is there (see contact.rs).
     pub regard: f32,
+    /// 0..1: the room darkened from outside the touch, as when it cannot see (senses.rs).
+    pub dim: f32,
 }
 
 impl Default for World {
@@ -214,6 +216,7 @@ impl World {
             gaze_dir: v3(0.0, 0.0, 1.0),
             gaze: 0.0,
             regard: 0.0,
+            dim: 0.0,
         }
     }
 
@@ -570,7 +573,7 @@ impl World {
             self.opened = false;
             self.events.push(Event::Closed);
         }
-        let goal = if self.opened { 1.0 } else { 0.0 };
+        let goal = if self.opened { 1.0 } else { self.dim };
         self.night += (goal - self.night) * (1.0 - (-0.7 * dt).exp());
     }
 

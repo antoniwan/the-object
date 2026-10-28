@@ -45,6 +45,17 @@ features = [
   "OscillatorNode",
   "OscillatorType",
   "AudioContextState",
+  "AnalyserNode",
+  "MediaStreamAudioSourceNode",
+  "Navigator",
+  "MediaDevices",
+  "MediaStream",
+  "MediaStreamConstraints",
+  "MediaStreamTrack",
+  "HtmlMediaElement",
+  "HtmlVideoElement",
+  "CanvasRenderingContext2d",
+  "ImageData",
   "console",
 ]
 

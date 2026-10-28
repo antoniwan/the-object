@@ -98,6 +98,11 @@
   #toast b { display: block; font: normal 500 13px/1.4 var(--words); color: #4a4a52; letter-spacing: .5em; margin: 0 0 6px .5em; }
   /* Its reply at contact: signs, not letters (src/contact.rs). */
   #toast .alien { font-family: "Glyphs", var(--mono); font-style: normal; letter-spacing: .4em; color: rgb(var(--tint)); text-shadow: 0 0 .6em rgb(var(--tint) / .4); }
+  /* Its word when it asks to hear or see you (src/senses.rs): the only words that can be tapped. */
+  #toast.show .offer { pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
+  /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. */
+  #senses { left: 16px; bottom: 14px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s; pointer-events: none; }
+  #senses.on { opacity: .7; pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
   #count { right: 16px; bottom: 14px; font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
   #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font: 400 10px/1.4 var(--mono); z-index: 3; }
 
@@ -140,6 +145,7 @@
   @media (prefers-reduced-motion: reduce) {
     #seed i { animation: none !important; }
     #whisper > span:first-child { opacity: 1; }
+    #toast .offer, #senses.on { animation: none; }
   }
 </style>
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -155,6 +161,7 @@
 <div id="hint" class="hud" data-glyph>lay a hand on it</div>
 <div id="toast" class="hud" data-glyph></div>
 <div id="count" class="hud" data-glyph></div>
+<div id="senses" class="hud" data-glyph role="button" tabindex="-1"></div>
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>
 <script type="module">
