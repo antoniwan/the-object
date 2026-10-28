@@ -2,6 +2,7 @@
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
+use crate::contact::Contact;
 use crate::game::Game;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
@@ -17,6 +18,10 @@ use web_sys::{
 const TOAST_SECONDS: f64 = 4.2;
 const KEY_FOUND: &str = "the-object.found";
 const KEY_VISITS: &str = "the-object.visits";
+/// What it has learned about whoever keeps visiting (see contact.rs).
+const KEY_CONTACT: &str = "the-object.contact";
+/// Its reply stays up longer than anything else it says.
+const REPLY_SECONDS: f64 = 10.0;
 /// A big screen at full density is millions of raymarched pixels; past this it renders smaller and scales up.
 const MAX_PIXELS: f64 = 1.6e6;
 /// Frames the loader gets to paint before anything that might block.
@@ -61,7 +66,8 @@ impl Hud {
         }
     }
 
-    fn update(&mut self, now: f64, found: usize) {
+    /// `contact` knows what it says at contact, which is different for everyone.
+    fn update(&mut self, now: f64, found: usize, contact: &Contact) {
         if now < self.toast_until {
             return;
         }
@@ -70,9 +76,13 @@ impl Hud {
             return;
         }
         let d = self.queue.remove(0);
-        self.toast.set_inner_html(&format!("<b>{}</b><span>{}</span>", d.name(), d.line()));
+        let (line, class, linger) = match d {
+            Discovery::Contact => (contact.reply(), " class=\"alien\"", REPLY_SECONDS),
+            _ => (d.line().to_string(), "", TOAST_SECONDS),
+        };
+        self.toast.set_inner_html(&format!("<b>{}</b><span{}>{}</span>", d.name(), class, line));
         let _ = self.toast.class_list().add_1("show");
-        self.toast_until = now + TOAST_SECONDS;
+        self.toast_until = now + linger;
         self.show_count(found);
         let _ = self.hint.class_list().add_1("gone");
     }
@@ -199,6 +209,12 @@ impl App {
                 let _ = s.set_item(KEY_FOUND, &self.game.progress.save());
             }
         }
+        if self.game.contact.dirty {
+            self.game.contact.dirty = false;
+            if let Some(s) = storage() {
+                let _ = s.set_item(KEY_CONTACT, &self.game.contact.save());
+            }
+        }
         self.hud.queue.append(&mut self.game.announcements);
         let sounds = std::mem::take(&mut self.game.sounds);
         if let Some(a) = &self.audio {
@@ -214,7 +230,7 @@ impl App {
                 let _ = body.class_list().toggle_with_force("night", night);
             }
         }
-        self.hud.update(now / 1000.0, self.game.progress.count());
+        self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height());
     }
@@ -254,6 +270,7 @@ pub fn start() -> Result<(), JsValue> {
         let visits = s.get_item(KEY_VISITS).ok().flatten().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0) + 1;
         let _ = s.set_item(KEY_VISITS, &visits.to_string());
         game.progress = Progress::load(&found);
+        game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
         hud.show_count(game.progress.count());
         if visits > 1 && game.progress.count() > 0 {
             game.discover(Discovery::Return);
