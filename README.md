@@ -12,18 +12,22 @@ An art project. A liquid object rendered in the browser, written in Rust and com
 
 What it does is for you to find out. It keeps count.
 
-## Build
-
-Requires Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.100, and Node.
+## What is here
 
 ```
-./build.sh
+src/      the object: its physics, what touching it does, how it is drawn, how it sounds
+web/      the site: the page it lives on, plus the compiled object in web/pkg/
+build.sh  compiles src/ into web/pkg/
 ```
 
-This writes a single self-contained file to `docs/index.html`, which is what is served.
+It is hosted on Vercel, which runs `build.sh` and serves `web/` on every push to `main` (`vercel.json`, `scripts/vercel-install.sh`). Tests run on GitHub (`.github/workflows/test.yml`).
+
+## Build it yourself
+
+Requires Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.100, and Python (or any static file server).
 
 ```
-cargo test
+./build.sh                         # compiles into web/pkg/
+python3 -m http.server -d web      # then open http://localhost:8000
+cargo test                         # runs the simulation tests
 ```
-
-runs the simulation tests natively.

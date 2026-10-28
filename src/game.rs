@@ -9,6 +9,8 @@
 //! - two-finger pinch or mouse wheel: squeeze
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
+//! - press and hold still: warm it (it changes color)
+//! - leave it alone: it starts to watch the pointer
 //! - stretch it and let go with a fast flick: throw it; thrown hard at the floor it fuses (see fusion.rs)
 //! - on the liquid floor: tap to ripple it, drag up to pull the object back out
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
@@ -24,13 +26,30 @@ use crate::sim::{Event, Hit, Target, World};
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
+/// Holding a press this long (seconds) without moving turns it into warming.
+const HOLD: f32 = 0.55;
+/// Nobody touching it for this long (seconds) and it starts watching.
+const IDLE_WATCH: f32 = 12.0;
+
+/// Things worth hearing. The browser layer turns these into tones.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Sound {
+    /// `pitch` is 0..1, higher where it was touched higher up.
+    Poke { pitch: f32, size: f32 },
+    Tear,
+    Merge,
+    Discover,
+    Provoked,
+    Call,
+}
 
 enum Gesture {
     Idle,
-    Pending { start: (f32, f32), hit: Hit },
+    Pending { start: (f32, f32), hit: Hit, since: f32 },
+    Warming { start: (f32, f32), hit: Hit, since: f32 },
     Stretching { handle: u32, plane: V3 },
     Dragging { drop: u32, plane: V3, offset: V3 },
-    Orbiting { last: (f32, f32) },
+    Orbiting { start: (f32, f32), last: (f32, f32) },
     Squeezing { start_dist: f32 },
     /// Touching the liquid floor; `at` is where, on the floor.
     Lake { start: (f32, f32), at: (f32, f32) },
@@ -62,6 +81,8 @@ pub struct Game {
     pvel: (f32, f32),
     /// New discoveries for the HUD to announce.
     pub announcements: Vec<Discovery>,
+    pub sounds: Vec<Sound>,
+    idle: f32,
 }
 
 impl Game {
@@ -82,12 +103,15 @@ impl Game {
             snapped: false,
             pvel: (0.0, 0.0),
             announcements: Vec::new(),
+            sounds: Vec::new(),
+            idle: 0.0,
         }
     }
 
-    fn discover(&mut self, d: Discovery) {
+    pub fn discover(&mut self, d: Discovery) {
         if self.progress.discover(d) {
             self.announcements.push(d);
+            self.sounds.push(Sound::Discover);
         }
     }
 
@@ -112,6 +136,8 @@ impl Game {
         match std::mem::replace(&mut self.gesture, Gesture::Idle) {
             Gesture::Pending { hit, .. } => {
                 self.world.poke(hit, 1.0);
+                let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
+                self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
                 self.discover(Discovery::Poke);
                 if self.world.division.phase == meiosis::Phase::Two {
                     self.discover(Discovery::Twin);
@@ -120,6 +146,7 @@ impl Game {
                     self.world.burst.wound();
                 }
             }
+            Gesture::Warming { .. } => self.world.warming = false,
             Gesture::Stretching { handle, .. } => {
                 self.world.release_handle(handle);
                 self.throw();
@@ -134,7 +161,17 @@ impl Game {
                 }
             }
             Gesture::Squeezing { .. } => self.world.body.squeeze = 0.0,
-            Gesture::Orbiting { .. } | Gesture::Ground { .. } | Gesture::Idle => {}
+            Gesture::Orbiting { start, last } => {
+                // A tap on empty space: it leans toward where you tapped.
+                let moved = ((last.0 - start.0).powi(2) + (last.1 - start.1).powi(2)).sqrt() / self.h;
+                if moved < TAP_SLOP {
+                    let to = self.plane_point(start.0, start.1, self.world.body.pos);
+                    self.world.reach(to - self.world.body.pos);
+                    self.sounds.push(Sound::Call);
+                    self.discover(Discovery::Call);
+                }
+            }
+            Gesture::Ground { .. } | Gesture::Idle => {}
         }
     }
 
@@ -153,6 +190,7 @@ impl Game {
                 if let Gesture::Pending { .. } = self.gesture {
                     self.gesture = Gesture::Idle;
                 }
+                self.world.warming = false;
                 self.end_gesture();
                 self.gesture = Gesture::Squeezing { start_dist: self.pinch_dist() };
                 return;
@@ -162,6 +200,9 @@ impl Game {
         self.cam.yaw_vel = 0.0;
         self.cam.pitch_vel = 0.0;
         self.swipe = Swipe::default();
+        self.idle = 0.0;
+        self.world.watching = false;
+        let since = self.world.time;
         self.pvel = (0.0, 0.0);
         if !self.world.burst.whole() {
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
@@ -174,7 +215,7 @@ impl Game {
                 None if self.world.burst.phase == burst::Phase::Landscape => {
                     Gesture::Ground { start: (x, y), since: self.clock }
                 }
-                None => Gesture::Orbiting { last: (x, y) },
+                None => Gesture::Orbiting { start: (x, y), last: (x, y) },
             };
             return;
         }
@@ -183,23 +224,26 @@ impl Game {
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
             self.gesture = match self.world.fusion.lake_hit(ro, rd) {
                 Some(at) => Gesture::Lake { start: (x, y), at },
-                None => Gesture::Orbiting { last: (x, y) },
+                None => Gesture::Orbiting { start: (x, y), last: (x, y) },
             };
             return;
         }
         self.gesture = match self.pick(x, y) {
-            Some(hit @ Hit { target: Target::Body, .. }) => Gesture::Pending { start: (x, y), hit },
+            Some(hit @ Hit { target: Target::Body, .. }) => Gesture::Pending { start: (x, y), hit, since },
             Some(Hit { target: Target::Drop(drop), pos, .. }) => {
                 let center = self.world.drops.iter().find(|d| d.id == drop).map_or(pos, |d| d.pos);
                 self.world.grab_drop(drop, center);
                 Gesture::Dragging { drop, plane: pos, offset: center - pos }
             }
-            None => Gesture::Orbiting { last: (x, y) },
+            None => Gesture::Orbiting { start: (x, y), last: (x, y) },
         };
     }
 
     pub fn pointer_move(&mut self, id: i32, x: f32, y: f32, dt: f32) {
-        let Some(p) = self.pointers.iter_mut().find(|p| p.0 == id) else { return };
+        let Some(p) = self.pointers.iter_mut().find(|p| p.0 == id) else {
+            self.hover(x, y);
+            return;
+        };
         if dt > 0.0 {
             let v = ((x - p.1) / dt, (y - p.2) / dt);
             self.pvel = (self.pvel.0 * 0.4 + v.0 * 0.6, self.pvel.1 * 0.4 + v.1 * 0.6);
@@ -207,14 +251,15 @@ impl Game {
         p.1 = x;
         p.2 = y;
         match self.gesture {
-            Gesture::Pending { start, hit } => {
+            Gesture::Pending { start, hit, .. } | Gesture::Warming { start, hit, .. } => {
                 let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
                 if moved > TAP_SLOP {
+                    self.world.warming = false;
                     // Cells don't stretch into tendrils; dragging them just looks around.
                     let stretch = if self.world.division.whole() { self.world.begin_stretch(hit.pos) } else { None };
                     self.gesture = match stretch {
                         Some(handle) => Gesture::Stretching { handle, plane: hit.pos },
-                        None => Gesture::Orbiting { last: (x, y) },
+                        None => Gesture::Orbiting { start, last: (x, y) },
                     };
                     self.pointer_move(id, x, y, dt);
                 }
@@ -230,7 +275,7 @@ impl Game {
                 let to = self.plane_point(x, y, plane) + offset;
                 self.world.grab_drop(drop, to);
             }
-            Gesture::Orbiting { last } => {
+            Gesture::Orbiting { start, last } => {
                 self.track_swipe(last, (x, y));
                 let (dx, dy) = ((x - last.0) / self.h * 3.0, (y - last.1) / self.h * 3.0);
                 self.cam.orbit(dx, dy);
@@ -242,12 +287,12 @@ impl Game {
                 if self.orbited > 1.5 {
                     self.discover(Discovery::LookAround);
                 }
-                self.gesture = Gesture::Orbiting { last: (x, y) };
+                self.gesture = Gesture::Orbiting { start, last: (x, y) };
             }
             Gesture::Ground { start, .. } => {
                 let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
                 if moved > TAP_SLOP {
-                    self.gesture = Gesture::Orbiting { last: start };
+                    self.gesture = Gesture::Orbiting { start, last: start };
                     self.pointer_move(id, x, y, dt);
                 }
             }
@@ -333,6 +378,14 @@ impl Game {
         (FOCAL * half / (0.82 * aspect)).clamp(2.8, 7.5)
     }
 
+    /// A pointer moving with nothing pressed: what it would be looking at.
+    fn hover(&mut self, x: f32, y: f32) {
+        let b = self.cam.basis();
+        let to = self.plane_point(x, y, self.world.body.pos);
+        // Reach toward the viewer, leaning toward the cursor.
+        self.world.gaze_dir = ((to - self.world.body.pos) * 0.8 - b.fwd * 1.6).norm();
+    }
+
     pub fn wheel(&mut self, dy: f32) {
         self.wheel_squeeze = (self.wheel_squeeze - dy * 0.0025).clamp(-1.0, 1.0);
         if self.wheel_squeeze.abs() > 0.3 {
@@ -342,6 +395,32 @@ impl Game {
 
     pub fn update(&mut self, dt: f32) {
         self.clock += dt;
+        if let Gesture::Pending { start, hit, since } = self.gesture {
+            if self.world.time - since > HOLD {
+                self.gesture = Gesture::Warming { start, hit, since: self.world.time };
+                self.world.warming = true;
+            }
+        }
+        if let Gesture::Warming { since, .. } = self.gesture {
+            if self.world.time - since > 1.2 {
+                self.discover(Discovery::Warm);
+            }
+        }
+
+        if self.pointers.is_empty() {
+            self.idle += dt;
+        }
+        if self.idle > IDLE_WATCH {
+            if !self.world.watching {
+                // Until the pointer moves, it reaches toward the camera.
+                self.world.gaze_dir = -self.cam.basis().fwd;
+            }
+            self.world.watching = true;
+        }
+        if self.world.gaze > 0.7 {
+            self.discover(Discovery::Patience);
+        }
+
         let orbiting = matches!(self.gesture, Gesture::Orbiting { .. });
         self.cam.step(dt, orbiting);
         // Hit-stop: the world nearly freezes for a beat right after the cut.
@@ -429,6 +508,7 @@ impl Game {
         for e in self.world.drain_events() {
             match e {
                 Event::Tore { handle, drop } => {
+                    self.sounds.push(Sound::Tear);
                     self.discover(Discovery::Tear);
                     // Keep holding what tore off.
                     if let Gesture::Stretching { handle: h, plane } = self.gesture {
@@ -438,6 +518,7 @@ impl Game {
                     }
                 }
                 Event::MergedIntoBody { drop } => {
+                    self.sounds.push(Sound::Merge);
                     self.discover(Discovery::Merge);
                     if let Gesture::Dragging { drop: d, .. } = self.gesture {
                         if d == drop {
@@ -446,6 +527,7 @@ impl Game {
                     }
                 }
                 Event::MergedDrops { absorbed, into } => {
+                    self.sounds.push(Sound::Merge);
                     self.discover(Discovery::Merge);
                     if let Gesture::Dragging { drop, plane, offset } = self.gesture {
                         if drop == absorbed {
@@ -453,6 +535,13 @@ impl Game {
                         }
                     }
                 }
+                Event::Mixed => self.discover(Discovery::Mix),
+                Event::Provoked => {
+                    self.sounds.push(Sound::Provoked);
+                    self.discover(Discovery::Provoke);
+                }
+                Event::Opened => self.discover(Discovery::Open),
+                Event::Closed => self.discover(Discovery::Close),
             }
         }
     }
@@ -531,6 +620,76 @@ mod tests {
         }
         g.pointer_up(1);
         assert!(g.world.division.whole());
+    }
+
+    #[test]
+    fn holding_still_warms_instead_of_poking() {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 300.0);
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.warming);
+        assert!(g.world.body.color != crate::sim::PEARL);
+        g.pointer_up(1);
+        assert!(!g.world.warming);
+        assert!(g.world.ripples.is_empty());
+        assert!(g.progress.has(Discovery::Warm));
+    }
+
+    #[test]
+    fn left_alone_it_watches() {
+        let mut g = game();
+        for _ in 0..(60 * 25) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Patience));
+    }
+
+    #[test]
+    fn poking_fast_provokes_it() {
+        let mut g = game();
+        for _ in 0..7 {
+            g.pointer_down(1, 400.0, 300.0);
+            g.pointer_up(1);
+            g.update(0.1);
+        }
+        assert!(g.progress.has(Discovery::Provoke));
+        assert!(g.world.agitation > 0.5);
+    }
+
+    #[test]
+    fn tearing_many_pieces_opens_it_and_they_all_come_home() {
+        let mut g = game();
+        for i in 0..8 {
+            let a = i as f32 * std::f32::consts::TAU / 8.0;
+            let (dx, dy) = (a.cos(), a.sin());
+            g.pointer_down(1, 400.0 + dx * 60.0, 300.0 + dy * 60.0);
+            for k in 1..=60 {
+                let s = 60.0 + k as f32 * 8.0;
+                g.pointer_move(1, 400.0 + dx * s, 300.0 + dy * s, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(1);
+            for _ in 0..20 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        assert!(g.progress.has(Discovery::Open), "{} drops", g.world.drops.len());
+        for _ in 0..(60 * 120) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.drops.is_empty(), "{:?} drops left", g.world.drops.iter().map(|d| (d.pos.len(), d.vel.len(), d.target.is_some())).collect::<Vec<_>>());
+        assert!(g.progress.has(Discovery::Close));
+    }
+
+    #[test]
+    fn tap_on_empty_space_makes_it_lean_toward_the_tap() {
+        let mut g = game();
+        g.pointer_down(1, 40.0, 300.0);
+        g.pointer_up(1);
+        assert!(g.progress.has(Discovery::Call));
+        assert!(g.world.gaze > 0.5 && g.world.gaze_dir.x < -0.5);
     }
 
     #[test]

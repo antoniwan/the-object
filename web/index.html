@@ -16,6 +16,9 @@
   #toast b { display: block; font-weight: 500; color: #4a4a52; font-size: 15px; letter-spacing: .25em; margin-bottom: 4px; }
   #count { right: 16px; bottom: 14px; font-size: 11px; }
   #error { left: 16px; right: 16px; top: 40%; text-align: center; color: #555; }
+  body.night .hud { color: #6d7088; }
+  body.night #toast b { color: #c9cbe0; }
+  .hud { transition: color 3s; }
   @keyframes breathe { 0%, 100% { opacity: .35 } 50% { opacity: .85 } }
 </style>
 </head>
@@ -26,9 +29,9 @@
 <div id="count" class="hud"></div>
 <div id="error" class="hud"></div>
 <script type="module">
-/*GLUE*/
+import init from './pkg/chaos_object.js';
 try {
-  await __wbg_init({ module_or_path: /*WASM*/ });
+  await init();
 } catch (e) {
   document.getElementById('error').textContent = String(e && e.message || e);
   console.error(e);
