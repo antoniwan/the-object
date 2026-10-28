@@ -301,6 +301,13 @@ impl Renderer {
         let pa = &fo.pandora;
         self.v4v("uBox", &[pa.boxness(), pa.lid(), pa.rattle, pa.yaw]);
 
+        // The other one: see other.rs.
+        let ot = &world.other;
+        self.v4v("uOther", &[ot.pos.x, ot.pos.y, ot.pos.z, ot.size(body.pos)]);
+        self.v4v("uOther2", &[ot.yaw, ot.tilt, ot.edge, ot.ring]);
+        self.v4v("uOther3", &[ot.kept.x, ot.kept.y, ot.kept.z, ot.fire]);
+        self.f("uOtherIn", ot.inside());
+
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
 }
