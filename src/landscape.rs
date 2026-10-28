@@ -245,9 +245,9 @@ impl Land {
             }
             let dir = if l > 1e-4 { d * (1.0 / l) } else { v3(1.0, 0.0, 0.0) };
             if self.roots[j].rooted || self.roots[j].sink > 0.0 {
-                at = at - dir * (min - l);
+                at -= dir * (min - l);
             } else {
-                homes[j] = homes[j] + dir * (min - l);
+                homes[j] += dir * (min - l);
             }
         }
         at

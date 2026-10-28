@@ -41,7 +41,8 @@ impl V3 {
     pub fn lerp(self, o: V3, t: f32) -> V3 {
         self + (o - self) * t
     }
-    pub fn div(self, o: V3) -> V3 {
+    /// Component by component.
+    pub fn cdiv(self, o: V3) -> V3 {
         v3(self.x / o.x, self.y / o.y, self.z / o.z)
     }
 }
@@ -84,6 +85,12 @@ impl MulAssign<f32> for V3 {
     fn mul_assign(&mut self, s: f32) {
         *self = *self * s;
     }
+}
+
+/// Hermite ease from 0 at `a` to 1 at `b`, as in GLSL.
+pub fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
+    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
 }
 
 /// Polynomial smooth minimum: the "liquid" join between two shapes.

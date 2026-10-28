@@ -172,6 +172,8 @@ pub struct World {
     pub watching: bool,
     pub gaze_dir: V3,
     pub gaze: f32,
+    /// 0..1: how far it turns toward the pointer even while someone is there (see contact.rs).
+    pub regard: f32,
 }
 
 impl Default for World {
@@ -211,6 +213,7 @@ impl World {
             watching: false,
             gaze_dir: v3(0.0, 0.0, 1.0),
             gaze: 0.0,
+            regard: 0.0,
         }
     }
 
@@ -555,7 +558,7 @@ impl World {
         }
 
         // Watching: it slowly grows toward whoever is looking.
-        let goal = if self.watching { 1.0 } else { 0.0 };
+        let goal = if self.watching { 1.0 } else { self.regard };
         let rate = if self.watching { 0.25 } else { 3.0 };
         self.gaze += (goal - self.gaze) * (1.0 - (-rate * dt).exp());
 

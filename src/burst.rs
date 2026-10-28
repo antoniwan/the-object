@@ -95,11 +95,6 @@ pub struct Burst {
     events: Vec<Event>,
 }
 
-fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
-    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
-
 fn scatter() -> [Shard; SHARDS] {
     let mut shards = [Shard::default(); SHARDS];
     for (i, s) in shards.iter_mut().enumerate() {
@@ -306,7 +301,7 @@ impl Burst {
                 continue;
             }
             let t = -b - disc.sqrt();
-            if t > 0.0 && best.map_or(true, |(bt, _)| t < bt) {
+            if t > 0.0 && best.is_none_or(|(bt, _)| t < bt) {
                 best = Some((t, i));
             }
         }

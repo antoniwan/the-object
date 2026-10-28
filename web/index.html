@@ -3,7 +3,79 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Chaos Object</title>
+<title>the object</title>
+<meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
+<meta name="author" content="Antonio Rodríguez Martínez">
+<meta name="theme-color" content="#f8f7f5">
+<link rel="canonical" href="https://the-object-five.vercel.app/">
+<link rel="author" href="https://antoniwan.online">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="apple-mobile-web-app-title" content="the object">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="the object">
+<meta property="og:title" content="the object">
+<meta property="og:description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
+<meta property="og:url" content="https://the-object-five.vercel.app/">
+<meta property="og:image" content="https://the-object-five.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A pale liquid object with four small spheres held at its corners. Above it, the word you, and a line of unknown signs.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="the object">
+<meta name="twitter:description" content="There is an object. You can touch it. It has not said what it is.">
+<meta name="twitter:image" content="https://the-object-five.vercel.app/og.png">
+<meta name="twitter:image:alt" content="A pale liquid object with four small spheres held at its corners. Above it, the word you, and a line of unknown signs.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://the-object-five.vercel.app/#website",
+      "url": "https://the-object-five.vercel.app/",
+      "name": "the object",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://antoniwan.online/#person" }
+    },
+    {
+      "@type": ["VideoGame", "WebApplication"],
+      "@id": "https://the-object-five.vercel.app/#the-object",
+      "name": "the object",
+      "url": "https://the-object-five.vercel.app/",
+      "description": "An art piece in the browser: a liquid object you can touch. It has not said what it is. Over time it learns how you touch it, and one day it may reach back.",
+      "image": "https://the-object-five.vercel.app/og.png",
+      "genre": ["Art game", "Experimental"],
+      "keywords": "art game, first contact, interactive art, WebGL, WebAssembly, Rust, browser game",
+      "gamePlatform": "Web browser",
+      "applicationCategory": "Game",
+      "operatingSystem": "Any, with a browser that supports WebGL2",
+      "playMode": "SinglePlayer",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "datePublished": "2026-10-28",
+      "author": { "@id": "https://antoniwan.online/#person" },
+      "creator": { "@id": "https://antoniwan.online/#person" },
+      "isPartOf": { "@id": "https://the-object-five.vercel.app/#website" },
+      "subjectOf": { "@type": "SoftwareSourceCode", "codeRepository": "https://github.com/antoniwan/the-object", "programmingLanguage": "Rust" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://antoniwan.online/#person",
+      "name": "Antonio Rodríguez Martínez",
+      "alternateName": "antoniwan",
+      "url": "https://antoniwan.online",
+      "sameAs": ["https://github.com/antoniwan"]
+    }
+  ]
+}
+</script>
+<!-- Fetch the object while the page is still being read, not after the script asks for it. -->
+<link rel="modulepreload" href="pkg/chaos_object.js">
+<link rel="preload" href="pkg/chaos_object_bg.wasm" as="fetch" type="application/wasm" crossorigin>
 <link rel="preload" href="fonts/cormorant-garamond-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/noto-sans-math-glyphs.woff2" as="font" type="font/woff2" crossorigin>
 <style>
@@ -21,6 +93,8 @@
   #toast { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; transform: translateY(-6px); transition: opacity .6s, transform .6s; }
   #toast.show { opacity: 1; transform: none; }
   #toast b { display: block; font: normal 500 13px/1.4 var(--words); color: #4a4a52; letter-spacing: .5em; margin: 0 0 6px .5em; }
+  /* Its reply at contact: signs, not letters (src/contact.rs). */
+  #toast .alien { font-family: "Glyphs", var(--mono); font-style: normal; letter-spacing: .4em; color: rgb(var(--tint)); text-shadow: 0 0 .6em rgb(var(--tint) / .4); }
   #count { right: 16px; bottom: 14px; font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
   #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font: 400 10px/1.4 var(--mono); z-index: 3; }
 
@@ -70,6 +144,7 @@
 </head>
 <body>
 <canvas id="stage"></canvas>
+<noscript><p class="hud" style="left:16px;right:16px;top:40vh;text-align:center">there is an object here. it needs javascript and webgl2 to be seen.</p></noscript>
 <div id="veil" aria-label="loading">
   <div id="seed"><i class="ring"></i><i class="ring"></i><i class="pearl"></i><i class="film"></i></div>
   <div id="whisper"><span>something is choosing a surface</span><span>it has not yet agreed to a shape</span><span>it is shy of being seen</span><span class="lost" hidden>it stayed on the other side</span></div>
