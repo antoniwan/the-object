@@ -7,9 +7,12 @@
 //! - drag a drop: carry it; let go fast to fling it
 //! - drag empty space: look around
 //! - two-finger pinch or mouse wheel: squeeze
+//! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
+//! - on two cells, hold a squeeze: they rejoin
 
-use crate::camera::Camera;
+use crate::camera::{Camera, FOCAL};
 use crate::math::*;
+use crate::meiosis::{self, Swipe};
 use crate::progress::{Discovery, Progress};
 use crate::sim::{Event, Hit, Target, World};
 
@@ -36,6 +39,12 @@ pub struct Game {
     pointers: Vec<(i32, f32, f32)>,
     wheel_squeeze: f32,
     orbited: f32,
+    swipe: Swipe,
+    /// Real time, for timing swipes even while the world is frozen.
+    clock: f32,
+    /// Real seconds left of the freeze right after a cut.
+    hit_stop: f32,
+    snapped: bool,
     /// New discoveries for the HUD to announce.
     pub announcements: Vec<Discovery>,
 }
@@ -52,6 +61,10 @@ impl Game {
             pointers: Vec::new(),
             wheel_squeeze: 0.0,
             orbited: 0.0,
+            swipe: Swipe::default(),
+            clock: 0.0,
+            hit_stop: 0.0,
+            snapped: false,
             announcements: Vec::new(),
         }
     }
@@ -84,6 +97,9 @@ impl Game {
             Gesture::Pending { hit, .. } => {
                 self.world.poke(hit, 1.0);
                 self.discover(Discovery::Poke);
+                if self.world.division.phase == meiosis::Phase::Two {
+                    self.discover(Discovery::Twin);
+                }
             }
             Gesture::Stretching { handle, .. } => self.world.release_handle(handle),
             Gesture::Dragging { drop, .. } => {
@@ -119,6 +135,7 @@ impl Game {
         }
         self.cam.yaw_vel = 0.0;
         self.cam.pitch_vel = 0.0;
+        self.swipe = Swipe::default();
         self.gesture = match self.pick(x, y) {
             Some(hit @ Hit { target: Target::Body, .. }) => Gesture::Pending { start: (x, y), hit },
             Some(Hit { target: Target::Drop(drop), pos, .. }) => {
@@ -138,7 +155,9 @@ impl Game {
             Gesture::Pending { start, hit } => {
                 let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
                 if moved > TAP_SLOP {
-                    self.gesture = match self.world.begin_stretch(hit.pos) {
+                    // Cells don't stretch into tendrils; dragging them just looks around.
+                    let stretch = if self.world.division.whole() { self.world.begin_stretch(hit.pos) } else { None };
+                    self.gesture = match stretch {
                         Some(handle) => Gesture::Stretching { handle, plane: hit.pos },
                         None => Gesture::Orbiting { last: (x, y) },
                     };
@@ -157,6 +176,7 @@ impl Game {
                 self.world.grab_drop(drop, to);
             }
             Gesture::Orbiting { last } => {
+                self.track_swipe(last, (x, y));
                 let (dx, dy) = ((x - last.0) / self.h * 3.0, (y - last.1) / self.h * 3.0);
                 self.cam.orbit(dx, dy);
                 if dt > 0.0 {
@@ -191,6 +211,46 @@ impl Game {
         self.end_gesture();
     }
 
+    /// Sample the drag segment finely, so a fast flick can't jump over the body.
+    fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
+        if !self.world.division.whole() {
+            return;
+        }
+        let len = ((to.0 - from.0).powi(2) + (to.1 - from.1).powi(2)).sqrt();
+        let steps = (len / (self.h * 0.02)).ceil().clamp(1.0, 40.0) as usize;
+        for i in 1..=steps {
+            let f = i as f32 / steps as f32;
+            let (x, y) = (from.0 + (to.0 - from.0) * f, from.1 + (to.1 - from.1) * f);
+            let over = matches!(self.pick(x, y), Some(Hit { target: Target::Body, .. }));
+            if let Some((dx, dy)) = self.swipe.sample(self.clock, x, y, over, self.h * 0.05) {
+                self.slice(dx, dy);
+                return;
+            }
+        }
+    }
+
+    /// Cut across a screen-space swipe; the halves part perpendicular to it.
+    fn slice(&mut self, dx: f32, dy: f32) {
+        let b = self.cam.basis();
+        let along = b.right * dx - b.up * dy;
+        if self.world.division.slice(along.cross(b.fwd)) {
+            self.hit_stop = meiosis::HIT_STOP_SECS;
+            self.snapped = false;
+            self.cam.shake = 0.05;
+            self.cam.yaw_vel = 0.0;
+            self.cam.pitch_vel = 0.0;
+            self.world.body.squash_vel -= 2.5;
+            self.discover(Discovery::Divide);
+        }
+    }
+
+    /// Distance at which both cells, side by side, just fit across the screen.
+    fn cells_dist(&self) -> f32 {
+        let aspect = self.w / self.h.max(1.0);
+        let half = (meiosis::SEP + meiosis::CELL_SCALE) * self.world.body.radius();
+        (FOCAL * half / (0.82 * aspect)).clamp(2.8, 7.5)
+    }
+
     pub fn wheel(&mut self, dy: f32) {
         self.wheel_squeeze = (self.wheel_squeeze - dy * 0.0025).clamp(-1.0, 1.0);
         if self.wheel_squeeze.abs() > 0.3 {
@@ -199,8 +259,16 @@ impl Game {
     }
 
     pub fn update(&mut self, dt: f32) {
+        self.clock += dt;
         let orbiting = matches!(self.gesture, Gesture::Orbiting { .. });
         self.cam.step(dt, orbiting);
+        // Hit-stop: the world nearly freezes for a beat right after the cut.
+        let dt = if self.hit_stop > 0.0 {
+            self.hit_stop -= dt;
+            dt * 0.12
+        } else {
+            dt
+        };
 
         if !matches!(self.gesture, Gesture::Squeezing { .. }) {
             self.wheel_squeeze *= (-2.5 * dt).exp();
@@ -210,6 +278,22 @@ impl Game {
         let sub = 3;
         for _ in 0..sub {
             self.world.step(dt / sub as f32);
+        }
+
+        let blend = self.world.division.blend();
+        self.cam.dist = Camera::new().dist + (self.cells_dist() - Camera::new().dist) * blend.zoom;
+        // The neck snaps: each new cell recoils where they were joined.
+        if !self.snapped && blend.split > 0.82 && matches!(self.world.division.phase, meiosis::Phase::Dividing { .. }) {
+            self.snapped = true;
+            self.world.add_ripple(self.world.division.axis, 0.9);
+            self.cam.shake = self.cam.shake.max(0.035);
+        }
+        for e in self.world.division.drain_events() {
+            if e == meiosis::Event::Rejoined {
+                self.discover(Discovery::Rejoin);
+                self.world.add_ripple(V3::UP, 0.7);
+                self.world.add_ripple(-V3::UP, 0.7);
+            }
         }
 
         for e in self.world.drain_events() {
@@ -282,6 +366,41 @@ mod tests {
         assert!(g.progress.has(Discovery::Tear));
         assert!(matches!(g.gesture, Gesture::Dragging { .. }));
         assert!(g.world.drops[0].target.is_some());
+    }
+
+    #[test]
+    fn a_fast_swipe_through_the_body_slices_it_into_two_cells() {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 20.0);
+        for i in 1..=6 {
+            g.pointer_move(1, 400.0, 20.0 + i as f32 * 95.0, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(1);
+        assert!(g.progress.has(Discovery::Divide));
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.division.phase, meiosis::Phase::Two);
+        // the cut was vertical on screen, so the cells sit side by side
+        assert!(g.world.division.axis.dot(g.cam.basis().right).abs() > 0.9);
+        assert!(g.cam.dist < Camera::new().dist);
+        // tapping a cell pokes it, and its twin feels it
+        g.pointer_down(2, 577.0, 300.0);
+        g.pointer_up(2);
+        assert!(g.progress.has(Discovery::Twin));
+    }
+
+    #[test]
+    fn a_slow_drag_across_the_body_only_orbits() {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 20.0);
+        for i in 1..=60 {
+            g.pointer_move(1, 400.0, 20.0 + i as f32 * 9.5, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(1);
+        assert!(g.world.division.whole());
     }
 
     #[test]

@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod game;
 pub mod math;
+pub mod meiosis;
 pub mod progress;
 pub mod sim;
 

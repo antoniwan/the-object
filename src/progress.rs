@@ -10,6 +10,9 @@ pub enum Discovery {
     Squeeze,
     Fling,
     LookAround,
+    Divide,
+    Twin,
+    Rejoin,
 }
 
 impl Discovery {
@@ -22,6 +25,9 @@ impl Discovery {
             Discovery::Squeeze => "squeeze",
             Discovery::Fling => "fling",
             Discovery::LookAround => "look around",
+            Discovery::Divide => "divide",
+            Discovery::Twin => "twin",
+            Discovery::Rejoin => "rejoin",
         }
     }
 
@@ -34,6 +40,9 @@ impl Discovery {
             Discovery::Squeeze => "it holds its volume.",
             Discovery::Fling => "it always comes back.",
             Discovery::LookAround => "there is nothing else. yet.",
+            Discovery::Divide => "it was always two.",
+            Discovery::Twin => "what one feels, the other feels.",
+            Discovery::Rejoin => "it chose to be one.",
         }
     }
 }

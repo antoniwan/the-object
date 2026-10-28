@@ -5,6 +5,7 @@
 //! makes everything read as one liquid. The shader in `render.rs` mirrors `sdf()`.
 
 use crate::math::*;
+use crate::meiosis::Division;
 
 pub const MAX_HANDLES: usize = 4;
 pub const MAX_RIPPLES: usize = 8;
@@ -120,6 +121,8 @@ pub struct World {
     pub handles: Vec<Handle>,
     pub ripples: Vec<Ripple>,
     pub drops: Vec<Drop>,
+    /// Slicing: whether the body is one liquid or two cells.
+    pub division: Division,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -145,6 +148,7 @@ impl World {
             handles: Vec::new(),
             ripples: Vec::new(),
             drops: Vec::new(),
+            division: Division::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -169,7 +173,7 @@ impl World {
         self.handles.iter_mut().find(|h| h.id == id)
     }
 
-    fn add_ripple(&mut self, dir: V3, amp: f32) {
+    pub fn add_ripple(&mut self, dir: V3, amp: f32) {
         if self.ripples.len() >= MAX_RIPPLES {
             self.ripples.remove(0);
         }
@@ -181,7 +185,8 @@ impl World {
     pub fn poke(&mut self, hit: Hit, strength: f32) {
         match hit.target {
             Target::Body => {
-                let dir = (hit.pos - self.body.pos).norm();
+                // On two cells, ripples spread from the touched cell's own center.
+                let dir = self.division.ripple_dir(hit.pos, self.body.pos, self.body.radius());
                 self.add_ripple(dir, strength);
                 self.body.vel -= dir * (0.9 * strength);
                 // Poking from above flattens it, from the side makes it bob up.
@@ -246,6 +251,7 @@ impl World {
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.3, 2.4);
 
+        self.division.step(dt, b.squeeze);
         self.step_handles(dt);
 
         for r in &mut self.ripples {
@@ -333,8 +339,8 @@ impl World {
         let mut i = 0;
         while i < self.drops.len() {
             let d = &self.drops[i];
-            let dist = (d.pos - self.body.pos).len();
-            if d.age > MERGE_COOLDOWN && dist < r + d.r * 0.2 {
+            let (gap, _) = self.division.nearest_cell(d.pos, self.body.pos, r);
+            if d.age > MERGE_COOLDOWN && gap < d.r * 0.2 {
                 let d = self.drops.remove(i);
                 let v = d.r * d.r * d.r;
                 self.body.vel += d.vel * (v / (self.body.volume + v));
@@ -391,8 +397,7 @@ impl World {
         let b = &self.body;
         let r = b.radius();
         let s = b.scale();
-        let q = (p - b.pos).div(s);
-        let mut d = (q.len() - r) * s.x.min(s.y);
+        let mut d = self.division.body_sdf(p, b.pos, r, s);
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }

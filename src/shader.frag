@@ -25,6 +25,13 @@ uniform int uNR;
 uniform vec4 uDrop[12];
 uniform int uND;
 
+// Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
+uniform vec4 uCut;     // xyz normal of the cut, w split: 0 one body, 1 two cells
+uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
+const float SEP = 0.95;
+const float CELL_SCALE = 0.7937;
+const float K_JOIN = 0.9;
+
 float smin(float a, float b, float k) {
   float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
   return mix(b, a, h) - k * h * (1.0 - h);
@@ -36,12 +43,8 @@ float sdTaper(vec3 p, vec3 a, vec3 b, float ra, float rb) {
   return length(pa - ba * h) - mix(ra, rb, h);
 }
 
-float bodySurface(vec3 p) {
-  vec3 q = p - uBody.xyz;
-  float r = uBody.w;
-  float d = (length(q / uScale) - r) * min(uScale.x, uScale.y);
-
-  vec3 n = normalize(q + 1e-5);
+// Ripples and wobble for a surface direction n, in body radii.
+float surfaceDisp(vec3 n) {
   float disp = 0.012 * sin(n.x * 3.0 + uTime * 1.3) * sin(n.y * 4.0 - uTime * 1.1) * sin(n.z * 3.0 + uTime * 0.9);
   for (int i = 0; i < 8; i++) {
     if (i >= uNR) break;
@@ -55,7 +58,34 @@ float bodySurface(vec3 p) {
     float x = a - front;
     disp += 0.055 * A * exp(-1.3 * t) * cos(x * 12.0) * exp(-x * x * 5.0) * smoothstep(0.0, 0.25, t);
   }
-  return d - disp * r;
+  // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
+  float c = dot(n, uCut.xyz);
+  disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
+  return disp;
+}
+
+// Radius of each cell, and its center's offset from the body center (cell A at -offset).
+float cellRadius() { return uBody.w * mix(1.0 - K_JOIN * 0.25, CELL_SCALE, uCut.w); }
+vec3 cellOffset() { return uCut.xyz * (SEP * uBody.w * uCut.w); }
+
+// The twin's ripples are the first cell's, mirrored across the cut.
+float cellSurface(vec3 v, float rc, bool twin) {
+  vec3 n = normalize(v + 1e-5);
+  if (twin) n = reflect(n, uCut.xyz);
+  return length(v) - rc - surfaceDisp(n) * uBody.w;
+}
+
+float bodySurface(vec3 p) {
+  vec3 q = (p - uBody.xyz) / uScale;
+  float lip = min(uScale.x, uScale.y);
+  float r = uBody.w;
+  float rc = cellRadius();
+  vec3 off = cellOffset();
+  float da = cellSurface(q + off, rc, false);
+  // Still one body: both halves coincide, so evaluate one and add the join's bulge.
+  if (uCut.w < 1e-4) return (da - K_JOIN * r * 0.25) * lip;
+  float db = cellSurface(q - off, rc, true);
+  return smin(da, db, max(K_JOIN * r * (1.0 - uCut.w), 1e-4)) * lip;
 }
 
 float scene(vec3 p) {
@@ -102,7 +132,10 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv) {
   if (rd.y < 0.0) {
     float t = (FLOOR_Y - ro.y) / rd.y;
     vec3 p = ro + rd * t;
-    float occ = sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1));
+    vec3 off = cellOffset();
+    float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
+    float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1))
+                              : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
     for (int i = 0; i < 12; i++) {
       if (i >= uND) break;
       occ += sphOcc(p, uDrop[i]);
@@ -117,7 +150,70 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv) {
   return bg;
 }
 
+float hash(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.3, 71.7))) * 43758.5453); }
+
+// Ray thickness through a sphere, starting at ro going along rd.
+float sphereThickness(vec3 ro, vec3 rd, vec3 c, float r) {
+  vec3 oc = ro - c;
+  float b = dot(oc, rd);
+  float disc = b * b - (dot(oc, oc) - r * r);
+  if (disc <= 0.0) return 0.0;
+  float s = sqrt(disc);
+  return max(-b + s, 0.0) - max(-b - s, 0.0);
+}
+
+// A stained living cell: pale cytoplasm, a magenta membrane, and a violet
+// nucleus with its chromatin, seen through the cell.
+vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
+  vec3 off = cellOffset();
+  float twin = dot(p - uBody.xyz, uCut.xyz) > 0.0 ? 1.0 : 0.0;
+  vec3 cc = uBody.xyz + off * (twin * 2.0 - 1.0);
+  float rr = cellRadius();
+  float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+  float rim = pow(1.0 - ndv, 2.2);
+  vec3 col = mix(vec3(0.985, 0.925, 0.945), vec3(0.70, 0.27, 0.50), rim * 0.9);
+
+  // the nucleus drifts slowly inside each cell
+  vec3 nc = cc + 0.12 * rr * vec3(sin(uTime * 0.4 + twin * 3.0), cos(uTime * 0.33 + twin), sin(uTime * 0.27 + twin * 5.0));
+  float nr = rr * 0.38;
+  float th = sphereThickness(p, rd, nc, nr);
+  vec3 mid = p + rd * dot(nc - p, rd);
+  float grain = 0.6 + 0.4 * sin(dot(mid - nc, vec3(23.0, 17.0, 29.0)) / uBody.w + uTime * 0.6)
+                          * sin(dot(mid - nc, vec3(-19.0, 31.0, 13.0)) / uBody.w);
+  col *= mix(vec3(1.0), vec3(0.42, 0.24, 0.60), (1.0 - exp(-th / uBody.w * 3.2)) * (0.75 + 0.25 * grain));
+  float tn = sphereThickness(p, rd, nc + vec3(0.06, 0.05, 0.0) * rr, nr * 0.32);
+  col *= mix(vec3(1.0), vec3(0.32, 0.14, 0.42), 1.0 - exp(-tn / uBody.w * 6.0));
+
+  // cytoplasm granules
+  float g = 0.0;
+  for (int i = 0; i < 6; i++) {
+    float fi = float(i);
+    vec3 gd = normalize(vec3(hash(vec3(fi, twin, 1.0)), hash(vec3(twin, fi, 2.0)), hash(vec3(2.0, fi, twin))) - 0.5);
+    vec3 gp = cc + rr * 0.62 * gd + 0.06 * rr * vec3(sin(uTime * 0.7 + fi), cos(uTime * 0.5 + fi * 2.0), 0.0);
+    g += sphereThickness(p, rd, gp, rr * 0.07);
+  }
+  col *= mix(vec3(1.0), vec3(0.78, 0.50, 0.66), 1.0 - exp(-g / uBody.w * 10.0));
+
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  col *= 0.9 + 0.1 * max(dot(n, L), 0.0);
+  vec3 r = reflect(rd, n);
+  col += vec3(pow(max(dot(r, L), 0.0), 90.0) * 0.8);
+  col += vec3(pow(max(dot(r, normalize(vec3(0.8, 0.25, -0.55))), 0.0), 40.0) * 0.12);
+  return col;
+}
+
+vec3 shadeLiquid(vec3 p, vec3 rd);
+
 vec3 shade(vec3 p, vec3 rd) {
+  vec3 col = uDiv.z < 0.999 ? shadeLiquid(p, rd) : vec3(0.0);
+  if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, calcNormal(p)), uDiv.z);
+  // the cut: a hot seam where the slice plane crosses the surface
+  float seam = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;
+  col += uDiv.x * vec3(1.0, 0.35, 0.65) * (exp(-seam * 60.0) * 1.4 + exp(-seam * 10.0) * 0.12);
+  return col;
+}
+
+vec3 shadeLiquid(vec3 p, vec3 rd) {
   vec3 n = calcNormal(p);
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);

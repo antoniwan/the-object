@@ -120,6 +120,14 @@ impl Renderer {
         self.v4v("uDrop", &drops);
         self.i("uND", drops.len() / 4);
 
+        // Slicing: see meiosis.rs. The shader rebuilds the cells from these.
+        let div = &world.division;
+        let bl = div.blend();
+        let loc = gl.get_uniform_location(&self.program, "uCut");
+        gl.uniform4f(loc.as_ref(), div.axis.x, div.axis.y, div.axis.z, bl.split);
+        let loc = gl.get_uniform_location(&self.program, "uDiv");
+        gl.uniform3f(loc.as_ref(), bl.flash, bl.furrow, bl.cell);
+
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
 }
