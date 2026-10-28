@@ -15,10 +15,15 @@
 //! - on the liquid floor: tap to ripple it, drag up to pull the object back out
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
+//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
+//! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
+//! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
+//! - draw a square around it: it becomes a box; knock three times (see forms/pandora.rs)
 
 use crate::camera::{Camera, FOCAL};
 use crate::math::*;
 use crate::burst;
+use crate::forms::{self, bloom, filament, pandora};
 use crate::fusion;
 use crate::meiosis::{self, Swipe};
 use crate::progress::{Discovery, Progress};
@@ -41,13 +46,25 @@ pub enum Sound {
     Discover,
     Provoked,
     Call,
+    Pinch,
+    Bloom,
+    /// The thread rings; `harmonic` is which overtone of its one string.
+    Pluck { harmonic: u32 },
+    Stir,
+    /// A knock on the box, and the knock that answers it.
+    Knock,
+    Lid,
+    /// It became something it wasn't.
+    Become,
 }
 
 enum Gesture {
     Idle,
     Pending { start: (f32, f32), hit: Hit, since: f32 },
     Warming { start: (f32, f32), hit: Hit, since: f32 },
-    Stretching { handle: u32, plane: V3 },
+    /// `since` when it started (real time), `reach` the furthest pull so far in body radii,
+    /// `taut` seconds held nearly tearing, `angle` where it was last around the body, for stirring.
+    Stretching { handle: u32, plane: V3, since: f32, reach: f32, taut: f32, angle: Option<f32> },
     Dragging { drop: u32, plane: V3, offset: V3 },
     Orbiting { start: (f32, f32), last: (f32, f32) },
     Squeezing { start_dist: f32 },
@@ -83,6 +100,8 @@ pub struct Game {
     pub announcements: Vec<Discovery>,
     pub sounds: Vec<Sound>,
     idle: f32,
+    /// The path of a drag on empty space, for noticing a square drawn around it.
+    trace: Vec<(f32, f32)>,
 }
 
 impl Game {
@@ -105,6 +124,7 @@ impl Game {
             announcements: Vec::new(),
             sounds: Vec::new(),
             idle: 0.0,
+            trace: Vec::new(),
         }
     }
 
@@ -135,6 +155,9 @@ impl Game {
     fn end_gesture(&mut self) {
         match std::mem::replace(&mut self.gesture, Gesture::Idle) {
             Gesture::Pending { hit, .. } => {
+                if hit.target == Target::Body && self.tap_form(hit) {
+                    return;
+                }
                 self.world.poke(hit, 1.0);
                 let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
                 self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
@@ -142,14 +165,23 @@ impl Game {
                 if self.world.division.phase == meiosis::Phase::Two {
                     self.discover(Discovery::Twin);
                 }
-                if self.world.division.whole() && self.world.fusion.whole() {
+                if self.world.ordinary() {
                     self.world.burst.wound();
                 }
+                self.world.forms.cosmos.ignite();
             }
             Gesture::Warming { .. } => self.world.warming = false,
-            Gesture::Stretching { handle, .. } => {
+            Gesture::Stretching { handle, since, reach, .. } => {
+                let dir = self.world.handles.iter().find(|h| h.id == handle).map(|h| h.dir);
                 self.world.release_handle(handle);
-                self.throw();
+                let thrown = self.throw();
+                // A short tug let go of at once is a pinch.
+                let quick = self.clock - since < bloom::PINCH_MAX_SECS && (bloom::PINCH_MIN..bloom::PINCH_MAX).contains(&reach);
+                if let (Some(dir), true, false, true) = (dir, quick, thrown, self.world.ordinary()) {
+                    if self.world.forms.bloom.pinch(dir) {
+                        self.world.add_ripple(dir, 0.35);
+                    }
+                }
             }
             Gesture::Lake { at, .. } => {
                 self.world.fusion.touch_lake(at.0, at.1, 1.0);
@@ -163,8 +195,16 @@ impl Game {
             Gesture::Squeezing { .. } => self.world.body.squeeze = 0.0,
             Gesture::Orbiting { start, last } => {
                 // A tap on empty space: it leans toward where you tapped.
-                let moved = ((last.0 - start.0).powi(2) + (last.1 - start.1).powi(2)).sqrt() / self.h;
-                if moved < TAP_SLOP {
+                // (A closed shape also ends where it started, so count the whole path.)
+                let trace = std::mem::take(&mut self.trace);
+                let path: f32 = trace.windows(2).map(|w| ((w[1].0 - w[0].0).powi(2) + (w[1].1 - w[0].1).powi(2)).sqrt()).sum();
+                let moved = (((last.0 - start.0).powi(2) + (last.1 - start.1).powi(2)).sqrt()).max(path) / self.h;
+                if moved >= TAP_SLOP && self.world.ordinary() && pandora::is_square(&trace, self.screen(self.world.body.pos), self.h) {
+                    // The camera went round with the drawing; leave it where it came back to.
+                    self.cam.yaw_vel = 0.0;
+                    self.cam.pitch_vel = 0.0;
+                    self.world.forms.pandora.corner(self.cam.yaw - 0.35);
+                } else if moved < TAP_SLOP {
                     let to = self.plane_point(start.0, start.1, self.world.body.pos);
                     self.world.reach(to - self.world.body.pos);
                     self.sounds.push(Sound::Call);
@@ -173,6 +213,22 @@ impl Game {
             }
             Gesture::Ground { .. } | Gesture::Idle => {}
         }
+    }
+
+    /// A tap on a body that has become something else. Returns true if that form answered it.
+    fn tap_form(&mut self, hit: Hit) -> bool {
+        let pos = self.world.body.pos;
+        let f = &mut self.world.forms;
+        f.filament.pluck(hit.pos, pos).is_some() || f.bloom.fold() || f.pandora.knock() || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
+    }
+
+    /// Where a point in the world lands on the canvas, in pixels.
+    fn screen(&self, p: V3) -> (f32, f32) {
+        let b = self.cam.basis();
+        let d = p - b.pos;
+        let z = d.dot(b.fwd).max(0.1);
+        let (ux, uy) = (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z);
+        ((ux * self.h + self.w) * 0.5, (self.h - uy * self.h) * 0.5)
     }
 
     fn pinch_dist(&self) -> f32 {
@@ -200,6 +256,7 @@ impl Game {
         self.cam.yaw_vel = 0.0;
         self.cam.pitch_vel = 0.0;
         self.swipe = Swipe::default();
+        self.trace = vec![(x, y)];
         self.idle = 0.0;
         self.world.watching = false;
         let since = self.world.time;
@@ -255,21 +312,37 @@ impl Game {
                 let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
                 if moved > TAP_SLOP {
                     self.world.warming = false;
-                    // Cells don't stretch into tendrils; dragging them just looks around.
-                    let stretch = if self.world.division.whole() { self.world.begin_stretch(hit.pos) } else { None };
+                    // Cells (and flowers, threads, boxes) don't stretch into tendrils; dragging them just looks around.
+                    let f = &self.world.forms;
+                    let stretchy = self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
+                    let stretch = if stretchy { self.world.begin_stretch(hit.pos) } else { None };
                     self.gesture = match stretch {
-                        Some(handle) => Gesture::Stretching { handle, plane: hit.pos },
+                        Some(handle) => Gesture::Stretching { handle, plane: hit.pos, since: self.clock, reach: 0.0, taut: 0.0, angle: None },
                         None => Gesture::Orbiting { start, last: (x, y) },
                     };
                     self.pointer_move(id, x, y, dt);
                 }
             }
-            Gesture::Stretching { handle, plane } => {
+            Gesture::Stretching { handle, plane, since, reach, taut, angle } => {
                 let to = self.plane_point(x, y, plane);
                 self.world.pull_handle(handle, to);
-                if (to - plane).len() > 0.35 * self.world.body.radius() {
+                let r = self.world.body.radius();
+                if (to - plane).len() > 0.35 * r {
                     self.discover(Discovery::Stretch);
                 }
+                // Round and round the body: stirring.
+                let b = self.cam.basis();
+                let v = to - self.world.body.pos;
+                let v = v - b.fwd * v.dot(b.fwd);
+                let now = (v.dot(b.up)).atan2(v.dot(b.right));
+                let stirrable = self.world.ordinary() || !self.world.forms.cosmos.whole();
+                if let (Some(last), true, true) = (angle, v.len() > 0.5 * r, stirrable) {
+                    let pi = std::f32::consts::PI;
+                    let turn = (now - last + pi).rem_euclid(2.0 * pi) - pi;
+                    self.world.forms.cosmos.stir(turn / (2.0 * pi));
+                }
+                let reach = reach.max((to - plane).len() / r);
+                self.gesture = Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now) };
             }
             Gesture::Dragging { drop, plane, offset } => {
                 let to = self.plane_point(x, y, plane) + offset;
@@ -277,6 +350,9 @@ impl Game {
             }
             Gesture::Orbiting { start, last } => {
                 self.track_swipe(last, (x, y));
+                if self.trace.len() < 2000 {
+                    self.trace.push((x, y));
+                }
                 let (dx, dy) = ((x - last.0) / self.h * 3.0, (y - last.1) / self.h * 3.0);
                 self.cam.orbit(dx, dy);
                 if dt > 0.0 {
@@ -327,7 +403,7 @@ impl Game {
 
     /// Sample the drag segment finely, so a fast flick can't jump over the body.
     fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
-        if !self.world.division.whole() || !self.world.fusion.whole() || !self.world.burst.whole() {
+        if !self.world.ordinary() {
             return;
         }
         let len = ((to.0 - from.0).powi(2) + (to.1 - from.1).powi(2)).sqrt();
@@ -359,16 +435,106 @@ impl Game {
     }
 
     /// Let go of a stretch with a fast flick and the whole object flies that way.
-    fn throw(&mut self) {
+    fn throw(&mut self) -> bool {
         let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
         let speed = (vx * vx + vy * vy).sqrt();
-        if speed < THROW_SPEED || !self.world.division.whole() || !self.world.fusion.whole() || !self.world.burst.whole() {
-            return;
+        if speed < THROW_SPEED || !self.world.ordinary() {
+            return false;
         }
         let b = self.cam.basis();
         let dir = (b.right * vx - b.up * vy).norm();
         self.world.body.vel += dir * (speed * 4.5).min(16.0);
         self.discover(Discovery::Throw);
+        true
+    }
+
+    /// What the four other forms ask of the game each frame: their news, the camera, and the box's contents.
+    fn update_forms(&mut self, dt: f32, orbiting: bool) {
+        use forms::Event as F;
+        for e in self.world.forms.drain_events() {
+            match e {
+                F::Budded => {
+                    self.sounds.push(Sound::Pinch);
+                    self.discover(Discovery::Pinch);
+                }
+                F::Bloomed => {
+                    self.sounds.push(Sound::Bloom);
+                    self.discover(Discovery::Bloom);
+                }
+                F::Folded => {
+                    self.world.add_ripple(V3::UP, 0.7);
+                    self.discover(Discovery::Fold);
+                }
+                F::Threaded => self.discover(Discovery::Thread),
+                F::Plucked { harmonic } => {
+                    self.sounds.push(Sound::Pluck { harmonic });
+                    self.discover(Discovery::Pluck);
+                }
+                F::Wound => {
+                    self.world.add_ripple(self.world.forms.filament.axis, 0.8);
+                    self.world.add_ripple(-self.world.forms.filament.axis, 0.8);
+                    self.discover(Discovery::Wind);
+                }
+                F::Stirring => {
+                    self.sounds.push(Sound::Stir);
+                    self.discover(Discovery::Stir);
+                }
+                F::Cosmos => {
+                    self.sounds.push(Sound::Become);
+                    self.discover(Discovery::Cosmos);
+                }
+                F::Settled => {
+                    self.world.add_ripple(V3::UP, 0.6);
+                    self.discover(Discovery::Settle);
+                }
+                F::Cornered => {
+                    self.sounds.push(Sound::Become);
+                    self.discover(Discovery::Corners);
+                }
+                F::Knocked => {
+                    self.sounds.push(Sound::Knock);
+                    self.discover(Discovery::Knock);
+                }
+                F::Lid => {
+                    self.sounds.push(Sound::Lid);
+                    self.cam.shake = 0.04;
+                    self.discover(Discovery::Lid);
+                }
+                F::Rounded => {
+                    self.world.add_ripple(V3::UP, 0.8);
+                    self.world.add_ripple(-V3::UP, 0.8);
+                    self.discover(Discovery::Round);
+                }
+            }
+        }
+        // Everything it was keeping gets out at once.
+        if self.world.forms.pandora.spill() {
+            let r = self.world.body.radius();
+            let top = self.world.body.pos + V3::UP * (pandora::HALF_SIDE * r);
+            for i in 0..7 {
+                let a = i as f32 * 2.399 + self.world.time;
+                let out = v3(a.cos(), 0.0, a.sin());
+                let vel = V3::UP * (3.2 + 0.4 * (i % 3) as f32) + out * 1.6;
+                self.world.spill(top + out * (0.2 * r), vel, 0.24 * r, crate::sim::palette(i as f32 / 7.0));
+            }
+        }
+        // After a while the open box wants them back (at night, left alone, they would only circle),
+        // and once it has all come home, it can be round again.
+        if let pandora::Phase::Open { t } = self.world.forms.pandora.phase {
+            let home = self.world.body.pos;
+            let pull = 0.25 * ((t - 6.0) / 10.0).clamp(0.0, 1.0);
+            for d in self.world.drops.iter_mut().filter(|d| d.target.is_none()) {
+                d.vel += (home - d.pos).norm() * (pull * dt);
+            }
+            if self.world.drops.is_empty() {
+                self.world.forms.pandora.round();
+            }
+        }
+        // The camera rises to look into the flower.
+        let open = self.world.forms.bloom.open();
+        if open > 0.0 && !orbiting {
+            self.cam.pitch += (0.78 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * open;
+        }
     }
 
     /// Distance at which both cells, side by side, just fit across the screen.
@@ -398,11 +564,32 @@ impl Game {
         if let Gesture::Pending { start, hit, since } = self.gesture {
             if self.world.time - since > HOLD {
                 self.gesture = Gesture::Warming { start, hit, since: self.world.time };
-                self.world.warming = true;
+                // Held still, a thread winds back into a sphere instead of warming.
+                self.world.warming = !self.world.forms.filament.wind() && self.world.forms.filament.whole();
+            }
+        }
+        // Held taut, just short of tearing, it stops resisting and becomes a thread.
+        if let Gesture::Stretching { handle, taut, .. } = &mut self.gesture {
+            let handle = *handle;
+            let stretched = self.world.handles.iter().find(|h| h.id == handle).map(|h| (h.stretch(&self.world.body), h.tip, h.vel.len()));
+            // Held, not moving: a stir also keeps it taut, but never still.
+            match stretched {
+                Some((s, _, speed)) if s > filament::TAUT && speed < 0.5 && self.world.ordinary() => *taut += dt,
+                _ => *taut = 0.0,
+            }
+            if *taut > filament::TAUT_SECS {
+                let (_, tip, _) = stretched.unwrap();
+                let fwd = self.cam.basis().fwd;
+                let pull = tip - self.world.body.pos;
+                if self.world.forms.filament.draw(pull - fwd * pull.dot(fwd)) {
+                    self.world.handles.retain(|h| h.id != handle);
+                    self.gesture = Gesture::Idle;
+                    self.sounds.push(Sound::Become);
+                }
             }
         }
         if let Gesture::Warming { since, .. } = self.gesture {
-            if self.world.time - since > 1.2 {
+            if self.world.time - since > 1.2 && self.world.warming {
                 self.discover(Discovery::Warm);
             }
         }
@@ -444,7 +631,9 @@ impl Game {
         let blend = self.world.division.blend();
         let base = Camera::new().dist;
         let spread = self.world.burst.spread();
-        self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread;
+        self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread
+            + 1.8 * self.world.forms.filament.morph();
+        self.update_forms(dt, orbiting);
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);
@@ -511,7 +700,7 @@ impl Game {
                     self.sounds.push(Sound::Tear);
                     self.discover(Discovery::Tear);
                     // Keep holding what tore off.
-                    if let Gesture::Stretching { handle: h, plane } = self.gesture {
+                    if let Gesture::Stretching { handle: h, plane, .. } = self.gesture {
                         if h == handle {
                             self.gesture = Gesture::Dragging { drop, plane, offset: V3::ZERO };
                         }
@@ -755,6 +944,119 @@ mod tests {
             g.update(1.0 / 60.0);
         }
         assert!(g.world.burst.whole());
+    }
+
+    fn wait(g: &mut Game, seconds: f32) {
+        for _ in 0..(seconds * 60.0) as usize {
+            g.update(1.0 / 60.0);
+        }
+    }
+
+    #[test]
+    fn five_pinches_make_a_flower_and_a_tap_folds_it() {
+        let mut g = game();
+        for i in 0..5 {
+            let a = i as f32 * std::f32::consts::TAU / 5.0;
+            let (dx, dy) = (a.cos(), a.sin());
+            let (x0, y0) = (400.0 + dx * 50.0, 300.0 + dy * 50.0);
+            g.pointer_down(1, x0, y0);
+            for k in 1..=3 {
+                g.pointer_move(1, x0 + dx * 14.0 * k as f32, y0 + dy * 14.0 * k as f32, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(1);
+            assert!(g.world.drops.is_empty() && !g.progress.has(Discovery::Throw));
+            wait(&mut g, 0.6);
+        }
+        assert!(g.progress.has(Discovery::Pinch));
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Bloom), "{} buds", g.world.forms.bloom.buds.len());
+        assert!(g.cam.pitch > 0.5, "it looks down into the flower");
+        g.pointer_down(2, 400.0, 300.0);
+        g.pointer_up(2);
+        wait(&mut g, 3.0);
+        assert!(g.progress.has(Discovery::Fold));
+        assert!(g.world.ordinary());
+    }
+
+    #[test]
+    fn held_taut_it_becomes_a_thread_that_plucks_and_winds_back() {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 300.0);
+        for k in 1..=20 {
+            g.pointer_move(1, 400.0 + 7.5 * k as f32, 300.0, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        wait(&mut g, 1.5);
+        assert!(g.world.drops.is_empty(), "it did not tear");
+        assert!(!g.world.forms.filament.whole(), "stretch {:?}", g.world.handles.iter().map(|h| h.stretch(&g.world.body)).collect::<Vec<_>>());
+        g.pointer_up(1);
+        wait(&mut g, 3.0);
+        assert!(g.progress.has(Discovery::Thread));
+        // the thread runs across the screen, far past where the sphere was
+        let ax = g.world.forms.filament.axis;
+        assert!(ax.dot(g.cam.basis().fwd).abs() < 0.05);
+        g.pointer_down(2, 400.0, 300.0);
+        g.pointer_up(2);
+        wait(&mut g, 0.1);
+        assert!(g.progress.has(Discovery::Pluck));
+        g.pointer_down(3, 400.0, 300.0);
+        wait(&mut g, 1.0);
+        g.pointer_up(3);
+        wait(&mut g, 3.0);
+        assert!(g.progress.has(Discovery::Wind));
+        assert!(g.world.ordinary());
+    }
+
+    #[test]
+    fn stirring_round_and_round_makes_a_universe() {
+        let mut g = game();
+        g.pointer_down(1, 400.0 + 60.0, 300.0);
+        for k in 1..=(60 * 3) {
+            let a = k as f32 / 60.0 * std::f32::consts::TAU;
+            g.pointer_move(1, 400.0 + 95.0 * a.cos(), 300.0 - 95.0 * a.sin(), 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(1);
+        assert!(g.progress.has(Discovery::Stir));
+        assert!(g.world.drops.is_empty(), "stirring did not tear it");
+        assert!(g.world.forms.filament.whole(), "stirring is not holding it taut");
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Cosmos));
+        assert_eq!(g.world.forms.cosmos.sense, 1.0, "counterclockwise");
+    }
+
+    #[test]
+    fn a_square_drawn_around_it_makes_a_box_that_opens_on_the_third_knock() {
+        let mut g = game();
+        let corners = [(150.0, 80.0), (650.0, 80.0), (650.0, 520.0), (150.0, 520.0), (150.0, 80.0)];
+        g.pointer_down(1, corners[0].0, corners[0].1);
+        for w in corners.windows(2) {
+            for k in 1..=25 {
+                let f = k as f32 / 25.0;
+                g.pointer_move(1, w[0].0 + (w[1].0 - w[0].0) * f, w[0].1 + (w[1].1 - w[0].1) * f, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+        }
+        g.pointer_up(1);
+        wait(&mut g, 0.1);
+        assert!(g.progress.has(Discovery::Corners));
+        assert!(g.world.division.whole(), "drawing around it does not cut it");
+        wait(&mut g, 2.5);
+        for i in 0..3 {
+            g.pointer_down(10 + i, 400.0, 300.0);
+            g.pointer_up(10 + i);
+            wait(&mut g, 0.3);
+        }
+        assert!(g.progress.has(Discovery::Knock) && g.progress.has(Discovery::Lid));
+        assert!(g.world.burst.wounds < 1.0, "knocking is not wounding");
+        wait(&mut g, 3.0);
+        assert!(g.world.drops.len() >= crate::sim::OPEN_AT, "{} drops", g.world.drops.len());
+        assert!(g.progress.has(Discovery::Open));
+        wait(&mut g, 150.0);
+        assert!(g.progress.has(Discovery::Close), "{:?}", g.world.drops.iter().map(|d| (d.pos, d.vel.len())).collect::<Vec<_>>());
+        assert!(g.progress.has(Discovery::Round));
+        assert!(g.world.ordinary());
     }
 
     #[test]

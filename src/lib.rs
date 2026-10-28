@@ -1,6 +1,7 @@
 pub mod aura;
 pub mod burst;
 pub mod camera;
+pub mod forms;
 pub mod fusion;
 pub mod game;
 pub mod math;
