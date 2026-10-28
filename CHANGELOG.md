@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-28
+
+### Added
+- When nothing has been found for a while and no hand is on it, a line of what it is thinking sometimes surfaces under it: about where it is, what it has not yet been, and later about you. Never twice in a visit, never how. (#39)
+
 ## [1.2.0] - 2026-10-28
 
 ### Added
@@ -151,7 +156,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/antoniwan/the-object/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/antoniwan/the-object/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/antoniwan/the-object/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/antoniwan/the-object/compare/v1.1.0...v1.1.1

@@ -17,6 +17,7 @@ pub mod morula;
 pub mod progress;
 pub mod river;
 pub mod sim;
+pub mod thoughts;
 pub mod version;
 
 #[cfg(target_arch = "wasm32")]

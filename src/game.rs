@@ -39,6 +39,9 @@
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
+//!
+//! Stop finding things and let go, and now and then a line of what it is thinking
+//! surfaces under it (see thoughts.rs).
 
 use crate::camera::{Camera, FOCAL};
 use crate::math::*;
@@ -51,6 +54,7 @@ use crate::mere;
 use crate::morula;
 use crate::progress::{Discovery, Progress};
 use crate::sim::{Event, Hit, Target, World};
+use crate::thoughts::{Mind, Thoughts};
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
@@ -158,6 +162,8 @@ pub struct Game {
     pointer_at: Option<V3>,
     /// After the river: the beat it kept. Seconds per beat, seconds into this one, beats left.
     heart: (f32, f32, u32),
+    /// What it is thinking, for the page to show now and then.
+    pub thoughts: Thoughts,
     /// What the keyboard is doing to it (see keys.rs).
     pub keys: crate::keys::Keys,
 }
@@ -190,6 +196,7 @@ impl Game {
             still: 0.0,
             heart: (0.0, 0.0, 0),
             pointer_at: None,
+            thoughts: Thoughts::default(),
             keys: Default::default(),
         }
     }
@@ -1007,6 +1014,8 @@ impl Game {
         self.update_forms(dt, orbiting);
         self.update_contact(dt);
         self.update_heart(dt);
+        let mind = Mind { found: &self.progress, world: &self.world, contact: &self.contact };
+        self.thoughts.step(dt, self.idle, &mind);
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);

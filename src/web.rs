@@ -1,5 +1,5 @@
-//! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the three lines of text
-//! (hint, toast, count), and what is saved between visits.
+//! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the four lines of text
+//! (hint, toast, count, and now and then a thought), and what is saved between visits.
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
@@ -26,6 +26,8 @@ const KEY_CONTACT: &str = "the-object.contact";
 const ASK_SECONDS: f64 = 7.0;
 /// Its reply stays up longer than anything else it says.
 const REPLY_SECONDS: f64 = 10.0;
+/// A thought surfaces, stays this long, then sinks (thoughts.rs).
+const THOUGHT_SECONDS: f64 = 7.0;
 /// A big screen at full density is millions of raymarched pixels; past this it renders smaller and scales up.
 const MAX_PIXELS: f64 = 1.6e6;
 /// Frames the loader gets to paint before anything that might block.
@@ -72,8 +74,10 @@ struct Hud {
     hint: HtmlElement,
     toast: HtmlElement,
     count: HtmlElement,
+    thought: HtmlElement,
     queue: Vec<Line>,
     toast_until: f64,
+    thought_until: f64,
 }
 
 impl Hud {
@@ -81,7 +85,27 @@ impl Hud {
         let get = |id: &str| -> Result<HtmlElement, JsValue> {
             Ok(doc.get_element_by_id(id).ok_or(format!("#{id} missing"))?.dyn_into()?)
         };
-        Ok(Hud { hint: get("hint")?, toast: get("toast")?, count: get("count")?, queue: Vec::new(), toast_until: 0.0 })
+        Ok(Hud {
+            hint: get("hint")?,
+            toast: get("toast")?,
+            count: get("count")?,
+            thought: get("thought")?,
+            queue: Vec::new(),
+            toast_until: 0.0,
+            thought_until: 0.0,
+        })
+    }
+
+    /// A thought surfaces under it. Anything found, or anything it says, sends the thought away.
+    fn think(&mut self, now: f64, line: Option<&str>) {
+        if let Some(line) = line {
+            self.thought.set_text_content(Some(line));
+            let _ = self.thought.class_list().add_1("show");
+            self.thought_until = now + THOUGHT_SECONDS;
+        } else if now >= self.thought_until || !self.queue.is_empty() {
+            self.thought_until = 0.0;
+            let _ = self.thought.class_list().remove_1("show");
+        }
     }
 
     fn show_count(&self, found: usize) {
@@ -287,6 +311,8 @@ impl App {
                 let _ = body.class_list().toggle_with_force("night", night);
             }
         }
+        let thought = self.game.thoughts.out.drain(..).last();
+        self.hud.think(now / 1000.0, thought);
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height());

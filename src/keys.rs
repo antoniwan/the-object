@@ -112,6 +112,7 @@ fn toward(g: &Game, p: &Place) -> V3 {
 
 /// A key went down. Returns whether it meant anything here, so the page can keep it from the browser.
 pub fn down(g: &mut Game, code: &str) -> bool {
+    g.thoughts.keyed();
     if let Some(c) = letter(code) {
         if g.keys.held.iter().any(|h| h.0 == c) {
             return true;
