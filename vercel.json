@@ -12,5 +12,8 @@
   },
   "headers": [
     { "source": "/fonts/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=86400" }] }
+  ],
+  "redirects": [
+    { "source": "/:path*", "has": [{ "type": "host", "value": "the-object-five.vercel.app" }], "destination": "https://the-object.antoniwan.online/:path*", "permanent": true }
   ]
 }
