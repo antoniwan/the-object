@@ -8,6 +8,7 @@ pub mod contact;
 pub mod forms;
 pub mod fusion;
 pub mod game;
+pub mod keys;
 pub mod landscape;
 pub mod math;
 pub mod meiosis;

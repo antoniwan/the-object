@@ -34,6 +34,9 @@
 //!   anywhere else and they run as a river: tap it and a column stands up, drag along it
 //!   for a row, and fill the view with them (see river.rs)
 //!
+//! - and from the keyboard: type, hold a letter, breathe with space, tip the room with
+//!   the arrows (see keys.rs)
+//!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
 //!
@@ -161,6 +164,8 @@ pub struct Game {
     heart: (f32, f32, u32),
     /// What it is thinking, for the page to show now and then.
     pub thoughts: Thoughts,
+    /// What the keyboard is doing to it (see keys.rs).
+    pub keys: crate::keys::Keys,
 }
 
 impl Game {
@@ -192,6 +197,7 @@ impl Game {
             heart: (0.0, 0.0, 0),
             pointer_at: None,
             thoughts: Thoughts::default(),
+            keys: Default::default(),
         }
     }
 
@@ -985,6 +991,7 @@ impl Game {
             self.wheel_squeeze *= (-2.5 * dt).exp();
             self.world.body.squeeze = self.wheel_squeeze;
         }
+        crate::keys::step(self, dt);
 
         let sub = 3;
         for _ in 0..sub {

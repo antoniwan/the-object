@@ -1,10 +1,11 @@
-//! Browser glue: canvas, input events, the frame loop, the four lines of text
+//! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the four lines of text
 //! (hint, toast, count, and now and then a thought), and what is saved between visits.
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
 use crate::contact::{self, Contact, KEEP_STEPS};
 use crate::game::Game;
+use crate::keys;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
 use std::cell::RefCell;
@@ -301,6 +302,7 @@ impl App {
                 a.play(s);
             }
             a.follow(&self.game.world);
+            a.hum(self.game.keys.hum());
         }
         let night = self.game.world.night > 0.5;
         if night != self.night_shown {
@@ -455,12 +457,39 @@ pub fn start() -> Result<(), JsValue> {
     listen(target, "contextmenu", false, |e: web_sys::Event| e.prevent_default())?;
     {
         let app = app.clone();
-        listen(window.as_ref(), "keydown", true, move |e: KeyboardEvent| {
+        listen(window.as_ref(), "keydown", false, move |e: KeyboardEvent| {
+            // The browser's own shortcuts stay the browser's.
+            if e.ctrl_key() || e.meta_key() || e.alt_key() {
+                return;
+            }
+            let mut a = app.borrow_mut();
+            if a.audio.is_none() {
+                a.audio = Audio::new().ok();
+            } else if let Some(audio) = &a.audio {
+                audio.resume();
+            }
             if e.key() == "m" {
-                if let Some(a) = &mut app.borrow_mut().audio {
-                    a.toggle_mute();
+                if let Some(audio) = &mut a.audio {
+                    audio.toggle_mute();
                 }
             }
+            if !e.repeat() && keys::down(&mut a.game, &e.code()) {
+                e.prevent_default();
+            } else if e.repeat() && (e.code() == "Space" || e.code().starts_with("Arrow")) {
+                e.prevent_default();
+            }
+        })?;
+    }
+    {
+        let app = app.clone();
+        listen(window.as_ref(), "keyup", true, move |e: KeyboardEvent| {
+            keys::up(&mut app.borrow_mut().game, &e.code());
+        })?;
+    }
+    {
+        let app = app.clone();
+        listen(window.as_ref(), "blur", true, move |_: web_sys::Event| {
+            keys::release(&mut app.borrow_mut().game);
         })?;
     }
 

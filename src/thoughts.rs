@@ -186,13 +186,22 @@ pub struct Thoughts {
     found: usize,
     here: Option<Place>,
     here_for: f32,
+    /// Seconds since a key last went down; the keyboard is a hand too.
+    since_key: f32,
     /// Lines for the page to show, oldest first.
     pub out: Vec<&'static str>,
 }
 
 impl Thoughts {
+    /// A key went down.
+    pub fn keyed(&mut self) {
+        self.since_key = 0.0;
+    }
+
     /// `quiet` is how long no hand has been on anything.
     pub fn step(&mut self, dt: f32, quiet: f32, mind: &Mind) {
+        self.since_key += dt;
+        let quiet = quiet.min(self.since_key);
         self.visit += dt;
         self.since_said += dt;
         self.since_found += dt;
@@ -314,6 +323,19 @@ mod tests {
         seen.sort();
         seen.dedup();
         assert_eq!(seen.len(), n);
+    }
+
+    #[test]
+    fn typing_is_not_quiet() {
+        let mut g = Game::new();
+        g.discover(D::Poke);
+        g.discover(D::Patience);
+        for _ in 0..(60 * 60) {
+            crate::keys::down(&mut g, "Space");
+            g.update(1.0 / 60.0);
+            crate::keys::up(&mut g, "Space");
+        }
+        assert!(g.thoughts.out.is_empty());
     }
 
     #[test]

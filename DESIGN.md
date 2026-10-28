@@ -120,7 +120,7 @@ There is one screen, full bleed, no scroll, no chrome.
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
 | `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
 
-The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. The only key is `m`, which mutes, and it is not announced.
+The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, and the rest of the keyboard is a second way to reach it (section 8), found by pressing.
 
 ## 5. Motion and time
 
@@ -137,6 +137,8 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
+| `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
+| `BREATH_SLOW` | 1.2 s | space held this long is a breath; three in a row, none more than 9 s apart, and it follows |
 
 ### Transformation durations
 
@@ -183,7 +185,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread.
-- **No music.** The continuous sounds are a hum while it is warmed and a drone at night. Silence is the default.
+- **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), and a drone at night. Silence is the default.
 
 A new form gets a sound only if it changes what the object is; use `Sound::Become` before inventing one.
 
@@ -254,6 +256,13 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
+| type a letter | (keyboard) | letters | a ripple where the key sits, q high left, n low right; each its own note | `keys.rs` |
+| hold a letter | (keyboard) | hum | the note sung back, the surface trembling in time, that letter's color seeping in | `keys.rs` |
+| hold space, let go | (keyboard) | breath | it swells a tenth and sighs out; breathed with slowly, it breathes four more on its own, at your pace | `keys.rs` |
+| arrow keys | (keyboard) | lean | the room tips; it and the loose drops slide downhill, and come home when level | `keys.rs` |
+| type its word | (keyboard), after contact | said | it reaches toward you | `keys.rs` |
+
+**The keyboard** is not a second mouse. Nothing on the pointer side is mapped to keys; each key reaches it from somewhere of its own (a letter from its place on the keyboard, space as breath, the arrows as the floor). Keys are read by place (`KeyboardEvent.code`), so the places hold on any layout. Like everything else, they act only on the ordinary liquid, and nothing explains them.
 
 **The grammar's rules**
 

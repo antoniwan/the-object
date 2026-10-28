@@ -73,9 +73,14 @@ pub enum Discovery {
     Offer,
     Answer,
     Contact,
+    Letters,
+    Hum,
+    Breath,
+    Lean,
+    Said,
 }
 
-pub const ALL: [Discovery; 69] = [
+pub const ALL: [Discovery; 74] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -145,6 +150,11 @@ pub const ALL: [Discovery; 69] = [
     Discovery::Offer,
     Discovery::Answer,
     Discovery::Contact,
+    Discovery::Letters,
+    Discovery::Hum,
+    Discovery::Breath,
+    Discovery::Lean,
+    Discovery::Said,
 ];
 
 impl Discovery {
@@ -219,6 +229,11 @@ impl Discovery {
             Discovery::Offer => "offer",
             Discovery::Answer => "answer",
             Discovery::Contact => "you",
+            Discovery::Letters => "letters",
+            Discovery::Hum => "hum",
+            Discovery::Breath => "breath",
+            Discovery::Lean => "lean",
+            Discovery::Said => "said",
         }
     }
 
@@ -293,6 +308,11 @@ impl Discovery {
             Discovery::Offer => "it held a piece of itself out. toward you.",
             Discovery::Answer => "it asked. you answered. neither of you knows what.",
             Discovery::Contact => "⍜ ∴⟡ ☽⊗⌬ ∵ ✶⍟",
+            Discovery::Letters => "every letter lands somewhere. it keeps the places.",
+            Discovery::Hum => "one note, held. it found the same one inside.",
+            Discovery::Breath => "it breathes now. it did not need to before.",
+            Discovery::Lean => "the room tipped. it went where the room went.",
+            Discovery::Said => "its one word, given back. it is still listening.",
         }
     }
 }
@@ -357,7 +377,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Contact as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Said as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

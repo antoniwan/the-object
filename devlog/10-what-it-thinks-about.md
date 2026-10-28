@@ -1,6 +1,6 @@
 # what it thinks about
 
-*version 1.2.0 · 28 october 2026*
+*version 1.3.0 · 28 october 2026*
 
 It thinks now, a little, where it can be seen. If you stop finding things and take your hand away for long enough, a line sometimes rises under it and sinks again. It is never the same line twice in one visit.
 
