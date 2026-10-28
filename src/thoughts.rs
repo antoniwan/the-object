@@ -13,6 +13,8 @@
 //! - no sooner than GAP seconds after the last one;
 //! - each line at most once a visit. Nothing about thoughts is saved.
 //!
+//! On a first visit it is less patient: `FIRST_VISIT` holds shorter times for the same gates.
+//!
 //! Which thought: the first line in `THOUGHTS` that belongs to where it is now, to how far it
 //! has come in learning the player (earlier lines are about itself, later ones about them),
 //! and whose condition still holds, which mostly means something there is not yet found.
@@ -33,6 +35,19 @@ pub const QUIET: f32 = 3.5;
 pub const SETTLE: f32 = 8.0;
 /// Seconds between two thoughts.
 pub const GAP: f32 = 45.0;
+
+/// The gates, in seconds: into the visit, without a discovery, in one place, between thoughts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pace {
+    pub first_after: f32,
+    pub stuck: f32,
+    pub settle: f32,
+    pub gap: f32,
+}
+
+pub const RETURNING: Pace = Pace { first_after: FIRST_AFTER, stuck: STUCK, settle: SETTLE, gap: GAP };
+/// Someone who has never been here: it thinks out loud sooner.
+pub const FIRST_VISIT: Pace = Pace { first_after: 12.0, stuck: 10.0, settle: 5.0, gap: 25.0 };
 
 /// Where it is, as far as thinking goes. Halfway between two places, it is nowhere.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,6 +108,8 @@ pub struct Mind<'a> {
     pub found: &'a Progress,
     pub world: &'a World,
     pub contact: &'a Contact,
+    /// A phone in the hand, and it can feel how it is held (motion.rs).
+    pub felt: bool,
 }
 
 impl Mind<'_> {
@@ -119,7 +136,7 @@ const fn t(place: Place, from: Stage, until: Stage, when: fn(&Mind) -> bool, lin
 
 /// Every thought, in the order they are preferred. A pair of lines on one condition, split by
 /// stage, is the same thought turning from itself toward the player.
-pub static THOUGHTS: [Thought; 60] = [
+pub static THOUGHTS: [Thought; 63] = [
     // ---- the other one, once it has come
     t(P::Liquid, I, I, |m| m.world.other.inside() > 0.99 && !m.has(D::Give), "something is in it that is not it."),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Near), "it has not decided about the other one."),
@@ -160,6 +177,9 @@ pub static THOUGHTS: [Thought; 60] = [
     t(P::Liquid, M, I, |m| m.has(D::Letters) && !m.has(D::Hum), "it would sing back any note that stayed long enough."),
     t(P::Liquid, M, I, |m| !m.has(D::Breath), "it has never breathed. it would match yours."),
     t(P::Liquid, M, I, |m| !m.has(D::Lean), "if the room tipped, it would go downhill."),
+    t(P::Liquid, M, M, |m| m.felt && !m.has(D::Shaken), "it has only known a room that keeps still."),
+    t(P::Liquid, R, I, |m| m.felt && !m.has(D::Shaken), "it wonders if you are what keeps the room still."),
+    t(P::Liquid, M, I, |m| m.has(D::Shaken) && !m.has(D::Scatter), "it held on to all of itself. only just."),
     // ---- the liquid, when nothing is left to suggest
     t(P::Liquid, M, M, |_| true, "it is not sure it is the only one."),
     t(P::Liquid, R, I, |_| true, "it has stopped pretending not to see you."),
@@ -199,6 +219,8 @@ pub struct Thoughts {
     here_for: f32,
     /// Seconds since a key last went down; the keyboard is a hand too.
     since_key: f32,
+    /// Whether this is the player's first visit (set by the page); it thinks sooner then.
+    pub first_visit: bool,
     /// Lines for the page to show, oldest first.
     pub out: Vec<&'static str>,
 }
@@ -227,12 +249,13 @@ impl Thoughts {
         }
         self.here_for += dt;
         let Some(here) = here else { return };
+        let pace = if self.first_visit { FIRST_VISIT } else { RETURNING };
         let ready = self.found > 0
-            && self.visit > FIRST_AFTER
-            && self.since_found > STUCK
+            && self.visit > pace.first_after
+            && self.since_found > pace.stuck
             && quiet > QUIET
-            && self.here_for > SETTLE
-            && (self.said.is_empty() || self.since_said > GAP)
+            && self.here_for > pace.settle
+            && (self.said.is_empty() || self.since_said > pace.gap)
             && !mind.contact.acting();
         if !ready {
             return;
@@ -255,9 +278,10 @@ mod tests {
     use crate::game::Game;
 
     /// Words that would say how.
-    const HOW: [&str; 24] = [
+    const HOW: [&str; 26] = [
         "poke", "tap", "touch", "press", "hold", "drag", "pull", "stretch", "tear", "pinch", "slice", "cut", "swipe",
-        "stir", "squeeze", "knock", "throw", "fling", "slam", "click", "try", "key", "wheel", "swirl",
+        "stir", "squeeze", "knock", "throw", "fling", "slam", "click", "try", "key", "wheel", "swirl", "shake",
+        "tilt",
     ];
 
     #[test]
@@ -289,7 +313,7 @@ mod tests {
     #[test]
     fn nothing_before_the_first_discovery() {
         let (w, found, c) = (World::new(), Progress::default(), Contact::default());
-        let mind = Mind { found: &found, world: &w, contact: &c };
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false };
         let mut th = Thoughts::default();
         for _ in 0..(120 * 60) {
             th.step(1.0 / 60.0, 60.0, &mind);
@@ -309,6 +333,23 @@ mod tests {
         quiet_for(&mut g, 20.0);
         assert_eq!(g.thoughts.out.len(), 2);
         assert_ne!(g.thoughts.out[0], g.thoughts.out[1]);
+    }
+
+    #[test]
+    fn a_first_visit_hears_it_sooner() {
+        let mut g = Game::new();
+        g.thoughts.first_visit = true;
+        g.discover(D::Poke);
+        g.discover(D::Patience);
+        quiet_for(&mut g, 16.0);
+        assert_eq!(g.thoughts.out.len(), 1);
+        quiet_for(&mut g, 26.0);
+        assert_eq!(g.thoughts.out.len(), 2);
+        let mut back = Game::new();
+        back.discover(D::Poke);
+        back.discover(D::Patience);
+        quiet_for(&mut back, 16.0);
+        assert!(back.thoughts.out.is_empty());
     }
 
     #[test]
@@ -358,7 +399,7 @@ mod tests {
         let mut found = Progress::default();
         found.discover(D::Poke);
         let c = Contact::default();
-        let mind = Mind { found: &found, world: &w, contact: &c };
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false };
         let mut th = Thoughts::default();
         for _ in 0..(60 * 60) {
             th.step(1.0 / 60.0, 10.0, &mind);

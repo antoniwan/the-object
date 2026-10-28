@@ -87,6 +87,8 @@ pub enum Discovery {
     Blind,
     Watched,
     Shout,
+    Shaken,
+    Scatter,
     Another,
     Ring,
     Near,
@@ -97,7 +99,7 @@ pub enum Discovery {
     Distance,
 }
 
-pub const ALL: [Discovery; 91] = [
+pub const ALL: [Discovery; 93] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -181,6 +183,8 @@ pub const ALL: [Discovery; 91] = [
     Discovery::Blind,
     Discovery::Watched,
     Discovery::Shout,
+    Discovery::Shaken,
+    Discovery::Scatter,
     Discovery::Another,
     Discovery::Ring,
     Discovery::Near,
@@ -277,6 +281,8 @@ impl Discovery {
             Discovery::Blind => "blind",
             Discovery::Watched => "watched",
             Discovery::Shout => "shout",
+            Discovery::Shaken => "shaken",
+            Discovery::Scatter => "scatter",
             Discovery::Another => "another",
             Discovery::Ring => "ring",
             Discovery::Near => "near",
@@ -373,6 +379,8 @@ impl Discovery {
             Discovery::Blind => "you took the light away. the room went with it.",
             Discovery::Watched => "the eye found the one looking back.",
             Discovery::Shout => "it does not know the word. it knows the size of it.",
+            Discovery::Shaken => "the room moved. it had thought rooms could not.",
+            Discovery::Scatter => "it came loose where it was thinnest.",
             Discovery::Another => "it was never the only one.",
             Discovery::Ring => "it rang. the soft one felt it first.",
             Discovery::Near => "one of them reached. the other let it.",

@@ -38,6 +38,7 @@
 //!   the arrows (see keys.rs)
 //! - once it asks and is let (see senses.rs): speak, hum, whisper or blow at it; move, move
 //!   fast, or cover the camera
+//! - and with a phone in the hand (see motion.rs): tip it to tip the room; shake it
 //!
 //! - late, once it has reached back (see other.rs), something else is in the room: tap it, carry
 //!   it close, throw it, press the two together and squeeze, hurt the first while it is there,
@@ -179,6 +180,8 @@ pub struct Game {
     pub thoughts: Thoughts,
     /// What the keyboard is doing to it (see keys.rs).
     pub keys: crate::keys::Keys,
+    /// What a phone in the hand is doing to the room (see motion.rs).
+    pub motion: crate::motion::Motion,
 }
 
 impl Game {
@@ -212,6 +215,7 @@ impl Game {
             pointer_at: None,
             thoughts: Thoughts::default(),
             keys: Default::default(),
+            motion: Default::default(),
         }
     }
 
@@ -1043,6 +1047,7 @@ impl Game {
             self.wheel_squeeze *= (-2.5 * dt).exp();
             self.world.body.squeeze = self.wheel_squeeze;
         }
+        crate::motion::step(self, dt);
         crate::keys::step(self, dt);
 
         let sub = 3;
@@ -1081,7 +1086,12 @@ impl Game {
         self.update_contact(dt);
         self.update_senses(dt);
         self.update_heart(dt);
-        let mind = Mind { found: &self.progress, world: &self.world, contact: &self.contact };
+        let mind = Mind {
+            found: &self.progress,
+            world: &self.world,
+            contact: &self.contact,
+            felt: self.motion.alive && self.senses.is_open(senses::Kind::Feel),
+        };
         self.thoughts.step(dt, self.idle, &mind);
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
