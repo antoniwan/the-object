@@ -29,9 +29,9 @@
 <div id="count" class="hud"></div>
 <div id="error" class="hud"></div>
 <script type="module">
-/*GLUE*/
+import init from './pkg/chaos_object.js';
 try {
-  await __wbg_init({ module_or_path: /*WASM*/ });
+  await init();
 } catch (e) {
   document.getElementById('error').textContent = String(e && e.message || e);
   console.error(e);

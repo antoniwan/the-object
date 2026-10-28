@@ -47,6 +47,11 @@ impl Audio {
         Ok((osc, g))
     }
 
+    /// Touch screens only grant audio on pointerup, so this is retried on every release.
+    pub fn resume(&self) {
+        let _ = self.ctx.resume();
+    }
+
     pub fn toggle_mute(&mut self) {
         self.muted = !self.muted;
         let t = self.ctx.current_time();
