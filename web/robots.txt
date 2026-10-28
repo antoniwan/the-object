@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://the-object-five.vercel.app/sitemap.xml
+Sitemap: https://the-object.antoniwan.online/sitemap.xml

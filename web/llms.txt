@@ -10,7 +10,7 @@ Made by Antonio Rodríguez Martínez (antoniwan). Written in Rust, compiled to W
 
 ## Links
 
-- [The object](https://the-object-five.vercel.app/): touch it
+- [The object](https://the-object.antoniwan.online/): touch it
 - [Source](https://github.com/antoniwan/the-object): the simulation, the shader, and the page
 - [Antonio Rodríguez Martínez](https://antoniwan.online): the author
 - [antoniwan.online llms.txt](https://antoniwan.online/llms.txt): the author's other work

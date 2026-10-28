@@ -22,7 +22,7 @@ Never commit build output. `web/pkg/` and `target/` are ignored on purpose.
 ## Where it runs
 
 - **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, then a full `./build.sh`. Both must pass before a PR merges.
-- **Vercel** hosts the site at <https://the-object-five.vercel.app>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh`, and serves `web/`. Settings are in `vercel.json`.
+- **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh`, and serves `web/`. Settings are in `vercel.json`.
 - **Only `main` deploys.** Preview deployments are turned off in the Vercel project settings, so branches and pull requests build nothing there. Merging is deploying.
 - Vercel Web Analytics is loaded by `web/index.html` and counts page views. The object's own memory of a player stays in their browser (see Saved state).
 
