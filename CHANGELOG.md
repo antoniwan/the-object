@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-28
+
+### Added
+- Thoughts for the keyboard's verbs: letters that have not landed, a note it would sing back, a breath it would match, a room that could tip, and its word not yet said back. (#40)
+
 ## [1.3.0] - 2026-10-28
 
 ### Added
@@ -21,7 +26,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ### Added
 - The keyboard reaches it too, in ways a hand cannot: each letter lands where its key sits, a held letter hums, space breathes with it, the arrows tip the room. (#38)
-- Five discoveries for these, and one more for whoever answers its word. (#38)
+- Five discoveries for these, the last for whoever answers its word. (#38)
 
 ## [1.1.2] - 2026-10-28
 
@@ -156,7 +161,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/antoniwan/the-object/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/antoniwan/the-object/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/antoniwan/the-object/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/antoniwan/the-object/compare/v1.1.1...v1.1.2
