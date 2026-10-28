@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Vercel's build image has Node but no Rust. This installs what build.sh needs.
+# Vercel's build image has Node but no Rust. This installs what build.sh needs,
+# and the one package the function in api/ uses.
 set -euo pipefail
 WASM_BINDGEN=0.2.100
 
@@ -17,3 +18,5 @@ if ! wasm-bindgen --version 2>/dev/null | grep -q "$WASM_BINDGEN"; then
   cp "/tmp/wasm-bindgen-$WASM_BINDGEN-x86_64-unknown-linux-musl/wasm-bindgen" "$HOME/.cargo/bin/"
 fi
 wasm-bindgen --version
+
+npm ci --omit=dev --no-audit --no-fund

@@ -22,6 +22,8 @@ features = [
   "DomTokenList",
   "Performance",
   "Event",
+  "CustomEvent",
+  "CustomEventInit",
   "EventTarget",
   "MouseEvent",
   "PointerEvent",

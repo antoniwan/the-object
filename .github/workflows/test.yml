@@ -19,4 +19,8 @@ jobs:
         with:
           tool: wasm-bindgen-cli@0.2.100
       - run: cargo test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm test
       - run: ./build.sh

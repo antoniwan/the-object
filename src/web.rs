@@ -3,7 +3,7 @@
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
-use crate::contact::Contact;
+use crate::contact::{self, Contact, KEEP_STEPS};
 use crate::game::Game;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
@@ -21,6 +21,8 @@ const KEY_FOUND: &str = "the-object.found";
 const KEY_VISITS: &str = "the-object.visits";
 /// What it has learned about whoever keeps visiting (see contact.rs).
 const KEY_CONTACT: &str = "the-object.contact";
+/// The question stays up while the drop is held out.
+const ASK_SECONDS: f64 = 7.0;
 /// Its reply stays up longer than anything else it says.
 const REPLY_SECONDS: f64 = 10.0;
 /// A big screen at full density is millions of raymarched pixels; past this it renders smaller and scales up.
@@ -40,16 +42,36 @@ fn fail(why: &JsValue) {
     }
 }
 
+/// The answer to its question goes to the page (`the-object:answer` on window, detail 1..=5),
+/// which sends it on; see web/index.html.
+fn send_answer(n: u8) {
+    let Some(w) = web_sys::window() else { return };
+    let init = web_sys::CustomEventInit::new();
+    init.set_detail(&JsValue::from(n));
+    if let Ok(e) = web_sys::CustomEvent::new_with_event_init_dict("the-object:answer", &init) {
+        let _ = w.dispatch_event(&e);
+    }
+}
+
 /// Browser storage can be missing or throw (private windows); every use tolerates that.
 fn storage() -> Option<Storage> {
     web_sys::window()?.local_storage().ok().flatten()
+}
+
+/// Something for the toast to say.
+enum Line {
+    Found(Discovery),
+    /// It is holding out a drop after contact (contact.rs, `Ask`).
+    Asked,
+    /// The drop was let go after this many steps, of KEEP_STEPS.
+    Answer(u8),
 }
 
 struct Hud {
     hint: HtmlElement,
     toast: HtmlElement,
     count: HtmlElement,
-    queue: Vec<Discovery>,
+    queue: Vec<Line>,
     toast_until: f64,
 }
 
@@ -76,12 +98,17 @@ impl Hud {
         if self.queue.is_empty() {
             return;
         }
-        let d = self.queue.remove(0);
-        let (line, class, linger) = match d {
-            Discovery::Contact => (contact.reply(), " class=\"alien\"", REPLY_SECONDS),
-            _ => (d.line().to_string(), "", TOAST_SECONDS),
+        let alien = " class=\"alien\"";
+        let (name, line, class, linger) = match self.queue.remove(0) {
+            Line::Found(d @ Discovery::Contact) => (d.name(), contact.reply(), alien, REPLY_SECONDS),
+            Line::Found(d) => (d.name(), d.line().to_string(), "", TOAST_SECONDS),
+            Line::Asked => ("a question", "keep it for as long as this was worth".to_string(), "", ASK_SECONDS),
+            Line::Answer(n) => {
+                let kept = "⟡".repeat(n as usize) + &"∴".repeat((KEEP_STEPS - n.min(KEEP_STEPS)) as usize);
+                (if n > 1 { "kept" } else { "let go" }, kept, alien, TOAST_SECONDS)
+            }
         };
-        self.toast.set_inner_html(&format!("<b>{}</b><span{}>{}</span>", d.name(), class, line));
+        self.toast.set_inner_html(&format!("<b>{}</b><span{}>{}</span>", name, class, line));
         let _ = self.toast.class_list().add_1("show");
         self.toast_until = now + linger;
         self.show_count(found);
@@ -228,7 +255,22 @@ impl App {
                 let _ = s.set_item(KEY_CONTACT, &self.game.contact.save());
             }
         }
-        self.hud.queue.append(&mut self.game.announcements);
+        self.hud.queue.extend(self.game.announcements.drain(..).map(Line::Found));
+        for e in std::mem::take(&mut self.game.question) {
+            match e {
+                contact::Event::Asked => {
+                    // Whatever else it was saying can wait; this is asked now.
+                    self.hud.toast_until = 0.0;
+                    self.hud.queue.insert(0, Line::Asked);
+                }
+                contact::Event::Answer(n) => {
+                    self.hud.toast_until = 0.0;
+                    self.hud.queue.insert(0, Line::Answer(n));
+                    send_answer(n);
+                }
+                _ => {}
+            }
+        }
         let sounds = std::mem::take(&mut self.game.sounds);
         if let Some(a) = &self.audio {
             for s in sounds {
