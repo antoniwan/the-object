@@ -221,7 +221,7 @@ impl Other {
 
     /// Where it would be, left to itself: beside the soft one, or above it where the view is narrow.
     fn rest(&self, c: V3, look: &Look) -> V3 {
-        let side = (look.view * look.aspect * 0.72).clamp(0.9, 2.2);
+        let side = (look.view * look.aspect * 0.72).clamp(0.75, 2.2);
         let lift = ((2.0 - side) * 1.2).clamp(0.3, 1.5);
         let (s, k) = self.orbit.sin_cos();
         c + look.right * (k * side) + look.fwd * (s * 1.6) + look.up * (lift + 0.12 * (self.time * 0.7).sin())

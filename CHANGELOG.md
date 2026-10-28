@@ -12,6 +12,14 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-28
+
+### Added
+- Late, after it has reached back once (or after fifty discoveries), something else comes down into the room: small, hard, dark and many-sided, with colors splitting at its edges. It never touches the floor. (#PR)
+- Tap it and it rings, and the first shivers. Carry it close and the first reaches for it. Throw it at the first and they clash. (#PR)
+- Press the two together and the first takes it in, a dark shape seen through it, and cools; squeeze and it is given back, each keeping some of the other's color. (#PR)
+- Hurt the first again and again while it is there and it comes between you. Leave them both alone and they circle. Eight new discoveries and five new thoughts. (#PR)
+
 ## [1.5.0] - 2026-10-28
 
 ### Added
@@ -182,7 +190,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/antoniwan/the-object/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/antoniwan/the-object/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/antoniwan/the-object/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/antoniwan/the-object/compare/v1.3.1...v1.4.0
