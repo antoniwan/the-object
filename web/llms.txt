@@ -1,0 +1,16 @@
+# the object
+
+> There is an object. You can touch it. It has not said what it is.
+
+An art piece in the browser, about first contact. A pale liquid object sits on a white page. You can poke it, tear it, fling it, hold it still. It answers. Over time it learns how you touch it, and one day it may reach back.
+
+It never explains itself. What it does is for the visitor to find out. It keeps count.
+
+Made by Antonio Rodríguez Martínez (antoniwan). Written in Rust, compiled to WebAssembly, drawn by one WebGL2 shader. No game engine, no libraries for the physics or rendering. Free, no account, no ads. Needs a browser with WebGL2.
+
+## Links
+
+- [The object](https://the-object-five.vercel.app/): touch it
+- [Source](https://github.com/antoniwan/the-object): the simulation, the shader, and the page
+- [Antonio Rodríguez Martínez](https://antoniwan.online): the author
+- [antoniwan.online llms.txt](https://antoniwan.online/llms.txt): the author's other work
