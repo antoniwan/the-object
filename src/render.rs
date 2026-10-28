@@ -113,11 +113,16 @@ impl Renderer {
         self.fv("uRipAge", &age);
         self.i("uNR", age.len());
 
-        let mut drops = Vec::new();
+        let (mut drops, mut colors) = (Vec::new(), Vec::new());
         for d in world.drops.iter().take(MAX_DROPS) {
             drops.extend([d.pos.x, d.pos.y, d.pos.z, d.r]);
+            colors.extend([d.color.x, d.color.y, d.color.z]);
         }
         self.v4v("uDrop", &drops);
+        if !colors.is_empty() {
+            let loc = gl.get_uniform_location(&self.program, "uDropCol");
+            gl.uniform3fv_with_f32_array(loc.as_ref(), &colors);
+        }
         self.i("uND", drops.len() / 4);
 
         // Slicing: see meiosis.rs. The shader rebuilds the cells from these.
@@ -127,6 +132,11 @@ impl Renderer {
         gl.uniform4f(loc.as_ref(), div.axis.x, div.axis.y, div.axis.z, bl.split);
         let loc = gl.get_uniform_location(&self.program, "uDiv");
         gl.uniform3f(loc.as_ref(), bl.flash, bl.furrow, bl.cell);
+        self.v3("uBodyCol", body.color);
+        self.f("uAgit", world.agitation);
+        self.f("uNight", world.night);
+        let g = world.gaze_dir;
+        self.v4v("uGaze", &[g.x, g.y, g.z, world.gaze]);
 
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }

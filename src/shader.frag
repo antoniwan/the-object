@@ -25,6 +25,11 @@ uniform int uNR;
 uniform vec4 uDrop[12];
 uniform int uND;
 
+uniform vec3 uBodyCol;
+uniform vec3 uDropCol[12];
+uniform float uAgit;   // 0..1 how upset it is
+uniform float uNight;  // 0..1 day to night
+uniform vec4 uGaze;    // xyz direction it reaches toward, w amount
 // Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
 uniform vec4 uCut;     // xyz normal of the cut, w split: 0 one body, 1 two cells
 uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
@@ -58,6 +63,12 @@ float surfaceDisp(vec3 n) {
     float x = a - front;
     disp += 0.055 * A * exp(-1.3 * t) * cos(x * 12.0) * exp(-x * x * 5.0) * smoothstep(0.0, 0.25, t);
   }
+  // Watching: a slow swell toward the viewer.
+  float g = acos(clamp(dot(n, uGaze.xyz), -1.0, 1.0));
+  disp += uGaze.w * (0.30 * exp(-g * g * 4.0) + 0.01 * sin(uTime * 2.1) * exp(-g * g * 2.0));
+  // Agitation: the surface boils.
+  float t = uTime;
+  disp += uAgit * 0.045 * sin(n.x * 17.0 + t * 23.0) * sin(n.y * 15.0 - t * 19.0) * sin(n.z * 16.0 + t * 21.0);
   // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
   float c = dot(n, uCut.xyz);
   disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
@@ -101,6 +112,56 @@ float scene(vec3 p) {
     d = smin(d, length(p - uDrop[i].xyz) - uDrop[i].w, uK.y);
   }
   return d;
+}
+
+// Color at a surface point: blended through the same smooth joins as the shape.
+vec3 sceneColor(vec3 p) {
+  float d = bodySurface(p);
+  vec3 col = uBodyCol;
+  for (int i = 0; i < 4; i++) {
+    if (i >= uNH) break;
+    float stem = sdTaper(p, uHA[i].xyz, uHB[i].xyz, uHA[i].w, uHB[i].w);
+    d = smin(d, stem, uK.x);
+  }
+  for (int i = 0; i < 12; i++) {
+    if (i >= uND) break;
+    float dd = length(p - uDrop[i].xyz) - uDrop[i].w;
+    float h = clamp(0.5 + 0.5 * (d - dd) / uK.y, 0.0, 1.0);
+    col = mix(col, uDropCol[i], h);
+    d = smin(d, dd, uK.y);
+  }
+  return col;
+}
+
+float hash(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+// Stars on the inside of a sphere around everything.
+vec3 stars(vec3 rd) {
+  vec3 col = vec3(0.0);
+  for (int layer = 0; layer < 2; layer++) {
+    float scale = layer == 0 ? 60.0 : 140.0;
+    vec3 q = rd * scale;
+    vec3 id = floor(q);
+    float h = hash(id + float(layer) * 31.0);
+    if (h > 0.93) {
+      vec3 c = id + 0.5 + 0.35 * (vec3(hash(id + 1.0), hash(id + 2.0), hash(id + 3.0)) - 0.5);
+      float s = smoothstep(0.35, 0.0, length(q - c));
+      float tw = 0.6 + 0.4 * sin(uTime * (1.0 + 3.0 * h) + h * 50.0);
+      col += s * tw * mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.85, 0.7), hash(id + 7.0)) * (layer == 0 ? 1.0 : 0.6);
+    }
+  }
+  // A faint band of something far away.
+  float band = exp(-pow(dot(rd, normalize(vec3(0.3, 1.0, -0.2))) * 3.5, 2.0));
+  col += band * vec3(0.10, 0.08, 0.16) * (0.6 + 0.4 * hash(floor(rd * 400.0)));
+  return col;
+}
+
+vec3 nightSky(vec3 rd) {
+  return vec3(0.010, 0.012, 0.028) + stars(rd);
 }
 
 vec3 calcNormal(vec3 p) {
@@ -147,10 +208,21 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv) {
     float fade = exp(-0.05 * dot(p.xz, p.xz));
     bg *= 1.0 - 0.55 * clamp(occ, 0.0, 1.0) * fade;
   }
+  if (uNight > 0.001) {
+    vec3 sky = nightSky(rd);
+    // Free drops glow like small suns at night.
+    for (int i = 0; i < 12; i++) {
+      if (i >= uND) break;
+      vec3 c = uDrop[i].xyz - ro;
+      float along = max(dot(c, rd), 0.0);
+      float dist = length(c - rd * along);
+      sky += uDropCol[i] * 0.006 * uDrop[i].w / (dist * dist + 0.004);
+    }
+    bg = mix(bg, sky, uNight);
+  }
   return bg;
 }
 
-float hash(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.3, 71.7))) * 43758.5453); }
 
 // Ray thickness through a sphere, starting at ro going along rd.
 float sphereThickness(vec3 ro, vec3 rd, vec3 c, float r) {
@@ -215,6 +287,7 @@ vec3 shade(vec3 p, vec3 rd) {
 
 vec3 shadeLiquid(vec3 p, vec3 rd) {
   vec3 n = calcNormal(p);
+  vec3 tint = sceneColor(p);
   vec3 v = -rd;
   float ndv = max(dot(n, v), 0.0);
   vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
@@ -231,7 +304,9 @@ vec3 shadeLiquid(vec3 p, vec3 rd) {
   float wrap = clamp((dot(n, L) + 0.6) / 1.6, 0.0, 1.0);
   vec3 deep = vec3(0.70, 0.74, 0.84);
   vec3 lit = vec3(0.97, 0.97, 0.99);
-  vec3 col = mix(deep, lit, wrap) * mix(0.8, 1.0, ao);
+  vec3 col = mix(deep * tint, lit * tint, wrap) * mix(0.8, 1.0, ao);
+  // Upset, it darkens and flushes.
+  col = mix(col, col * vec3(0.75, 0.45, 0.5), uAgit * 0.6);
 
   // Thin-film sheen at grazing angles, slowly drifting.
   float film = (1.0 - ndv);
@@ -244,6 +319,14 @@ vec3 shadeLiquid(vec3 p, vec3 rd) {
   col = mix(col, refl, clamp(fres * 0.9 + 0.08, 0.0, 1.0));
   float spec = pow(max(dot(reflect(-L, n), v), 0.0), 90.0);
   col += vec3(0.9) * spec;
+
+  if (uNight > 0.001) {
+    // At night it becomes a lens: the sky seen through it, a rim of its own color.
+    vec3 inside = nightSky(refract(rd, n, 0.75)) * 1.6 + tint * 0.05;
+    float rim = pow(1.0 - ndv, 3.0);
+    vec3 night = inside + tint * rim * 0.9 + nightSky(reflect(rd, n)) * fres + vec3(0.8, 0.85, 1.0) * spec * 0.4;
+    col = mix(col, night, uNight);
+  }
   return col;
 }
 

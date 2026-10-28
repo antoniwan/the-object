@@ -31,6 +31,18 @@ features = [
   "WebGlProgram",
   "WebGlShader",
   "WebGlUniformLocation",
+  "KeyboardEvent",
+  "Storage",
+  "AudioContext",
+  "BaseAudioContext",
+  "AudioNode",
+  "AudioParam",
+  "AudioDestinationNode",
+  "AudioScheduledSourceNode",
+  "GainNode",
+  "OscillatorNode",
+  "OscillatorType",
+  "AudioContextState",
 ]
 
 [profile.release]
