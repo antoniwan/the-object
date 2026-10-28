@@ -15,10 +15,10 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.5.0] - 2026-10-28
 
 ### Added
-- A phone in the hand is the room: tipped, the room tips with it, as far as it is tipped; level is however it was held. (#PR)
-- Shaken, it sloshes against the far wall from each jolt and is upset; keep on and it comes loose, drops flung the way it was thrown, until the room goes dark. (#PR)
-- Where the browser must ask before the page can feel the phone, it asks once a visit, from early in the arc: `hold the room.` A no is answered and never asked again. On a desk nothing changes. (#PR)
-- Three thoughts for a room that has never moved. (#PR)
+- A phone in the hand is the room: tipped, the room tips with it, as far as it is tipped; level is however it was held. (#43)
+- Shaken, it sloshes against the far wall from each jolt and is upset; keep on and it comes loose, drops flung the way it was thrown, until the room goes dark. (#43)
+- Where the browser must ask before the page can feel the phone, it asks once a visit, from early in the arc: `hold the room.` A no is answered and never asked again. On a desk nothing changes. (#43)
+- Three thoughts for a room that has never moved. (#43)
 
 ## [1.4.1] - 2026-10-28
 
