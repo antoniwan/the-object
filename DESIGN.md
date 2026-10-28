@@ -143,6 +143,11 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
 | `HELD_SECS` / `HUM_SECS` | 0.8 s / 2.4 s | a note held this steady comes back, for this long |
 | `BREATH_SLOW` | 1.2 s | space held this long is a breath; three in a row, none more than 9 s apart, and it follows |
+| `FULL_TILT` / `DEAD` | 18° / 3° | a phone tipped this far tips the room all the way; less is only a hand (`motion.rs`) |
+| `SETTLE` (tilt) | 20 s | however the phone is held slowly becomes level |
+| `JOLT` | 13 m/s² beyond gravity | a push this hard is a jolt; walking is under it |
+| `SHAKE_JOLTS` / `SHAKE_WINDOW` | 3 in 1.2 s | that many jolts is a shake |
+| `SHED_AFTER` / `SHED_EVERY` | 1.2 s / 0.4 s | shaken this long without stopping, it comes loose, a drop each this often |
 
 ### Transformation durations
 
@@ -207,7 +212,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 - Let it feel slightly off: a fact that should not be true, said calmly.
 - Keep it under about 60 characters. The longest one today is 61.
 - Address the player as "you" sparingly, and only when it is about what they did.
-- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `speak.` and `show yourself.` when it asks to hear and see). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
+- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `hold the room.`, `speak.` and `show yourself.` when it asks to feel the phone, to hear and to see). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
 
 **Examples from the game**
 
@@ -265,6 +270,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | hold space, let go | (keyboard) | breath | it swells a tenth and sighs out; breathed with slowly, it breathes four more on its own, at your pace | `keys.rs` |
 | arrow keys | (keyboard) | lean | the room tips; it and the loose drops slide downhill, and come home when level | `keys.rs` |
 | type its word | (keyboard), after contact | said | it reaches toward you | `keys.rs` |
+| tip the phone | (phone) | lean | the same as the arrows, by as much as the phone is tipped; level is however it was held | `motion.rs` |
+| shake the phone | (phone) | shaken | it sloshes against the far wall from each jolt, and is upset; keep on and drops come loose, flung the way it was thrown, until the room goes dark | `motion.rs` |
 
 **Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once.
 
@@ -279,6 +286,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | move in front of it | seen | turns toward where you moved | `senses.rs` |
 | cover the camera | blind | the room goes dark until you uncover it | `senses.rs`, `sim.rs` `dim` |
 | be watched by the eye at eight cells | watched | the eye follows you | `senses.rs`, `morula.rs` |
+
+**A phone in the hand** is the room. Tipping it tips the room and shaking it shakes the room; the object is what stays behind. Most phones let the page feel this without asking, and then it simply works; where the browser must ask first (iOS), it asks once a visit from regard on, before anything else, in its voice: `hold the room.` A no is answered (`it will stay where it is put.`) and kept, like the others. Two angles and one push a frame, used and dropped. On a desk nothing arrives and it never asks.
 
 **The keyboard** is not a second mouse. Nothing on the pointer side is mapped to keys; each key reaches it from somewhere of its own (a letter from its place on the keyboard, space as breath, the arrows as the floor). Keys are read by place (`KeyboardEvent.code`), so the places hold on any layout. Like everything else, they act only on the ordinary liquid, and nothing explains them.
 
