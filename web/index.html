@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Chaos Object</title>
+<style>
+  :root { color-scheme: light; }
+  html, body { margin: 0; height: 100%; background: #f8f7f5; overflow: hidden; }
+  #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: fixed; pointer-events: none; font: 400 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #8a8a90; letter-spacing: .08em; text-transform: lowercase; }
+  #hint { left: 0; right: 0; bottom: 9vh; text-align: center; transition: opacity 1.2s; animation: breathe 3.5s ease-in-out infinite; }
+  #hint.gone { opacity: 0 !important; animation: none; }
+  #toast { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; transform: translateY(-6px); transition: opacity .6s, transform .6s; }
+  #toast.show { opacity: 1; transform: none; }
+  #toast b { display: block; font-weight: 500; color: #4a4a52; font-size: 15px; letter-spacing: .25em; margin-bottom: 4px; }
+  #count { right: 16px; bottom: 14px; font-size: 11px; }
+  #error { left: 16px; right: 16px; top: 40%; text-align: center; color: #555; }
+  @keyframes breathe { 0%, 100% { opacity: .35 } 50% { opacity: .85 } }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="hint" class="hud">touch it</div>
+<div id="toast" class="hud"></div>
+<div id="count" class="hud"></div>
+<div id="error" class="hud"></div>
+<script type="module">
+/*GLUE*/
+try {
+  await __wbg_init({ module_or_path: /*WASM*/ });
+} catch (e) {
+  document.getElementById('error').textContent = String(e && e.message || e);
+  console.error(e);
+}
+</script>
+</body>
+</html>
