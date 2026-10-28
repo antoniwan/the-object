@@ -18,6 +18,16 @@ pub enum Discovery {
     Close,
     Return,
     Call,
+    Divide,
+    Twin,
+    Rejoin,
+    Throw,
+    Slam,
+    Lake,
+    Rise,
+    Burst,
+    Shards,
+    Gather,
 }
 
 pub const ALL: [Discovery; 15] = [
@@ -56,6 +66,16 @@ impl Discovery {
             Discovery::Close => "close",
             Discovery::Return => "return",
             Discovery::Call => "call",
+            Discovery::Divide => "divide",
+            Discovery::Twin => "twin",
+            Discovery::Rejoin => "rejoin",
+            Discovery::Throw => "throw",
+            Discovery::Slam => "slam",
+            Discovery::Lake => "lake",
+            Discovery::Rise => "rise",
+            Discovery::Burst => "burst",
+            Discovery::Shards => "twelve",
+            Discovery::Gather => "gather",
         }
     }
 
@@ -76,6 +96,16 @@ impl Discovery {
             Discovery::Close => "and it closed again.",
             Discovery::Return => "it remembers you.",
             Discovery::Call => "it heard you.",
+            Discovery::Divide => "it was always two.",
+            Discovery::Twin => "what one feels, the other feels.",
+            Discovery::Rejoin => "it chose to be one.",
+            Discovery::Throw => "it goes where it is sent.",
+            Discovery::Slam => "it hit the ground and stayed.",
+            Discovery::Lake => "the ground remembers.",
+            Discovery::Rise => "it was never gone.",
+            Discovery::Burst => "it couldn't hold any more.",
+            Discovery::Shards => "every piece is different.",
+            Discovery::Gather => "it was in pieces, not gone.",
         }
     }
 }

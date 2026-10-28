@@ -5,6 +5,9 @@
 //! makes everything read as one liquid. The shader in `render.rs` mirrors `sdf()`.
 
 use crate::math::*;
+use crate::burst::Burst;
+use crate::fusion::Fusion;
+use crate::meiosis::Division;
 
 pub const MAX_HANDLES: usize = 4;
 pub const MAX_RIPPLES: usize = 8;
@@ -144,6 +147,12 @@ pub struct World {
     pub handles: Vec<Handle>,
     pub ripples: Vec<Ripple>,
     pub drops: Vec<Drop>,
+    /// Slicing: whether the body is one liquid or two cells.
+    pub division: Division,
+    /// Slamming: whether it has fused with the floor.
+    pub fusion: Fusion,
+    /// Poking it to death: wounds, and the twelve pieces it bursts into.
+    pub burst: Burst,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -183,6 +192,9 @@ impl World {
             handles: Vec::new(),
             ripples: Vec::new(),
             drops: Vec::new(),
+            division: Division::default(),
+            fusion: Fusion::default(),
+            burst: Burst::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -216,7 +228,7 @@ impl World {
         self.handles.iter_mut().find(|h| h.id == id)
     }
 
-    fn add_ripple(&mut self, dir: V3, amp: f32) {
+    pub fn add_ripple(&mut self, dir: V3, amp: f32) {
         if self.ripples.len() >= MAX_RIPPLES {
             self.ripples.remove(0);
         }
@@ -240,7 +252,8 @@ impl World {
                 // Touching it startles it out of watching.
                 self.gaze *= 0.2;
                 // Upset, it jumps further, but its shape stays its own.
-                let dir = (hit.pos - self.body.pos).norm();
+                // On two cells, ripples spread from the touched cell's own center.
+                let dir = self.division.ripple_dir(hit.pos, self.body.pos, self.body.radius());
                 self.add_ripple(dir, strength);
                 self.body.vel -= dir * (0.9 * strength * (1.0 + self.agitation));
                 // Poking from above flattens it, from the side makes it bob up.
@@ -305,14 +318,26 @@ impl World {
     pub fn step(&mut self, dt: f32) {
         self.time += dt;
 
-        // Body: springs back to the center and to round, wobbling on the way.
+        // Body: springs back home and to round, wobbling on the way. Home is the
+        // middle of the room, or under the floor once it has fused with it.
         let b = &mut self.body;
-        b.vel += (-b.pos * 28.0 - b.vel * 3.5) * dt;
+        let home = self.fusion.home(b.radius());
+        let (k, c) = if self.fusion.whole() { (28.0, 3.5) } else { (10.0, 5.0) };
+        b.vel += ((home - b.pos) * k - b.vel * c) * dt;
         b.pos += b.vel * dt;
-        let squash_goal = (1.0 + b.squeeze * 0.55).clamp(0.45, 1.9);
+        let (pos, vel, kick) = self.fusion.collide(b.pos, b.vel, b.radius(), b.squash);
+        b.pos = pos;
+        b.vel = vel;
+        b.squash_vel += kick;
+        // It flattens as it melts into the floor.
+        let melt = 1.0 - 0.5 * self.fusion.blend().sink;
+        let squash_goal = (1.0 + b.squeeze * 0.55).clamp(0.45, 1.9).min(melt);
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.5, 1.9);
 
+        self.division.step(dt, b.squeeze);
+        self.fusion.step(dt);
+        self.burst.step(dt);
         self.step_handles(dt);
 
         for r in &mut self.ripples {
@@ -425,8 +450,8 @@ impl World {
         let mut i = 0;
         while i < self.drops.len() {
             let d = &self.drops[i];
-            let dist = (d.pos - self.body.pos).len();
-            if d.age > MERGE_COOLDOWN && dist < r + d.r * 0.2 {
+            let (gap, _) = self.division.nearest_cell(d.pos, self.body.pos, r);
+            if d.age > MERGE_COOLDOWN && gap < d.r * 0.2 {
                 let d = self.drops.remove(i);
                 let v = d.r * d.r * d.r;
                 self.body.vel += d.vel * (v / (self.body.volume + v));
@@ -528,8 +553,8 @@ impl World {
         let b = &self.body;
         let r = b.radius();
         let s = b.scale();
-        let q = (p - b.pos).div(s);
-        let mut d = (q.len() - r) * s.x.min(s.y);
+        // Once it has burst, there is no body to touch.
+        let mut d = if self.burst.body_gone() { 1e3 } else { self.division.body_sdf(p, b.pos, r, s) };
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }

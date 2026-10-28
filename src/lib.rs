@@ -1,6 +1,9 @@
+pub mod burst;
 pub mod camera;
+pub mod fusion;
 pub mod game;
 pub mod math;
+pub mod meiosis;
 pub mod progress;
 pub mod sim;
 

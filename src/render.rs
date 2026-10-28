@@ -86,7 +86,9 @@ impl Renderer {
 
         let body = &world.body;
         let r = body.radius();
-        self.v4v("uBody", &[body.pos.x, body.pos.y, body.pos.z, r]);
+        // It swells as the wounds add up, right before it bursts.
+        let swell = 1.0 + 0.3 * world.burst.swell();
+        self.v4v("uBody", &[body.pos.x, body.pos.y, body.pos.z, r * swell]);
         self.v3("uScale", body.scale());
         let loc = gl.get_uniform_location(&self.program, "uK");
         gl.uniform2f(loc.as_ref(), K_HANDLE * r, K_DROP * r);
@@ -125,11 +127,44 @@ impl Renderer {
         }
         self.i("uND", drops.len() / 4);
 
+        // Slicing: see meiosis.rs. The shader rebuilds the cells from these.
+        let div = &world.division;
+        let bl = div.blend();
+        let loc = gl.get_uniform_location(&self.program, "uCut");
+        gl.uniform4f(loc.as_ref(), div.axis.x, div.axis.y, div.axis.z, bl.split);
+        let loc = gl.get_uniform_location(&self.program, "uDiv");
+        gl.uniform3f(loc.as_ref(), bl.flash, bl.furrow, bl.cell);
         self.v3("uBodyCol", body.color);
         self.f("uAgit", world.agitation);
         self.f("uNight", world.night);
         let g = world.gaze_dir;
         self.v4v("uGaze", &[g.x, g.y, g.z, world.gaze]);
+
+        // Slamming: see fusion.rs.
+        let fu = &world.fusion;
+        let loc = gl.get_uniform_location(&self.program, "uLake");
+        let radius = fu.blend().lake * crate::fusion::LAKE_RADIUS;
+        gl.uniform4f(loc.as_ref(), fu.impact.0, fu.impact.1, radius, fu.since_impact);
+        let mut lr = Vec::new();
+        for r in fu.ripples.iter().take(crate::fusion::MAX_LAKE_RIPPLES) {
+            lr.extend([r.x, r.z, r.age, r.amp]);
+        }
+        self.v4v("uLakeRip", &lr);
+        self.i("uNLR", lr.len() / 4);
+
+        // Bursting: see burst.rs.
+        let bu = &world.burst;
+        let loc = gl.get_uniform_location(&self.program, "uBurst");
+        let gone = if bu.body_gone() { 1.0 } else { 0.0 };
+        gl.uniform4f(loc.as_ref(), gone, bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
+        let (mut ta, mut tb) = (Vec::new(), Vec::new());
+        for (i, s) in bu.shards.iter().enumerate() {
+            let (pos, morph) = bu.shard_pose(i);
+            ta.extend([pos.x, pos.y, pos.z, s.size]);
+            tb.extend([s.yaw, morph, s.wobble, 0.0]);
+        }
+        self.v4v("uTri", &ta);
+        self.v4v("uTriB", &tb);
 
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
