@@ -10,6 +10,8 @@
 //! Like fusion.rs, nothing here jumps: every state is a value gliding 0..1
 //! that the shader blends.
 
+use crate::math::smoothstep;
+
 /// Untouched this long (seconds), the lake begins to still.
 pub const STILL_AFTER: f32 = 6.0;
 const STILL_SECS: f32 = 2.5;
@@ -34,11 +36,6 @@ const DROP_UP: f32 = 3.5;
 const GRAVITY: f32 = 9.0;
 /// How long the object keeps the material it rose as, fading all the way.
 const COAT_SECS: f32 = 75.0;
-
-fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
-    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
 
 /// What the object came back out as.
 #[derive(Clone, Copy, Debug, PartialEq)]
