@@ -14,6 +14,7 @@ pub mod meiosis;
 pub mod mere;
 pub mod morula;
 pub mod progress;
+pub mod river;
 pub mod sim;
 
 #[cfg(target_arch = "wasm32")]

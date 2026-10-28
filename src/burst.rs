@@ -4,13 +4,15 @@
 //! twelve triangles, each its own shape, color and consistency, standing in
 //! a white landscape. Poke a triangle and it answers in its own material.
 //! Hold still on the empty ground and the pieces come home.
-//! What else the landscape does is in landscape.rs.
+//! What else the landscape does is in landscape.rs; crowded together
+//! anywhere but the middle, they run as a river (river.rs).
 //!
 //! Like meiosis.rs and fusion.rs, `Phase` only decides which continuous values
 //! move; the shader blends them, so the burst and the flight never jump.
 
 use crate::landscape::{self, Land};
 use crate::math::*;
+use crate::river::{self, River};
 
 pub const SHARDS: usize = 12;
 /// Wounds open at once that kill it.
@@ -73,6 +75,7 @@ pub enum Event {
     Burst,
     Gathered,
     Land(landscape::Event),
+    River(river::Event),
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -92,6 +95,7 @@ pub struct Burst {
     since_wound: f32,
     pub shards: [Shard; SHARDS],
     pub land: Land,
+    pub river: River,
     events: Vec<Event>,
 }
 
@@ -110,7 +114,7 @@ fn scatter() -> [Shard; SHARDS] {
 
 impl Default for Burst {
     fn default() -> Self {
-        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards: scatter(), land: Land::default(), events: Vec::new() }
+        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards: scatter(), land: Land::default(), river: River::default(), events: Vec::new() }
     }
 }
 
@@ -170,8 +174,11 @@ impl Burst {
         // planted, it stands partly underground
         let (depth, _) = self.land.depth_and_scale(i);
         let sunk = depth * self.shard_size(i) * s;
-        let pos = v3(flat.x, flat.y + arc - sunk, flat.z);
-        (pos, smoothstep(0.55, 1.0, s))
+        // melted into the river, they are under the ground, and come up out of it as liquid
+        let bled = smoothstep(0.0, 1.0, self.river.amount);
+        let under = bled * (self.shard_size(i) * 0.9 + 1.5);
+        let pos = v3(flat.x, flat.y + arc - sunk - under, flat.z);
+        (pos, smoothstep(0.55, 1.0, s) * (1.0 - bled))
     }
 
     /// Height of piece `i`; planted ones grow.
@@ -182,7 +189,7 @@ impl Burst {
 
     /// Slide piece `i` over the ground toward `to`, shoving the others aside.
     pub fn carry(&mut self, i: usize, to: V3) -> bool {
-        if self.phase != Phase::Landscape || !self.land.can_carry(i) {
+        if self.phase != Phase::Landscape || self.river.active || !self.land.can_carry(i) {
             return false;
         }
         let mut homes = self.shards.map(|s| s.home);
@@ -197,7 +204,17 @@ impl Burst {
 
     /// Let go of a carried piece. Near the middle it melts into a bead where the body was.
     pub fn release(&mut self, i: usize, body_r: f32) -> bool {
-        if self.phase != Phase::Landscape || !self.land.release(i, self.shards[i].home) {
+        if self.phase != Phase::Landscape || self.river.active {
+            return false;
+        }
+        if !self.land.release(i, self.shards[i].home) {
+            // not home, but maybe close enough to all the others
+            let homes = self.shards.map(|s| s.home);
+            if (0..SHARDS).all(|j| !self.land.returned(j)) {
+                if let Some(at) = River::crowded(&homes) {
+                    self.river.begin(at);
+                }
+            }
             return false;
         }
         let blob = BEAD * body_r;
@@ -217,6 +234,7 @@ impl Burst {
             // every burst is a new landscape
             self.shards = scatter();
             self.land = Land::default();
+            self.river = River::default();
             self.wounds = 0.0;
             self.events.push(Event::Burst);
             return true;
@@ -240,8 +258,20 @@ impl Burst {
         if self.phase != Phase::Landscape {
             return false;
         }
+        if self.river.active {
+            self.leave_river();
+        }
         self.phase = Phase::Gathering { t: 0.0 };
         true
+    }
+
+    /// The river drains and the pieces come up out of it along its middle, as liquid.
+    fn leave_river(&mut self) {
+        self.river.drain();
+        for (i, s) in self.shards.iter_mut().enumerate() {
+            let (x, z) = self.river.world((i as f32 - 5.5) * 1.4, 0.0);
+            s.home = v3(x, FLOOR_Y, z);
+        }
     }
 
     pub fn step(&mut self, dt: f32) {
@@ -264,8 +294,15 @@ impl Burst {
             let (_, decay) = CONSISTENCIES[i].give();
             s.wobble *= (-decay * dt).exp();
         }
-        if self.phase == Phase::Landscape {
+        if self.phase == Phase::Landscape && !self.river.active {
             self.land.step(dt);
+        }
+        self.river.step(dt);
+        for e in self.river.drain_events() {
+            if e == river::Event::Pulsed {
+                self.gather();
+            }
+            self.events.push(Event::River(e));
         }
         for e in self.land.drain_events() {
             match e {
@@ -284,7 +321,7 @@ impl Burst {
 
     /// Which landed piece a ray hits first, by a bounding sphere around each.
     pub fn pick(&self, ro: V3, rd: V3) -> Option<usize> {
-        if self.phase != Phase::Landscape {
+        if self.phase != Phase::Landscape || self.river.active {
             return None;
         }
         let mut best: Option<(f32, usize)> = None;
@@ -365,5 +402,38 @@ mod tests {
         run(&mut b, 3.0);
         assert!(b.whole() && !b.body_gone());
         assert!(b.drain_events().contains(&Event::Gathered));
+    }
+
+    /// Carry every piece to a spot near `c`, one by one, as a player would.
+    pub fn crowd(b: &mut Burst, c: V3) {
+        for i in 0..SHARDS {
+            let a = i as f32 * 2.399_963;
+            let r = 1.9 * (i as f32).sqrt();
+            assert!(b.carry(i, c + v3(a.cos() * r, 0.0, a.sin() * r)));
+            b.release(i, 1.0);
+        }
+    }
+
+    #[test]
+    fn crowded_together_away_from_the_middle_they_run_and_come_back_out_of_it() {
+        let mut b = Burst::default();
+        for _ in 0..12 {
+            b.wound();
+        }
+        run(&mut b, 3.0);
+        crowd(&mut b, v3(11.0, FLOOR_Y, -4.0));
+        assert!(b.river.active, "they ran");
+        assert!((0..SHARDS).all(|i| !b.land.returned(i)), "none of them went home");
+        run(&mut b, 3.0);
+        assert!(b.pick(v3(11.0, 12.0, -4.0), -V3::UP).is_none(), "they are under the river now");
+        for i in 0..SHARDS {
+            assert!(b.shard_pose(i).0.y < FLOOR_Y, "piece {i} is under the ground");
+        }
+        assert!(!b.carry(0, v3(0.0, FLOOR_Y, 0.0)));
+        assert!(b.drain_events().contains(&Event::River(river::Event::Bled)));
+        // holding still on the ground still calls them home, up out of the river
+        assert!(b.gather());
+        run(&mut b, 3.0);
+        assert!(b.whole() && !b.river.active);
     }
 }

@@ -30,7 +30,9 @@
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
 //! - draw a square around it: it becomes a box; knock three times (see forms/pandora.rs)
 //! - in the landscape: drag a piece to carry it, hold one still to plant it,
-//!   carry them all to the middle to mend it (see landscape.rs)
+//!   carry them all to the middle to mend it (see landscape.rs); crowd them all together
+//!   anywhere else and they run as a river: tap it and a column stands up, drag along it
+//!   for a row, and fill the view with them (see river.rs)
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
@@ -78,6 +80,10 @@ pub enum Sound {
     Shard { i: usize },
     /// All twelve at once.
     Chord,
+    /// A column standing up out of the river; each one its own pitch.
+    Column { slot: usize },
+    /// The river's heartbeat.
+    Beat,
 }
 
 enum Gesture {
@@ -96,6 +102,8 @@ enum Gesture {
     Ground { start: (f32, f32), since: f32 },
     /// Pressing one of the twelve: a tap pokes it, a drag carries it, holding still plants it.
     Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
+    /// Touching the river: every column under the pointer stands up.
+    River,
 }
 
 /// Distance between two points on the canvas.
@@ -145,6 +153,8 @@ pub struct Game {
     still: f32,
     /// Where the pointer last pointed, on the plane through the body.
     pointer_at: Option<V3>,
+    /// After the river: the beat it kept. Seconds per beat, seconds into this one, beats left.
+    heart: (f32, f32, u32),
 }
 
 impl Game {
@@ -173,6 +183,7 @@ impl Game {
             look_back: false,
             contact: Contact::default(),
             still: 0.0,
+            heart: (0.0, 0.0, 0),
             pointer_at: None,
         }
     }
@@ -296,7 +307,7 @@ impl Game {
                     self.sounds.push(Sound::Merge);
                 }
             }
-            Gesture::Ground { .. } | Gesture::Idle => {}
+            Gesture::Ground { .. } | Gesture::River | Gesture::Idle => {}
         }
     }
 
@@ -314,6 +325,17 @@ impl Game {
         let z = d.dot(b.fwd).max(0.1);
         let (ux, uy) = (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z);
         ((ux * self.h + self.w) * 0.5, (self.h - uy * self.h) * 0.5)
+    }
+
+    /// Stand up the column of the river under the pointer. Returns true if the river is there.
+    fn raise_column(&mut self, x: f32, y: f32, tapped: bool) -> bool {
+        let Some(at) = self.floor_point(x, y) else { return false };
+        let river = &mut self.world.burst.river;
+        let Some(slot) = river.slot_at(at.x, at.z) else { return false };
+        if river.raise(slot, tapped) {
+            self.sounds.push(Sound::Column { slot });
+        }
+        true
     }
 
     /// Where the pointer meets the floor, if it does.
@@ -369,6 +391,10 @@ impl Game {
         self.pvel = (0.0, 0.0);
         if !self.world.burst.whole() {
             self.world.burst.land.touch();
+            if self.raise_column(x, y, true) {
+                self.gesture = Gesture::River;
+                return;
+            }
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
             self.gesture = match self.world.burst.pick(ro, rd) {
                 Some(i) => Gesture::Shard { i, start: (x, y), since: self.clock, carried: false },
@@ -477,6 +503,9 @@ impl Game {
                     self.discover(Discovery::LookAround);
                 }
                 self.gesture = Gesture::Orbiting { start, last: (x, y) };
+            }
+            Gesture::River => {
+                self.raise_column(x, y, false);
             }
             Gesture::Ground { start, .. } => {
                 let moved = dist(start, (x, y)) / self.h;
@@ -708,6 +737,50 @@ impl Game {
         }
     }
 
+    fn on_river(&mut self, e: crate::river::Event) {
+        use crate::river::Event as R;
+        match e {
+            R::Bled => {
+                self.sounds.push(Sound::Become);
+                self.discover(Discovery::River);
+                self.gesture = Gesture::Idle;
+            }
+            R::Raised => self.discover(Discovery::Column),
+            R::Filled => {
+                self.sounds.push(Sound::Beat);
+                self.cam.shake = self.cam.shake.max(0.03);
+                self.discover(Discovery::Pulse);
+            }
+            R::Beat => {
+                self.sounds.push(Sound::Beat);
+                self.cam.shake = self.cam.shake.max(0.03);
+            }
+            R::Pulsed => {
+                // it comes up out of the river dark red, and keeps the beat a while
+                self.world.body.color = crate::sim::PEARL.lerp(crate::river::BLOOD, 0.8);
+                self.heart = (self.world.burst.river.rhythm(), 0.0, 40);
+                self.sounds.push(Sound::Beat);
+                self.gesture = Gesture::Idle;
+            }
+        }
+    }
+
+    /// The beat it kept from the river: a small pulse through the body, fainter each time.
+    fn update_heart(&mut self, dt: f32) {
+        let (period, t, left) = &mut self.heart;
+        if *left == 0 || !self.world.burst.whole() {
+            return;
+        }
+        *t += dt;
+        if *t >= *period {
+            *t -= *period;
+            *left -= 1;
+            let amp = 0.12 + 0.3 * (*left as f32 / 40.0);
+            self.world.add_ripple(V3::UP, amp);
+            self.world.add_ripple(-V3::UP, amp * 0.6);
+        }
+    }
+
     fn morula_event(&mut self, e: morula::Event) {
         match e {
             morula::Event::Cleaved => self.discover(Discovery::Cleave),
@@ -926,6 +999,7 @@ impl Game {
         }
         self.update_forms(dt, orbiting);
         self.update_contact(dt);
+        self.update_heart(dt);
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);
@@ -955,6 +1029,7 @@ impl Game {
                     self.world.add_ripple(-V3::UP, 0.9);
                 }
                 burst::Event::Land(e) => self.on_land(e),
+                burst::Event::River(e) => self.on_river(e),
             }
         }
         // Pull back and up so the whole landscape can be seen.
@@ -1697,6 +1772,63 @@ mod tests {
         assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
         assert!(g.world.burst.whole());
         assert!(g.world.body.color != crate::sim::PEARL);
+    }
+
+    #[test]
+    fn crowded_together_they_run_red_and_a_view_full_of_columns_gives_it_a_pulse() {
+        let mut g = game();
+        burst_it(&mut g);
+        // crowd every piece together off to one side
+        let c = v3(9.0, fusion::FLOOR_Y, -5.0);
+        for i in 0..burst::SHARDS {
+            let a = i as f32 * 2.399_963;
+            let r = 1.9 * (i as f32).sqrt();
+            assert!(g.world.burst.carry(i, c + v3(a.cos() * r, 0.0, a.sin() * r)));
+            g.world.burst.release(i, g.world.body.radius());
+        }
+        wait(&mut g, 6.0);
+        assert!(g.progress.has(Discovery::River));
+        assert!(!g.progress.has(Discovery::Mend));
+
+        // a tap on the river stands a column up out of it
+        let river = &g.world.burst.river;
+        let slot = crate::river::LANES * 12 + 1;
+        let (x, z) = river.slot_pos(slot);
+        let (px, py) = project(&g, v3(x, fusion::FLOOR_Y, z));
+        g.pointer_down(60, px, py);
+        g.pointer_up(60);
+        assert!(g.sounds.contains(&Sound::Column { slot }));
+        wait(&mut g, 0.6);
+        assert!(g.progress.has(Discovery::Column));
+        assert!(g.world.burst.river.height(slot) > 2.0);
+        assert!(!g.world.burst.whole());
+
+        // drag along it, lane by lane, until the view is full of them
+        for lane in 0..crate::river::LANES {
+            let id = 61 + lane as i32;
+            let at = |g: &Game, row: usize| {
+                let (x, z) = g.world.burst.river.slot_pos(row * crate::river::LANES + lane);
+                project(g, v3(x, fusion::FLOOR_Y, z))
+            };
+            let (x0, y0) = at(&g, 0);
+            g.pointer_down(id, x0, y0);
+            for row in 1..crate::river::ROWS {
+                let (x, y) = at(&g, row);
+                g.pointer_move(id, x, y, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(id);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Pulse), "{} standing", g.world.burst.river.standing_count());
+        assert!(g.sounds.contains(&Sound::Beat));
+
+        // a few beats, then it comes back up out of the river: red, and still beating
+        wait(&mut g, 14.0);
+        assert!(g.world.burst.whole());
+        let col = g.world.body.color;
+        assert!(col.x > 0.4 && col.y < 0.4, "{col:?}");
+        assert!(g.heart.2 > 0);
     }
 
     #[test]
