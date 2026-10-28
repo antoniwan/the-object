@@ -4,7 +4,11 @@
 # The page itself is rewritten by itch-page.mjs; everything else is the same object.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-[ -f web/pkg/chaos_object_bg.wasm ] || ./build.sh
+ls web/pkg/*.wasm >/dev/null 2>&1 || ./build.sh
+# On Vercel the files in pkg/ carry a hash (build.sh --hash); the page must name the ones there.
+for f in $(grep -o 'pkg/[A-Za-z0-9_.]*' web/index.html | sort -u); do
+  [ -f "web/$f" ] || { echo "itch.sh: web/index.html loads $f, which is not built; run ./build.sh" >&2; exit 1; }
+done
 
 out=dist/itch
 rm -rf "$out" dist/the-object-itch.zip
