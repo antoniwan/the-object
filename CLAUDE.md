@@ -13,12 +13,14 @@ Read these before changing anything, in this order:
 - **Forms start only from the ordinary liquid** (`World::ordinary()`), blend through `Phase`/`Blend`, and have a way back.
 - **Discoveries are appended** to the end of `Discovery`, `ALL`, `name()` and `line()` in `progress.rs`. Lines are lowercase, short, serious, never cute, never an explanation. Check them against `DESIGN.md` section 7.
 - **New on-screen text carries `data-glyph`.** No new fonts; if you add a glyph, re-subset the math font.
+- **Every pull request bumps the version and adds a `CHANGELOG.md` entry**: `./scripts/version.sh <next>`, by the rule in `CONTRIBUTING.md` (major: the arc or saved progress; minor: a new verb or form; patch: everything else). The entry follows the same voice rules: describe what it does, never what it is.
 - **Never commit build output** (`web/pkg/`, `target/`, `dist/`).
 - **The README stays short and cryptic.** Developer detail goes in `CONTRIBUTING.md`; design detail goes in `DESIGN.md`.
 
 ## Before opening a pull request
 
 ```
+./scripts/version.sh <next>   # then write its CHANGELOG.md entry
 cargo test
 npm ci && npm test
 ./build.sh

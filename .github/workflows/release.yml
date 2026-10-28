@@ -1,0 +1,48 @@
+# On every push to main: tags the version in Cargo.toml if it has no tag yet (and any version in
+# .github/past-versions.txt that is missing one), then makes sure
+# every tagged version in CHANGELOG.md has a GitHub release whose notes are its entry.
+# Tags pushed with this workflow's token start no other workflow, so itch.yml does not run here;
+# the itch build already went out with Vercel's production deploy.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag this version and any past one that is missing
+        run: |
+          { grep -v '^#' .github/past-versions.txt; echo "$(./scripts/version.sh) HEAD"; } | while read -r v commit; do
+            if git rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+              echo "v$v is already tagged at $(git rev-list -n1 "v$v")"
+            else
+              git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
+                tag -a "v$v" "$commit" -m "the object $v"
+              git push origin "v$v"
+            fi
+          done
+      - name: Release every tagged version
+        run: |
+          for v in $(sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' CHANGELOG.md); do
+            git rev-parse -q --verify "refs/tags/v$v" >/dev/null || { echo "v$v has no tag; skipping"; continue; }
+            ./scripts/changelog-notes.sh "$v" > notes.md
+            if gh release view "v$v" >/dev/null 2>&1; then
+              gh release edit "v$v" --title "the object $v" --notes-file notes.md
+            else
+              gh release create "v$v" --verify-tag --title "the object $v" --notes-file notes.md \
+                $( [ "$v" = "$(./scripts/version.sh)" ] && echo --latest || echo --latest=false )
+            fi
+          done

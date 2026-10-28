@@ -20,9 +20,28 @@ Everything except the browser glue is plain Rust with no browser types, so the t
 
 Never commit build output. `web/pkg/` and `target/` are ignored on purpose.
 
+## Versions and the changelog
+
+`Cargo.toml` holds the version; it follows semantic versioning, read for a piece you touch:
+
+- **major**: the arc changes (how it learns the player, what it does at the end), or something a player kept between visits is lost (a `localStorage` key renamed or reset).
+- **minor**: a new verb, a new form, or anything else new a player can do or see.
+- **patch**: fixes, speed, words, metadata, hosting and documentation.
+
+Every merge to `main` deploys, so **every pull request is a release**: it bumps the version and adds its entry to `CHANGELOG.md` ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/): Added, Changed, Fixed, Removed; one line each, ending with the PR number).
+
+```
+./scripts/version.sh               # prints the current version
+./scripts/version.sh 1.3.0         # moves it in Cargo.toml, Cargo.lock, web/index.html, web/llms.txt and CHANGELOG.md
+```
+
+Then write what changed under the new heading. `cargo test` fails if the page, `llms.txt` or the changelog disagree with `Cargo.toml` (`src/version.rs`), and CI fails a pull request whose version is not higher than its base. If another PR takes your number first, merge main and bump again.
+
+After the merge, `.github/workflows/release.yml` tags `v<version>` on main and publishes a GitHub release with the changelog entry as its notes. The itch.io push names the build `<version>+<short commit>`. A change worth telling players about also gets a post in `devlog/` (its README says how they are written).
+
 ## Where it runs
 
-- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, `npm test`, then a full `./build.sh`. Both must pass before a PR merges.
+- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, `npm test`, then a full `./build.sh`. Both must pass before a PR merges. On pull requests it also checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
 - **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh`, and serves `web/`. Settings are in `vercel.json`.
 - **Only `main` deploys.** Preview deployments are turned off in the Vercel project settings, so branches and pull requests build nothing there. Merging is deploying.
 - **itch.io** gets the same object as a zip. `./scripts/itch.sh` packs `web/` into `dist/the-object-itch.zip` with `index.html` at its root; `scripts/itch-page.mjs` takes out of the page the Vercel analytics, the ratings call and the root-absolute links, which break when itch serves the game from a subfolder in an iframe. Every production deploy on Vercel then runs `scripts/itch-push.sh`, which pushes that build to <https://antoniwan.itch.io/the-object> with butler, using the `BUTLER_API_KEY` and `ITCH_TARGET` (`user/game`) environment variables of the Vercel project; so merging to main updates both. A failed push is logged and never fails the deploy. `.github/workflows/itch.yml` is the manual path: on a `v*` tag (or by hand from the Actions tab) it attaches the zip to a GitHub release.
@@ -59,6 +78,7 @@ Never commit build output. `web/pkg/` and `target/` are ignored on purpose.
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
 | `src/shader.frag` | The one fragment shader that draws everything. |
 | `src/audio.rs` | Synthesized sounds, no samples. |
+| `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
 | `src/math.rs` | Small vector math, so the simulation has no dependencies. |
 | `web/index.html` | The page: canvas, loader, the three lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
