@@ -224,7 +224,12 @@ pub fn start() -> Result<(), JsValue> {
     for name in ["pointerup", "pointercancel"] {
         let app = app.clone();
         listen(target, name, true, move |e: PointerEvent| {
-            app.borrow_mut().game.pointer_up(e.pointer_id());
+            let mut a = app.borrow_mut();
+            a.game.pointer_up(e.pointer_id());
+            match &a.audio {
+                Some(audio) => audio.resume(),
+                None => a.audio = Audio::new().ok(),
+            }
         })?;
     }
     {

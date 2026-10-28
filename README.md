@@ -16,17 +16,18 @@ What it does is for you to find out. It keeps count.
 
 ```
 src/      the object: its physics, what touching it does, how it is drawn, how it sounds
-web/      the page it lives on
-build.sh  turns both into one file, dist/index.html
+web/      the site: the page it lives on, plus the compiled object in web/pkg/
+build.sh  compiles src/ into web/pkg/
 ```
 
-Every push to `main` is tested, built and published by `.github/workflows/pages.yml`.
+It is hosted on Vercel, which runs `build.sh` and serves `web/` on every push to `main` (`vercel.json`, `scripts/vercel-install.sh`). Tests run on GitHub (`.github/workflows/test.yml`).
 
 ## Build it yourself
 
-Requires Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.100, and Node.
+Requires Rust with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.100, and Python (or any static file server).
 
 ```
-./build.sh       # writes dist/index.html; open it in a browser
-cargo test       # runs the simulation tests
+./build.sh                         # compiles into web/pkg/
+python3 -m http.server -d web      # then open http://localhost:8000
+cargo test                         # runs the simulation tests
 ```
