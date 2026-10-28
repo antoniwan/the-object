@@ -484,11 +484,14 @@ pub fn start() -> Result<(), JsValue> {
 
     // It keeps count, across visits.
     let mut game = Game::new();
+    // Without storage every visit is a first one.
+    game.thoughts.first_visit = true;
     let hud = Hud::new(&doc)?;
     if let Some(s) = storage() {
         let found = s.get_item(KEY_FOUND).ok().flatten().unwrap_or_default();
         let visits = s.get_item(KEY_VISITS).ok().flatten().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0) + 1;
         let _ = s.set_item(KEY_VISITS, &visits.to_string());
+        game.thoughts.first_visit = visits == 1;
         game.progress = Progress::load(&found);
         game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
         game.senses = Senses::load(&s.get_item(KEY_SENSES).ok().flatten().unwrap_or_default());

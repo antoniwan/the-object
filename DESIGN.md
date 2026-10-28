@@ -172,7 +172,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- |
 | glyph step | 85 ms per stage, 28 ms stagger, 650 ms spread, 60 ms flicker |
 | toast | in over 0.6 s, stays 4.2 s; the question 7 s; the reply 10 s |
-| thought | rises over 2.4 s, stays 7 s, sinks over 2.4 s; anything found or said sends it away. The first comes no sooner than 30 s into a visit, after 20 s without a discovery, 3.5 s with no hand on anything and 8 s in one place; then at most one every 45 s |
+| thought | rises over 2.4 s, stays 7 s, sinks over 2.4 s; anything found or said sends it away. The first comes no sooner than 30 s into a visit, after 20 s without a discovery, 3.5 s with no hand on anything and 8 s in one place; then at most one every 45 s. On a first visit: 12 s, 10 s, 5 s in one place, then one every 25 s (`thoughts.rs` `FIRST_VISIT`) |
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
