@@ -15,9 +15,9 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.8.1] - 2026-10-28
 
 ### Changed
-- Less to download: the drawing instructions travel without their notes, 151 KB to 145 KB gzipped. (#PR)
-- Lighter frames: the page is touched only when something on it changes, sounds that hold steady are no longer re-sent, and the picture from the camera reuses its room; about a sixth fewer calls between the two sides each frame, half as many on each pointer move. (#PR)
-- The motion itself costs about a third less a frame, and listening about a third less, with every movement exactly as it was. (#PR)
+- Less to download: the drawing instructions travel without their notes, 151 KB to 145 KB gzipped. (#47)
+- Lighter frames: the page is touched only when something on it changes, sounds that hold steady are no longer re-sent, and the picture from the camera reuses its room; about a sixth fewer calls between the two sides each frame, half as many on each pointer move. (#47)
+- The motion itself costs about a third less a frame, and listening about a third less, with every movement exactly as it was. (#47)
 
 ## [1.8.0] - 2026-10-28
 
