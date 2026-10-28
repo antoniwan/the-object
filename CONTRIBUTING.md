@@ -13,6 +13,7 @@ cargo install wasm-bindgen-cli --version 0.2.100
 ./build.sh                         # compiles to web/pkg/; after this, web/ is the whole site
 python3 -m http.server -d web      # open http://localhost:8000
 cargo test                         # runs natively
+npm ci && npm test                 # the serverless function's helpers (api/)
 ```
 
 Everything except the browser glue is plain Rust with no browser types, so the tests run on your machine without a browser. Gestures are tested by feeding pointer positions into `Game` and checking what was discovered.
@@ -21,9 +22,10 @@ Never commit build output. `web/pkg/` and `target/` are ignored on purpose.
 
 ## Where it runs
 
-- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, then a full `./build.sh`. Both must pass before a PR merges.
+- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, `npm test`, then a full `./build.sh`. Both must pass before a PR merges.
 - **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh`, and serves `web/`. Settings are in `vercel.json`.
 - **Only `main` deploys.** Preview deployments are turned off in the Vercel project settings, so branches and pull requests build nothing there. Merging is deploying.
+- **One serverless function**, `api/rating.js`, keeps the answers to the question the object asks after contact (`contact.rs`, `Ask`): the player is handed a drop and the steps they kept it for, 1 to 5, are posted to `/api/rating`. They are stored in a private Vercel Blob store connected to the project (`BLOB_READ_WRITE_TOKEN`), as counts in `ratings/summary.json` and one small file per visitor under `ratings/visitors/`, named by a salted hash of their address (salt: `RATING_SALT` if set, else the store token), never the address itself. A visitor who answers again replaces their answer, and no sooner than a minute later. `GET /api/rating` returns the mean and count; `web/index.html` adds them to the page's JSON-LD as an `AggregateRating` once there is at least one. Nothing is invented: with no answers there is no rating.
 - Vercel Web Analytics is loaded by `web/index.html` and counts page views. The object's own memory of a player stays in their browser (see Saved state).
 
 ## How a frame happens
@@ -90,7 +92,7 @@ Fonts are self-hosted from Fontsource. The math font is cut down to just the gly
 
 ## Saved state
 
-Three `localStorage` keys, all in the player's browser:
+Three `localStorage` keys, all in the player's browser (the one answer that leaves it is described under Where it runs):
 
 - `the-object.found`: which discoveries they have made.
 - `the-object.visits`: how many times they have come back.

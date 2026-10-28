@@ -1,0 +1,15 @@
+{
+  "name": "the-object",
+  "private": true,
+  "type": "module",
+  "description": "Only for api/: the serverless function that keeps the answers to the object's question.",
+  "scripts": {
+    "test": "node --test api/_rating.test.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

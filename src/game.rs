@@ -130,6 +130,8 @@ pub struct Game {
     /// New discoveries for the HUD to announce.
     pub announcements: Vec<Discovery>,
     pub sounds: Vec<Sound>,
+    /// Its question after contact, asked and answered, for the page to show and send on.
+    pub question: Vec<contact::Event>,
     idle: f32,
     /// The path of a drag on empty space, for noticing a square drawn around it. In canvas
     /// heights, so it holds its shape if the canvas is resized halfway through.
@@ -164,6 +166,7 @@ impl Game {
             pvel: (0.0, 0.0),
             announcements: Vec::new(),
             sounds: Vec::new(),
+            question: Vec::new(),
             idle: 0.0,
             trace: Vec::new(),
             look_from: (0.0, 0.0),
@@ -793,6 +796,19 @@ impl Game {
                 }
                 C::Reaching => self.sounds.push(Sound::Become),
                 C::Said => self.discover(Discovery::Contact),
+                C::Asked => {
+                    self.sounds.push(Sound::Call);
+                    self.question.push(e);
+                }
+                C::Kept(n) => {
+                    let pitch = n as f32 / contact::KEEP_STEPS as f32;
+                    self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() * 0.3 });
+                }
+                C::Answer(_) => {
+                    self.sounds.push(Sound::Merge);
+                    self.world.add_ripple(-b.fwd, 0.5);
+                    self.question.push(e);
+                }
             }
         }
     }

@@ -12,6 +12,10 @@
 //! - contact (CONTACT_AT, and answered CONTACT_ANSWERS times): once a visit, it goes still and
 //!   reaches toward you with everything it has, plays your rhythm back, and says one thing.
 //!   The only word of it anyone can read is "you"; the rest is made from your habits.
+//! - a question (after contact, once a visit): it holds out one drop of itself and waits. Kept
+//!   in the hand, the drop brightens a step at a time, up to five; let go, the steps it reached
+//!   are the answer. Left untaken, nothing is answered. The answer leaves the page (web.rs);
+//!   it is the only thing the object ever sends anywhere.
 //!
 //! What it learns is kept between visits (`save` / `load`). Nothing here draws: it moves the
 //! liquid with the same tendrils, ripples, drops and colors the player's own verbs use, so the
@@ -40,6 +44,12 @@ const CONTACT_PLAY: f32 = 4.2;
 const CONTACT_SAY: f32 = 5.4;
 const CONTACT_LET_GO: f32 = 10.5;
 const CONTACT_END: f32 = 12.5;
+/// After contact, this long until it asks (seconds); how long the drop is held out for.
+const ASK_AFTER: f32 = 2.5;
+const ASK_WINDOW: f32 = 12.0;
+/// Each this long kept in the hand, the answer goes up a step, to `KEEP_STEPS`.
+pub const KEEP_STEP: f32 = 1.1;
+pub const KEEP_STEPS: u8 = 5;
 /// The signs its reply is written in; all of them are in the glyph font (web/fonts).
 const SIGNS: [char; 12] = ['∴', '∵', '∷', '⊕', '⊗', '☉', '☽', '✶', '⟡', '⌬', '⍜', '⍟'];
 
@@ -111,6 +121,22 @@ pub enum Event {
     Reaching,
     /// The reply is ready to be said.
     Said,
+    /// After contact, it held out a drop: a question.
+    Asked,
+    /// The drop is kept, `n` steps so far (1..=KEEP_STEPS).
+    Kept(u8),
+    /// The drop was let go after `n` steps: the answer.
+    Answer(u8),
+}
+
+/// The question it asks after contact, and how it is being answered.
+enum Ask {
+    /// Contact is over; it asks when this reaches ASK_AFTER.
+    Soon(f32),
+    /// The drop is out; nobody has taken it yet.
+    Held { drop: u32, left: f32 },
+    /// Someone has it, for this long.
+    Kept { drop: u32, t: f32, steps: u8 },
 }
 
 /// A tendril of its own: out along `dir` to `len` body radii, held, then let go.
@@ -192,6 +218,7 @@ pub struct Contact {
     /// Seconds into the contact, while it lasts.
     contact: Option<f32>,
     contacted_now: bool,
+    ask: Option<Ask>,
     flinch_wait: f32,
     hovered: f32,
     echo_wait: f32,
@@ -218,6 +245,7 @@ impl Default for Contact {
             turns: 0,
             contact: None,
             contacted_now: false,
+            ask: None,
             flinch_wait: 0.0,
             hovered: 0.0,
             echo_wait: 0.0,
@@ -252,7 +280,7 @@ impl Contact {
 
     /// Busy with something of its own.
     pub fn acting(&self) -> bool {
-        self.phrase.is_some() || !self.reaches.is_empty() || self.contact.is_some()
+        self.phrase.is_some() || !self.reaches.is_empty() || self.contact.is_some() || self.ask.is_some()
     }
 
     pub fn in_contact(&self) -> bool {
@@ -405,10 +433,12 @@ impl Contact {
             self.mimic = None;
             self.contact = None;
             self.blush = None;
+            self.ask = None;
             return;
         }
 
         self.step_contact(dt, world, sense);
+        self.step_ask(dt, world, sense);
         self.step_echo(sense);
         self.step_turn(world, sense);
 
@@ -560,6 +590,64 @@ impl Contact {
         }
         if now >= CONTACT_END {
             self.contact = None;
+            self.ask = Some(Ask::Soon(0.0));
+        }
+    }
+
+    /// One drop held out after contact. How long it is kept is the answer; untaken, there is none.
+    fn step_ask(&mut self, dt: f32, world: &mut World, sense: &Sense) {
+        let Some(ask) = &mut self.ask else { return };
+        match ask {
+            Ask::Soon(t) => {
+                *t += dt;
+                if *t < ASK_AFTER || !self.reaches.is_empty() || self.phrase.is_some() {
+                    return;
+                }
+                let r = world.body.radius();
+                let out = (-sense.fwd + sense.up * 0.35).norm();
+                let pos = world.body.pos + out * (r * 1.05);
+                // paler than itself, so it reads as something offered, not something lost
+                let color = world.body.color.lerp(v3(1.0, 1.0, 1.0), 0.35);
+                self.ask = if world.spill(pos, out * 0.9, 0.22 * r, color) {
+                    let drop = world.drops.last().map(|d| d.id).unwrap_or(0);
+                    self.events.push(Event::Asked);
+                    Some(Ask::Held { drop, left: ASK_WINDOW })
+                } else {
+                    None
+                };
+            }
+            Ask::Held { drop, left } => {
+                let drop = *drop;
+                *left -= dt;
+                match world.drops.iter().find(|d| d.id == drop) {
+                    Some(d) if d.target.is_some() => {
+                        self.ask = Some(Ask::Kept { drop, t: 0.0, steps: 1 });
+                        self.events.push(Event::Kept(1));
+                    }
+                    Some(_) if *left > 0.0 => {}
+                    // let fall, or gone back into it, untouched: no answer
+                    _ => self.ask = None,
+                }
+            }
+            Ask::Kept { drop, t, steps } => {
+                let drop = *drop;
+                let held = world.drops.iter().find(|d| d.id == drop).is_some_and(|d| d.target.is_some());
+                if !held {
+                    let n = *steps;
+                    self.ask = None;
+                    self.events.push(Event::Answer(n));
+                    return;
+                }
+                *t += dt;
+                let want = (1 + (*t / KEEP_STEP) as u8).min(KEEP_STEPS);
+                if want > *steps {
+                    *steps = want;
+                    self.events.push(Event::Kept(want));
+                    if let Some(d) = world.drops.iter_mut().find(|d| d.id == drop) {
+                        d.color = d.color.lerp(v3(1.0, 0.97, 0.9), 0.3);
+                    }
+                }
+            }
         }
     }
 
@@ -753,9 +841,59 @@ mod tests {
         assert!(w.handles.iter().all(|h| h.tip.z > 0.5), "{:?}", w.handles.iter().map(|h| h.tip).collect::<Vec<_>>());
         let e = run(&mut c, &mut w, &s, CONTACT_END);
         assert!(e.contains(&Event::Said));
-        assert!(c.contacted && w.drops.is_empty());
+        assert!(c.contacted);
+        assert!(w.drops.len() <= 1, "it tore nothing; the one drop is the one it holds out after");
         let e = run(&mut c, &mut w, &s, 30.0);
         assert!(!e.contains(&Event::Reaching), "once a visit");
+    }
+
+    /// Runs a contact to its end and on until the drop is held out; returns the drop.
+    fn asked(c: &mut Contact, w: &mut World, s: &Sense) -> u32 {
+        c.answered = CONTACT_ANSWERS;
+        c.habits = [3, 1, 0, 0, 1];
+        let e = run(c, w, s, CONTACT_END + ASK_AFTER + 2.0);
+        assert!(e.contains(&Event::Asked), "{e:?}");
+        assert!(!e.iter().any(|e| matches!(e, Event::Kept(_) | Event::Answer(_))));
+        w.drops.last().unwrap().id
+    }
+
+    #[test]
+    fn after_contact_how_long_its_drop_is_kept_is_the_answer() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        let drop = asked(&mut c, &mut w, &s);
+        let at = w.drops.iter().find(|d| d.id == drop).unwrap().pos;
+        w.grab_drop(drop, at);
+        let e = run(&mut c, &mut w, &s, KEEP_STEP * 3.0 + 0.2);
+        let kept: Vec<u8> = e.iter().filter_map(|e| if let Event::Kept(n) = e { Some(*n) } else { None }).collect();
+        assert_eq!(kept, vec![1, 2, 3, 4]);
+        w.release_drop(drop);
+        let e = run(&mut c, &mut w, &s, 0.2);
+        assert!(e.contains(&Event::Answer(4)), "{e:?}");
+        let e = run(&mut c, &mut w, &s, 40.0);
+        assert!(!e.contains(&Event::Asked), "it asks once a visit");
+    }
+
+    #[test]
+    fn kept_long_enough_the_answer_stops_at_five() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        let drop = asked(&mut c, &mut w, &s);
+        let at = w.drops.iter().find(|d| d.id == drop).unwrap().pos;
+        w.grab_drop(drop, at);
+        run(&mut c, &mut w, &s, 20.0);
+        w.release_drop(drop);
+        assert!(run(&mut c, &mut w, &s, 0.2).contains(&Event::Answer(KEEP_STEPS)));
+    }
+
+    #[test]
+    fn a_drop_left_alone_is_no_answer() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        asked(&mut c, &mut w, &s);
+        let e = run(&mut c, &mut w, &s, ASK_WINDOW + 30.0);
+        assert!(!e.iter().any(|e| matches!(e, Event::Kept(_) | Event::Answer(_))), "{e:?}");
+        assert!(!c.acting() || c.ask.is_none());
     }
 
     #[test]
