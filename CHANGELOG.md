@@ -15,9 +15,9 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.8.3] - 2026-10-28
 
 ### Changed
-- Each frame costs about two fifths less to draw: every ray starts where something could be and stops past the last of it, leaps the empty space between, and strides further where it safely can. Shapes, light and color are as they were.
-- The room through the mirrors costs about a third less a frame, and the light and color laid over everything a quarter less, worked out once and shared instead of again for each surface.
-- It takes no longer to get ready, though it draws far less each frame.
+- Each frame costs about two fifths less to draw: every ray starts where something could be and stops past the last of it, leaps the empty space between, and strides further where it safely can. Shapes, light and color are as they were. (#49)
+- The room through the mirrors costs about a third less a frame, and the light and color laid over everything a quarter less, worked out once and shared instead of again for each surface. (#49)
+- It takes no longer to get ready, though it draws far less each frame. (#49)
 
 ## [1.8.2] - 2026-10-28
 
