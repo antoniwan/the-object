@@ -79,13 +79,16 @@
 <!-- Fetch the object while the page is still being read, not after the script asks for it. -->
 <link rel="modulepreload" href="pkg/chaos_object.js">
 <link rel="preload" href="pkg/chaos_object_bg.wasm" as="fetch" type="application/wasm" crossorigin>
-<link rel="preload" href="fonts/cormorant-garamond-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="fonts/noto-sans-math-glyphs.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/cormorant-garamond-latin-400-italic-core.4c227000.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/noto-sans-math-glyphs.15edc812.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  @font-face { font-family: "Cormorant Garamond"; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/cormorant-garamond-latin-400-italic.woff2) format("woff2"); }
-  @font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/cormorant-garamond-latin-500-normal.woff2) format("woff2"); }
-  @font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
-  @font-face { font-family: "Glyphs"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/noto-sans-math-glyphs.woff2) format("woff2"); }
+  @font-face { font-family: "Cormorant Garamond"; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/cormorant-garamond-latin-400-italic-core.4c227000.woff2) format("woff2"); unicode-range: U+0020-007E, U+00A0, U+2013-2014, U+2018-2019, U+201C-201D, U+2026; }
+  @font-face { font-family: "Cormorant Garamond"; font-style: italic; font-weight: 400; font-display: swap; src: url(fonts/cormorant-garamond-latin-400-italic-ext.6055ddcb.woff2) format("woff2"); unicode-range: U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2012, U+2015-2017, U+201A-201B, U+201E-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/cormorant-garamond-latin-500-normal-core.dc237502.woff2) format("woff2"); unicode-range: U+0020-007E, U+00A0, U+2013-2014, U+2018-2019, U+201C-201D, U+2026; }
+  @font-face { font-family: "Cormorant Garamond"; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/cormorant-garamond-latin-500-normal-ext.7c270f22.woff2) format("woff2"); unicode-range: U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2012, U+2015-2017, U+201A-201B, U+201E-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400-normal-core.b84b183f.woff2) format("woff2"); unicode-range: U+0020-007E, U+00A0, U+2013-2014, U+2018-2019, U+201C-201D, U+2026; }
+  @font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400-normal-ext.9fcb0282.woff2) format("woff2"); unicode-range: U+00A1-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2012, U+2015-2017, U+201A-201B, U+201E-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: "Glyphs"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/noto-sans-math-glyphs.15edc812.woff2) format("woff2"); }
   /* --tint, --unrest, --ox, --oy come from the object every frame (src/aura.rs). */
   :root { color-scheme: light; --tint: 120 120 132; --words: "Cormorant Garamond", Georgia, serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
   html, body { margin: 0; height: 100%; background: #f8f7f5; overflow: hidden; }
