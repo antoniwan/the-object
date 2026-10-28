@@ -15,10 +15,10 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.6.0] - 2026-10-28
 
 ### Added
-- Late, after it has reached back once (or after fifty discoveries), something else comes down into the room: small, hard, dark and many-sided, with colors splitting at its edges. It never touches the floor. (#PR)
-- Tap it and it rings, and the first shivers. Carry it close and the first reaches for it. Throw it at the first and they clash. (#PR)
-- Press the two together and the first takes it in, a dark shape seen through it, and cools; squeeze and it is given back, each keeping some of the other's color. (#PR)
-- Hurt the first again and again while it is there and it comes between you. Leave them both alone and they circle. Eight new discoveries and five new thoughts. (#PR)
+- Late, after it has reached back once (or after fifty discoveries), something else comes down into the room: small, hard, dark and many-sided, with colors splitting at its edges. It never touches the floor. (#44)
+- Tap it and it rings, and the first shivers. Carry it close and the first reaches for it. Throw it at the first and they clash. (#44)
+- Press the two together and the first takes it in, a dark shape seen through it, and cools; squeeze and it is given back, each keeping some of the other's color. (#44)
+- Hurt the first again and again while it is there and it comes between you. Leave them both alone and they circle. Eight new discoveries and five new thoughts. (#44)
 
 ## [1.5.0] - 2026-10-28
 
