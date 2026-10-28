@@ -17,29 +17,60 @@ const FRAG: &str = include_str!("shader.frag");
 pub struct Renderer {
     gl: GL,
     program: WebGlProgram,
+    shaders: [WebGlShader; 2],
+    /// The browser can compile shaders in the background (KHR_parallel_shader_compile).
+    parallel: bool,
+    ready: bool,
 }
 
-fn compile(gl: &GL, kind: u32, src: &str) -> Result<WebGlShader, JsValue> {
+/// GL_COMPLETION_STATUS_KHR.
+const COMPLETION_STATUS: u32 = 0x91B1;
+
+fn shader(gl: &GL, kind: u32, src: &str) -> Result<WebGlShader, JsValue> {
     let s = gl.create_shader(kind).ok_or("create_shader failed")?;
     gl.shader_source(&s, src);
     gl.compile_shader(&s);
-    if gl.get_shader_parameter(&s, GL::COMPILE_STATUS).as_bool() == Some(true) {
-        Ok(s)
-    } else {
-        Err(gl.get_shader_info_log(&s).unwrap_or_default().into())
-    }
+    Ok(s)
 }
 
 impl Renderer {
+    /// Starts compiling. Nothing is checked here, because asking for the result
+    /// would freeze the page until the driver is done; `poll` asks later.
     pub fn new(gl: GL) -> Result<Renderer, JsValue> {
+        let parallel = gl.get_extension("KHR_parallel_shader_compile").ok().flatten().is_some();
         let program = gl.create_program().ok_or("create_program failed")?;
-        gl.attach_shader(&program, &compile(&gl, GL::VERTEX_SHADER, VERT)?);
-        gl.attach_shader(&program, &compile(&gl, GL::FRAGMENT_SHADER, FRAG)?);
-        gl.link_program(&program);
-        if gl.get_program_parameter(&program, GL::LINK_STATUS).as_bool() != Some(true) {
-            return Err(gl.get_program_info_log(&program).unwrap_or_default().into());
+        let shaders = [shader(&gl, GL::VERTEX_SHADER, VERT)?, shader(&gl, GL::FRAGMENT_SHADER, FRAG)?];
+        for s in &shaders {
+            gl.attach_shader(&program, s);
         }
-        Ok(Renderer { gl, program })
+        gl.link_program(&program);
+        Ok(Renderer { gl, program, shaders, parallel, ready: false })
+    }
+
+    pub fn gl(&self) -> &GL {
+        &self.gl
+    }
+
+    /// True once the shader can draw. Without the extension the check blocks, so
+    /// the caller lets the loader paint at least once before asking.
+    pub fn poll(&mut self) -> Result<bool, JsValue> {
+        if self.ready {
+            return Ok(true);
+        }
+        let gl = &self.gl;
+        if self.parallel && gl.get_program_parameter(&self.program, COMPLETION_STATUS).as_bool() == Some(false) {
+            return Ok(false);
+        }
+        if gl.get_program_parameter(&self.program, GL::LINK_STATUS).as_bool() != Some(true) {
+            if gl.is_context_lost() {
+                return Ok(false);
+            }
+            let logs: Vec<String> = self.shaders.iter().filter_map(|s| gl.get_shader_info_log(s)).collect();
+            let link = gl.get_program_info_log(&self.program).unwrap_or_default();
+            return Err(format!("{} {}", logs.join(" "), link).trim().to_string().into());
+        }
+        self.ready = true;
+        Ok(true)
     }
 
     fn v3(&self, name: &str, v: V3) {

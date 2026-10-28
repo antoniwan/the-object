@@ -16,6 +16,22 @@ use web_sys::{
 const TOAST_SECONDS: f64 = 2.6;
 const KEY_FOUND: &str = "the-object.found";
 const KEY_VISITS: &str = "the-object.visits";
+/// A big screen at full density is millions of raymarched pixels; past this it renders smaller and scales up.
+const MAX_PIXELS: f64 = 1.6e6;
+/// Frames the loader gets to paint before anything that might block.
+const LOADER_FRAMES: u32 = 2;
+
+fn body() -> Option<HtmlElement> {
+    web_sys::window()?.document()?.body()
+}
+
+/// When it can't appear: the loader says so, quietly, and the reason goes to the console.
+fn fail(why: &JsValue) {
+    web_sys::console::error_1(why);
+    if let Some(b) = body() {
+        let _ = b.class_list().add_1("failed");
+    }
+}
 
 /// Browser storage can be missing or throw (private windows); every use tolerates that.
 fn storage() -> Option<Storage> {
@@ -73,6 +89,11 @@ struct App {
     /// Fraction of device pixels rendered; lowered automatically on slow devices.
     quality: f64,
     slow_time: f64,
+    /// Frames since the page opened or the context came back; the loader covers the first ones.
+    waiting: u32,
+    awake: bool,
+    /// The GPU dropped the context (driver reset, too much work); we wait for it to come back.
+    lost: bool,
 }
 
 impl App {
@@ -84,9 +105,11 @@ impl App {
     }
 
     fn resize(&mut self) {
-        let dpr = web_sys::window().unwrap().device_pixel_ratio().min(1.5) * self.quality;
-        let w = (self.canvas.client_width() as f64 * dpr).max(1.0) as u32;
-        let h = (self.canvas.client_height() as f64 * dpr).max(1.0) as u32;
+        let (cw, ch) = (self.canvas.client_width() as f64, self.canvas.client_height() as f64);
+        let mut dpr = web_sys::window().unwrap().device_pixel_ratio().min(1.5);
+        dpr = dpr.min((MAX_PIXELS / (cw * ch).max(1.0)).sqrt()) * self.quality;
+        let w = (cw * dpr).max(1.0) as u32;
+        let h = (ch * dpr).max(1.0) as u32;
         if self.canvas.width() != w || self.canvas.height() != h {
             self.canvas.set_width(w);
             self.canvas.set_height(h);
@@ -95,14 +118,51 @@ impl App {
         self.game.h = h as f32;
     }
 
+    /// Waits behind the loader until the shader is compiled, then lets the object in.
+    fn wake(&mut self) -> bool {
+        if self.awake {
+            return true;
+        }
+        self.waiting += 1;
+        if self.waiting <= LOADER_FRAMES {
+            return false;
+        }
+        match self.renderer.poll() {
+            Ok(false) => false,
+            Ok(true) => {
+                self.awake = true;
+                if let Some(b) = body() {
+                    let _ = b.class_list().add_1("awake");
+                }
+                true
+            }
+            Err(e) => {
+                fail(&e);
+                self.lost = true;
+                false
+            }
+        }
+    }
+
     fn frame(&mut self, now: f64) {
-        let dt = self.last_frame.map_or(1.0 / 60.0, |t| ((now - t) / 1000.0).clamp(0.0, 1.0 / 20.0));
+        if self.lost || !self.wake() {
+            self.last_frame = None;
+            return;
+        }
+        let raw = self.last_frame.map_or(1.0 / 60.0, |t| (now - t) / 1000.0);
+        let dt = raw.clamp(0.0, 1.0 / 20.0);
         self.last_frame = Some(now);
 
-        // Adaptive resolution: drop quality if we sit under ~35 fps for a second.
-        if dt > 1.0 / 35.0 {
+        // Adaptive resolution: a frame that stalls drops quality at once; sitting
+        // under ~35 fps for a second drops it gradually.
+        // (The first frames after waking can stall on the driver's last compile step; that says nothing about speed.)
+        self.waiting = self.waiting.saturating_add(1);
+        if raw > 0.25 && self.quality > 0.4 && self.waiting > LOADER_FRAMES + 4 {
+            self.quality = (self.quality - 0.25).max(0.4);
+            self.slow_time = 0.0;
+        } else if dt > 1.0 / 35.0 {
             self.slow_time += dt;
-            if self.slow_time > 1.0 && self.quality > 0.5 {
+            if self.slow_time > 1.0 && self.quality > 0.4 {
                 self.quality -= 0.15;
                 self.slow_time = 0.0;
             }
@@ -189,6 +249,9 @@ pub fn start() -> Result<(), JsValue> {
         last_move: 0.0,
         quality: 1.0,
         slow_time: 0.0,
+        waiting: 0,
+        awake: false,
+        lost: false,
     }));
     app.borrow_mut().resize();
 
@@ -237,6 +300,31 @@ pub fn start() -> Result<(), JsValue> {
         listen(target, "wheel", false, move |e: WheelEvent| {
             e.prevent_default();
             app.borrow_mut().game.wheel(e.delta_y() as f32);
+        })?;
+    }
+    {
+        // Without preventDefault the browser never gives the context back.
+        let app = app.clone();
+        listen(target, "webglcontextlost", false, move |e: web_sys::Event| {
+            e.prevent_default();
+            app.borrow_mut().lost = true;
+        })?;
+    }
+    {
+        let app = app.clone();
+        listen(target, "webglcontextrestored", true, move |_: web_sys::Event| {
+            let mut a = app.borrow_mut();
+            // Everything on the GPU is gone; build it again, and ask less of it this time.
+            match Renderer::new(a.renderer.gl().clone()) {
+                Ok(r) => {
+                    a.renderer = r;
+                    a.awake = false;
+                    a.waiting = LOADER_FRAMES;
+                    a.quality = (a.quality * 0.6).max(0.4);
+                    a.lost = false;
+                }
+                Err(e) => fail(&e),
+            }
         })?;
     }
     listen(target, "contextmenu", false, |e: web_sys::Event| e.prevent_default())?;
