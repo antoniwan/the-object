@@ -13,6 +13,10 @@ pub enum Discovery {
     Divide,
     Twin,
     Rejoin,
+    Throw,
+    Slam,
+    Lake,
+    Rise,
 }
 
 impl Discovery {
@@ -28,6 +32,10 @@ impl Discovery {
             Discovery::Divide => "divide",
             Discovery::Twin => "twin",
             Discovery::Rejoin => "rejoin",
+            Discovery::Throw => "throw",
+            Discovery::Slam => "slam",
+            Discovery::Lake => "lake",
+            Discovery::Rise => "rise",
         }
     }
 
@@ -43,6 +51,10 @@ impl Discovery {
             Discovery::Divide => "it was always two.",
             Discovery::Twin => "what one feels, the other feels.",
             Discovery::Rejoin => "it chose to be one.",
+            Discovery::Throw => "it goes where it is sent.",
+            Discovery::Slam => "it hit the ground and stayed.",
+            Discovery::Lake => "the ground remembers.",
+            Discovery::Rise => "it was never gone.",
         }
     }
 }
