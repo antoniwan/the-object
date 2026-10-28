@@ -4,7 +4,7 @@ There is an object.
 
 You can touch it.
 
-**[Touch it.](https://antoniwan.github.io/the-object/)**
+**[Touch it.](https://the-object-five.vercel.app/)**
 
 ---
 
