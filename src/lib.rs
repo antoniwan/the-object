@@ -1,4 +1,5 @@
 pub mod camera;
+pub mod fusion;
 pub mod game;
 pub mod math;
 pub mod meiosis;

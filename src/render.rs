@@ -138,6 +138,18 @@ impl Renderer {
         let g = world.gaze_dir;
         self.v4v("uGaze", &[g.x, g.y, g.z, world.gaze]);
 
+        // Slamming: see fusion.rs.
+        let fu = &world.fusion;
+        let loc = gl.get_uniform_location(&self.program, "uLake");
+        let radius = fu.blend().lake * crate::fusion::LAKE_RADIUS;
+        gl.uniform4f(loc.as_ref(), fu.impact.0, fu.impact.1, radius, fu.since_impact);
+        let mut lr = Vec::new();
+        for r in fu.ripples.iter().take(crate::fusion::MAX_LAKE_RIPPLES) {
+            lr.extend([r.x, r.z, r.age, r.amp]);
+        }
+        self.v4v("uLakeRip", &lr);
+        self.i("uNLR", lr.len() / 4);
+
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
 }
