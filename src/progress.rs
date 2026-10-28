@@ -28,9 +28,16 @@ pub enum Discovery {
     Burst,
     Shards,
     Gather,
+    Mirror,
+    Freeze,
+    Thaw,
+    Deep,
+    Fountain,
+    Quicksilver,
+    Ink,
 }
 
-pub const ALL: [Discovery; 25] = [
+pub const ALL: [Discovery; 32] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -56,6 +63,13 @@ pub const ALL: [Discovery; 25] = [
     Discovery::Burst,
     Discovery::Shards,
     Discovery::Gather,
+    Discovery::Mirror,
+    Discovery::Freeze,
+    Discovery::Thaw,
+    Discovery::Deep,
+    Discovery::Fountain,
+    Discovery::Quicksilver,
+    Discovery::Ink,
 ];
 
 impl Discovery {
@@ -86,6 +100,13 @@ impl Discovery {
             Discovery::Burst => "burst",
             Discovery::Shards => "twelve",
             Discovery::Gather => "gather",
+            Discovery::Mirror => "mirror",
+            Discovery::Freeze => "freeze",
+            Discovery::Thaw => "thaw",
+            Discovery::Deep => "deep",
+            Discovery::Fountain => "fountain",
+            Discovery::Quicksilver => "quicksilver",
+            Discovery::Ink => "ink",
         }
     }
 
@@ -116,6 +137,13 @@ impl Discovery {
             Discovery::Burst => "too much inside. the outside won.",
             Discovery::Shards => "twelve pieces. none of them agree.",
             Discovery::Gather => "broken is not the same as gone.",
+            Discovery::Mirror => "still enough, and it shows you what it was.",
+            Discovery::Freeze => "you held it until it held still.",
+            Discovery::Thaw => "the cold was only holding its breath.",
+            Discovery::Deep => "the floor goes further down than the room.",
+            Discovery::Fountain => "three blows in one place. it gives one back.",
+            Discovery::Quicksilver => "it came up wearing the light.",
+            Discovery::Ink => "it came up wearing the dark.",
         }
     }
 }
@@ -177,7 +205,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Gather as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Ink as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

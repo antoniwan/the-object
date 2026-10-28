@@ -13,6 +13,10 @@
 //! - leave it alone: it starts to watch the pointer
 //! - stretch it and let go with a fast flick: throw it; thrown hard at the floor it fuses (see fusion.rs)
 //! - on the liquid floor: tap to ripple it, drag up to pull the object back out
+//!   (see mere.rs for the rest): leave it alone and it stills into a mirror; hold
+//!   still on it and it freezes, then tap the ice until it breaks; drag down and it
+//!   goes deep; tap three times in one place and it throws up a fountain. Pulled out
+//!   of a mirror it comes up quicksilver, out of the deep it comes up ink
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
 
@@ -21,6 +25,7 @@ use crate::math::*;
 use crate::burst;
 use crate::fusion;
 use crate::meiosis::{self, Swipe};
+use crate::mere;
 use crate::progress::{Discovery, Progress};
 use crate::sim::{Event, Hit, Target, World};
 
@@ -51,8 +56,8 @@ enum Gesture {
     Dragging { drop: u32, plane: V3, offset: V3 },
     Orbiting { start: (f32, f32), last: (f32, f32) },
     Squeezing { start_dist: f32 },
-    /// Touching the liquid floor; `at` is where, on the floor.
-    Lake { start: (f32, f32), at: (f32, f32) },
+    /// Touching the liquid floor; `at` is where, on the floor. Held still, it freezes.
+    Lake { start: (f32, f32), at: (f32, f32), since: f32, moved: bool },
     /// Pressing the empty ground of the landscape; held still long enough, it gathers.
     Ground { start: (f32, f32), since: f32 },
 }
@@ -151,9 +156,14 @@ impl Game {
                 self.world.release_handle(handle);
                 self.throw();
             }
-            Gesture::Lake { at, .. } => {
-                self.world.fusion.touch_lake(at.0, at.1, 1.0);
-                self.discover(Discovery::Lake);
+            Gesture::Lake { at, moved, .. } => {
+                if self.world.fusion.mere.frozen() {
+                    self.world.fusion.mere.crack(at.0, at.1);
+                } else if !moved {
+                    self.world.fusion.touch_lake(at.0, at.1, 1.0);
+                    self.world.fusion.mere.tap(at.0, at.1);
+                    self.discover(Discovery::Lake);
+                }
             }
             Gesture::Dragging { drop, .. } => {
                 if self.world.release_drop(drop) > 4.0 {
@@ -223,7 +233,10 @@ impl Game {
             // It is in the floor now; the floor is what there is to touch.
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
             self.gesture = match self.world.fusion.lake_hit(ro, rd) {
-                Some(at) => Gesture::Lake { start: (x, y), at },
+                Some(at) => {
+                    self.world.fusion.mere.disturb();
+                    Gesture::Lake { start: (x, y), at, since: self.clock, moved: false }
+                }
                 None => Gesture::Orbiting { start: (x, y), last: (x, y) },
             };
             return;
@@ -296,10 +309,28 @@ impl Game {
                     self.pointer_move(id, x, y, dt);
                 }
             }
-            Gesture::Lake { start, .. } => {
-                // Pull up from the floor and it comes back out.
-                if (start.1 - y) / self.h > 0.12 && self.world.fusion.rise() {
-                    self.discover(Discovery::Rise);
+            Gesture::Lake { start, at, since, .. } => {
+                let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h > TAP_SLOP;
+                self.gesture = Gesture::Lake { start, at, since, moved };
+                let up = (start.1 - y) / self.h;
+                if up > 0.12 {
+                    // Pull up from the floor and it comes back out, as whatever the floor was.
+                    if self.world.fusion.mere.frozen() {
+                        // ice won't let it: the pull only cracks it
+                        self.world.fusion.mere.crack(at.0, at.1);
+                        self.gesture = Gesture::Idle;
+                    } else if self.world.fusion.rise() {
+                        self.discover(Discovery::Rise);
+                        match self.world.fusion.mere.coat {
+                            mere::Coat::Quicksilver => self.discover(Discovery::Quicksilver),
+                            mere::Coat::Ink => self.discover(Discovery::Ink),
+                            mere::Coat::Pearl => {}
+                        }
+                        self.gesture = Gesture::Idle;
+                    }
+                } else if up < -0.12 && self.world.fusion.phase == fusion::Phase::Fused && self.world.fusion.mere.sink() {
+                    // Push down and it goes deeper.
+                    self.discover(Discovery::Deep);
                     self.gesture = Gesture::Idle;
                 }
             }
@@ -401,6 +432,15 @@ impl Game {
                 self.world.warming = true;
             }
         }
+        if let Gesture::Lake { at, since, moved: false, .. } = self.gesture {
+            if self.clock - since > mere::FREEZE_HOLD
+                && self.world.fusion.phase == fusion::Phase::Fused
+                && self.world.fusion.mere.freeze(at.0, at.1)
+            {
+                self.discover(Discovery::Freeze);
+                self.gesture = Gesture::Idle;
+            }
+        }
         if let Gesture::Warming { since, .. } = self.gesture {
             if self.world.time - since > 1.2 {
                 self.discover(Discovery::Warm);
@@ -490,6 +530,27 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.8);
                     self.world.add_ripple(-V3::UP, 0.8);
                 }
+            }
+        }
+        for e in self.world.fusion.mere.drain_events() {
+            match e {
+                mere::Event::Stilled => self.discover(Discovery::Mirror),
+                mere::Event::Cracked => self.sounds.push(Sound::Poke { pitch: 1.0, size: 0.5 }),
+                mere::Event::Shattered => {
+                    self.sounds.push(Sound::Tear);
+                    self.discover(Discovery::Thaw);
+                    self.cam.shake = self.cam.shake.max(0.05);
+                    let cracks = self.world.fusion.mere.cracks.clone();
+                    for c in cracks {
+                        self.world.fusion.touch_lake(c.x, c.z, 1.4);
+                    }
+                }
+                mere::Event::Fountain => self.discover(Discovery::Fountain),
+                mere::Event::Splash { x, z } => {
+                    self.world.fusion.touch_lake(x, z, 1.2);
+                    self.sounds.push(Sound::Poke { pitch: 0.8, size: 0.4 });
+                }
+                mere::Event::Froze | mere::Event::Sank => {}
             }
         }
         // Once it's in the floor, the camera tilts down to look at what it became.
@@ -725,6 +786,95 @@ mod tests {
         }
         assert!(g.world.fusion.whole());
         assert!(g.world.body.pos.len() < 0.2, "back home in the middle");
+    }
+
+    fn slammed() -> Game {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 300.0);
+        for i in 1..=4 {
+            g.pointer_move(1, 400.0, 300.0 + i as f32 * 40.0, 1.0 / 120.0);
+            g.update(1.0 / 120.0);
+        }
+        g.pointer_up(1);
+        for _ in 0..360 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
+        g
+    }
+
+    #[test]
+    fn held_still_the_lake_freezes_and_breaks_under_taps_and_pushed_down_it_comes_up_ink() {
+        let mut g = slammed();
+        g.pointer_down(2, 400.0, 560.0);
+        for _ in 0..70 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(2);
+        assert!(g.progress.has(Discovery::Freeze));
+        assert!(g.world.fusion.mere.frozen());
+        // it can't be pulled up through the ice
+        g.pointer_down(3, 400.0, 560.0);
+        g.pointer_move(3, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(3);
+        assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
+        for i in 0..mere::CRACKS_TO_BREAK {
+            g.pointer_down(10 + i as i32, 380.0 + i as f32 * 10.0, 560.0);
+            g.pointer_up(10 + i as i32);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Thaw));
+        for _ in 0..90 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(!g.world.fusion.mere.frozen());
+
+        // push down: it goes deep, and comes back out ink
+        g.pointer_down(4, 400.0, 500.0);
+        g.pointer_move(4, 400.0, 590.0, 1.0 / 60.0);
+        g.pointer_up(4);
+        assert!(g.progress.has(Discovery::Deep));
+        for _ in 0..180 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.body.pos.y < fusion::FLOOR_Y - 2.0, "it went further down");
+        g.pointer_down(5, 400.0, 560.0);
+        g.pointer_move(5, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(5);
+        assert!(g.progress.has(Discovery::Ink));
+        for _ in 0..420 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.fusion.whole());
+        assert!(g.world.body.pos.len() < 0.2);
+        assert!(g.world.fusion.mere.coat_mix().1 > 0.9);
+    }
+
+    #[test]
+    fn left_alone_the_lake_becomes_a_mirror_and_it_comes_up_quicksilver() {
+        let mut g = slammed();
+        for _ in 0..(60 * 10) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Mirror));
+        g.pointer_down(2, 400.0, 560.0);
+        g.pointer_move(2, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(2);
+        assert!(g.progress.has(Discovery::Quicksilver));
+    }
+
+    #[test]
+    fn three_taps_in_one_place_on_the_lake_throw_up_a_fountain() {
+        let mut g = slammed();
+        for i in 0..3 {
+            g.pointer_down(2 + i, 400.0, 560.0);
+            g.pointer_up(2 + i);
+            for _ in 0..10 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        assert!(g.progress.has(Discovery::Fountain));
+        assert!(g.world.fusion.mere.fountain.is_some());
     }
 
     #[test]
