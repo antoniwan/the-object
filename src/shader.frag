@@ -142,34 +142,26 @@ vec3 foldSpace(vec3 p, out vec3 sgn, out float ang, out vec3 k, out float s) {
 // across the horizon, with an orbit-trap fractal in each, drifting on the fold's clock.
 vec3 foldSky(vec3 rd) {
   float clk = uFold.y;
+  // a new mirror count opens out of the old one; the flash covers the seam while it is between
+  float n = mix(uFold2.x, uFold2.y, uFold2.z);
+  float sec = 6.2831 / n;
+  float a = mod(atan(rd.z, rd.x) + clk * 0.025, sec);
+  a = min(a, sec - a);
+  float h = length(rd.xz);
+  vec3 q = vec3(cos(a) * h, abs(rd.y), sin(a) * h) * 1.15 + vec3(0.11, 0.07 * sin(clk * 0.05), 0.2);
+  vec3 C = vec3(0.56, 0.38, 0.66) + 0.05 * vec3(sin(clk * 0.071), cos(clk * 0.053), sin(clk * 0.037));
+  float last = 0.0;
   vec3 col = vec3(0.0);
-  // a new mirror count fades in over the old one, through one copy of the loop
-  for (int j = ZERO; j < 2; j++) {
-    float w = j == 0 ? uFold2.z : 1.0 - uFold2.z;
-    if (w < 0.001) continue;
-    float n = j == 0 ? uFold2.y : uFold2.x;
-    float sec = 6.2831 / n;
-    float a = mod(atan(rd.z, rd.x) + clk * 0.025, sec);
-    a = min(a, sec - a);
-    float h = length(rd.xz);
-    vec3 d = vec3(cos(a) * h, abs(rd.y), sin(a) * h);
-    vec3 q = d * 1.15 + vec3(0.11, 0.07 * sin(clk * 0.05), 0.2);
-    vec3 C = vec3(0.56, 0.38, 0.66) + 0.05 * vec3(sin(clk * 0.071), cos(clk * 0.053), sin(clk * 0.037));
-    float last = 0.0, acc = 0.0;
-    vec3 c = vec3(0.0);
-    for (int i = ZERO; i < 11; i++) {
-      q = abs(q) / dot(q, q) - C;
-      float m = length(q);
-      float e = exp(-abs(m - last) * 3.0);
-      c += foldPal(float(i) * 0.07 + m * 0.22 - clk * 0.012) * e * e * 0.26;
-      acc += e;
-      last = m;
-    }
-    // the seams of the mirrors catch the light
-    float seam = exp(-a * h * 90.0) + exp(-abs(rd.y) * 70.0);
-    c += vec3(0.95, 0.85, 1.0) * seam * (0.12 + 0.9 * uFold.z);
-    col += w * c;
+  for (int i = ZERO; i < 11; i++) {
+    q = abs(q) / dot(q, q) - C;
+    float m = length(q);
+    float e = exp(-abs(m - last) * 3.0);
+    col += foldPal(float(i) * 0.07 + m * 0.22 - clk * 0.012) * e * e * 0.26;
+    last = m;
   }
+  // the seams of the mirrors catch the light
+  float seam = exp(-a * h * 90.0) + exp(-abs(rd.y) * 70.0);
+  col += vec3(0.95, 0.85, 1.0) * seam * (0.12 + 0.9 * uFold.z);
   col = vec3(0.03, 0.015, 0.07) + col * col * 1.6 * (1.0 + 0.8 * uFold.z);
   // running backward, the light goes over to the far side of its colours
   return mix(col, col.zxy * vec3(0.8, 1.05, 1.25), 0.55 * uFold.w);

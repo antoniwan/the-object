@@ -48,6 +48,9 @@ The world is almost white, the object is almost white, and color is something th
 | blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game.rs` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
+| fold | `#080412` the dark between, then a cosine run through `#e50839` `#6b00db` `#0091e0` `#6b9f3e` (`foldPal()`), squared, so mostly the violet and blue of the galaxy's arms come through, on an orbit-trap fractal | the galaxy's own colors let out into the room; each copy of it takes a different turn of the run | `shader.frag` fold block |
+| fold seams | `#f2d9ff`, flaring on a new mirror | where the mirrors meet | `foldSky()` |
+| backward | the fold's colors rotated a channel (`col.zxy`), cooler | its time running the other way | `foldSky()` `uFold.w` |
 
 ### The twelve
 
@@ -142,6 +145,8 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
 | `HELD_SECS` / `HUM_SECS` | 0.8 s / 2.4 s | a note held this steady comes back, for this long |
+| `FOLD_TURNS` / `UNFOLD_TURNS` | 3 / 2 turns | stirred on past the universe this far, the room folds; this far the other way, it folds back up (`forms/fold.rs`) |
+| `BACKWARD_SECS` | 0.6 s | held still this long in the fold, its time turns round |
 | `BREATH_SLOW` | 1.2 s | space held this long is a breath; three in a row, none more than 9 s apart, and it follows |
 | `FULL_TILT` / `DEAD` | 18° / 3° | a phone tipped this far tips the room all the way; less is only a hand (`motion.rs`) |
 | `SETTLE` (tilt) | 20 s | however the phone is held slowly becomes level |
@@ -157,8 +162,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- | --- |
 | hit-stop | 0.12 s | the freeze right after a cut (`meiosis.rs`) |
 | quick change | 0.5 – 1.5 s | a bud growing, ice thawing, the floor taking it in |
-| becoming | 2.2 – 3.5 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6 |
-| letting go | 1.6 – 2.8 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4 |
+| becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2 |
+| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
 
@@ -256,6 +261,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
+| keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |
 | draw a square | around it | (corners) | a box; knock three times | `forms/pandora.rs` |
 | press and hold still | the liquid | warm | color shift | `sim.rs` |
 | fast swipe through | the liquid | slice | two cells; again: many, then grain, an eye, stone | `meiosis.rs`, `morula.rs` |
