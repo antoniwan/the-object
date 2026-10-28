@@ -97,9 +97,13 @@ pub enum Discovery {
     Give,
     Between,
     Distance,
+    Everywhere,
+    Facet,
+    Backward,
+    Crease,
 }
 
-pub const ALL: [Discovery; 93] = [
+pub const ALL: [Discovery; 97] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -193,6 +197,10 @@ pub const ALL: [Discovery; 93] = [
     Discovery::Give,
     Discovery::Between,
     Discovery::Distance,
+    Discovery::Everywhere,
+    Discovery::Facet,
+    Discovery::Backward,
+    Discovery::Crease,
 ];
 
 impl Discovery {
@@ -291,6 +299,10 @@ impl Discovery {
             Discovery::Give => "given back",
             Discovery::Between => "between",
             Discovery::Distance => "distance",
+            Discovery::Everywhere => "everywhere",
+            Discovery::Facet => "facet",
+            Discovery::Backward => "backward",
+            Discovery::Crease => "crease",
         }
     }
 
@@ -389,6 +401,10 @@ impl Discovery {
             Discovery::Give => "it gave the other one back. neither is the color it was.",
             Discovery::Between => "you hurt the soft one. the hard one came between.",
             Discovery::Distance => "they keep a distance. neither will say why.",
+            Discovery::Everywhere => "there was always more of it than one room could hold.",
+            Discovery::Facet => "one more mirror. it is in all of them.",
+            Discovery::Backward => "it unturned. the stars went back where they were.",
+            Discovery::Crease => "the room folded back up. it kept the crease.",
         }
     }
 }
@@ -453,7 +469,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Distance as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Crease as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

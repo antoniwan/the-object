@@ -303,6 +303,9 @@ impl Renderer {
         self.v3("uFilSwing", fi.swing);
         let co = &fo.cosmos;
         self.v4v("uCosmos", &[co.amount(), co.spin, co.flare, co.sense]);
+        let fd = &fo.fold;
+        self.v4v("uFold", &[fd.amount(), fd.clock, fd.flash, fd.backward()]);
+        self.v4v("uFold2", &[fd.mirrors_was as f32, fd.mirrors as f32, crate::math::smoothstep(0.0, 1.0, fd.mirror_t), 0.0]);
         let pa = &fo.pandora;
         self.v4v("uBox", &[pa.boxness(), pa.lid(), pa.rattle, pa.yaw]);
 

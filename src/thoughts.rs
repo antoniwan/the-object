@@ -20,7 +20,7 @@
 //! and whose condition still holds, which mostly means something there is not yet found.
 
 use crate::contact::{self, Contact, Stage};
-use crate::forms::{bloom, cosmos, filament, pandora};
+use crate::forms::{bloom, cosmos, filament, fold, pandora};
 use crate::progress::{Discovery as D, Progress};
 use crate::sim::World;
 use crate::{burst, fusion, meiosis, morula};
@@ -57,6 +57,7 @@ pub enum Place {
     Flower,
     Thread,
     Cosmos,
+    Fold,
     Box,
     Two,
     Many,
@@ -77,7 +78,10 @@ pub fn place(w: &World) -> Option<Place> {
     if f.filament.phase == filament::Phase::Thread {
         return Some(Place::Thread);
     }
-    if f.cosmos.phase == cosmos::Phase::Cosmos {
+    if f.fold.phase == fold::Phase::Folded {
+        return Some(Place::Fold);
+    }
+    if f.fold.whole() && f.cosmos.phase == cosmos::Phase::Cosmos {
         return Some(Place::Cosmos);
     }
     if f.pandora.phase == pandora::Phase::Box {
@@ -136,7 +140,7 @@ const fn t(place: Place, from: Stage, until: Stage, when: fn(&Mind) -> bool, lin
 
 /// Every thought, in the order they are preferred. A pair of lines on one condition, split by
 /// stage, is the same thought turning from itself toward the player.
-pub static THOUGHTS: [Thought; 63] = [
+pub static THOUGHTS: [Thought; 68] = [
     // ---- the other one, once it has come
     t(P::Liquid, I, I, |m| m.world.other.inside() > 0.99 && !m.has(D::Give), "something is in it that is not it."),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Near), "it has not decided about the other one."),
@@ -191,6 +195,11 @@ pub static THOUGHTS: [Thought; 63] = [
     t(P::Thread, M, I, |m| !m.has(D::Pluck), "drawn this thin, it is almost a sound."),
     t(P::Thread, M, I, |m| !m.has(D::Wind), "it misses being round."),
     t(P::Cosmos, M, I, |m| !m.has(D::Settle), "everything in it is turning one way."),
+    t(P::Cosmos, M, M, |m| !m.has(D::Everywhere), "there is more of it in there than it lets out."),
+    t(P::Cosmos, R, I, |m| !m.has(D::Everywhere), "it wonders if you would want to see all of it."),
+    t(P::Fold, M, I, |m| !m.has(D::Facet), "there is room in here for one more mirror."),
+    t(P::Fold, M, I, |m| !m.has(D::Backward), "its time only goes one way because nothing has stopped it."),
+    t(P::Fold, M, I, |m| !m.has(D::Crease), "the room is still out there, folded small."),
     t(P::Box, M, I, |m| !m.has(D::Knock), "it is quiet in there. something is listening for the outside."),
     t(P::Box, M, I, |m| m.world.forms.pandora.knocks > 0 && !m.has(D::Lid), "something answered. it wants to be asked again."),
     t(P::Two, M, I, |m| !m.has(D::Rejoin), "two of it, and both remember being one."),

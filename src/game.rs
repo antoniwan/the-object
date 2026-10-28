@@ -28,6 +28,8 @@
 //! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
+//! - stir the universe on, the same way: the room folds and it is everywhere; poke to add a
+//!   mirror, hold still to run its time backward, stir back to fold the room up (see forms/fold.rs)
 //! - draw a square around it: it becomes a box; knock three times (see forms/pandora.rs)
 //! - in the landscape: drag a piece to carry it, hold one still to plant it,
 //!   carry them all to the middle to mend it (see landscape.rs); crowd them all together
@@ -273,6 +275,7 @@ impl Game {
                     self.world.burst.wound();
                 }
                 self.world.forms.cosmos.ignite();
+                self.world.forms.fold.facet();
             }
             Gesture::Warming { .. } => self.world.warming = false,
             Gesture::Stretching { handle, since, reach, .. } => {
@@ -529,7 +532,7 @@ impl Game {
                 if let (Some(last), true, true) = (angle, v.len() > 0.5 * r, stirrable) {
                     let pi = std::f32::consts::PI;
                     let turn = (now - last + pi).rem_euclid(2.0 * pi) - pi;
-                    self.world.forms.cosmos.stir(turn / (2.0 * pi));
+                    self.world.forms.stir(turn / (2.0 * pi));
                 }
                 let reach = reach.max((to - plane).len() / r);
                 self.gesture = Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now) };
@@ -740,6 +743,23 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.8);
                     self.world.add_ripple(-V3::UP, 0.8);
                     self.discover(Discovery::Round);
+                }
+                F::Everywhere => {
+                    self.sounds.push(Sound::Become);
+                    self.cam.shake = 0.05;
+                    self.discover(Discovery::Everywhere);
+                }
+                F::Facet => {
+                    self.sounds.push(Sound::Chord);
+                    self.discover(Discovery::Facet);
+                }
+                F::Backward => {
+                    self.sounds.push(Sound::Stir);
+                    self.discover(Discovery::Backward);
+                }
+                F::Crease => {
+                    self.world.add_ripple(V3::UP, 0.7);
+                    self.discover(Discovery::Crease);
                 }
             }
         }
@@ -967,8 +987,8 @@ impl Game {
         if let Gesture::Pending { start, hit, since } = self.gesture {
             if self.world.time - since > HOLD {
                 self.gesture = Gesture::Warming { start, hit, since: self.world.time };
-                // Held still, a thread winds back into a sphere instead of warming.
-                self.world.warming = !self.world.forms.filament.wind() && self.world.forms.filament.whole();
+                // Held still, a thread winds back into a sphere instead of warming; in the fold, time turns round.
+                self.world.warming = !self.world.forms.filament.wind() && self.world.forms.filament.whole() && self.world.forms.fold.whole();
                 if self.world.warming {
                     self.contact.held();
                 }
@@ -1003,6 +1023,7 @@ impl Game {
                 self.gesture = Gesture::Idle;
             }
         }
+        self.world.forms.fold.hold(matches!(self.gesture, Gesture::Warming { .. }), dt);
         if let Gesture::Warming { since, .. } = self.gesture {
             if self.world.time - since > 1.2 && self.world.warming {
                 self.discover(Discovery::Warm);
@@ -1059,7 +1080,8 @@ impl Game {
         let base = Camera::new().dist;
         let spread = self.world.burst.spread();
         self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread
-            + 1.8 * self.world.forms.filament.morph();
+            + 1.8 * self.world.forms.filament.morph()
+            + 1.4 * self.world.forms.fold.amount();
         // Step back and level the eye to take in the slab.
         let slab = self.world.division.morula.as_ref().map_or(0.0, |m| m.look().slab * (1.0 - m.look().thaw));
         if slab > 0.0 {
@@ -1738,6 +1760,49 @@ mod tests {
         wait(&mut g, 4.0);
         assert!(g.progress.has(Discovery::Cosmos));
         assert_eq!(g.world.forms.cosmos.sense, 1.0, "counterclockwise");
+    }
+
+    /// Stir round and round, `turns` times, counterclockwise if positive.
+    fn stir(g: &mut Game, turns: f32) {
+        g.pointer_down(1, 400.0 + 50.0, 300.0);
+        for k in 1..=((60.0 * turns.abs()) as usize) {
+            let a = k as f32 / 60.0 * std::f32::consts::TAU * turns.signum();
+            g.pointer_move(1, 400.0 + 90.0 * a.cos(), 300.0 - 90.0 * a.sin(), 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(1);
+    }
+
+    #[test]
+    fn a_universe_stirred_on_folds_the_room() {
+        let mut g = game();
+        stir(&mut g, 3.0);
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Cosmos));
+        stir(&mut g, 4.0);
+        wait(&mut g, 5.0);
+        assert!(g.progress.has(Discovery::Everywhere));
+        assert_eq!(g.world.forms.fold.phase, forms::fold::Phase::Folded);
+        // a poke: another mirror
+        g.pointer_down(2, 400.0, 300.0);
+        g.pointer_up(2);
+        wait(&mut g, 0.1);
+        assert!(g.progress.has(Discovery::Facet));
+        // held: its time runs backward
+        g.pointer_down(3, 400.0, 300.0);
+        wait(&mut g, 2.5);
+        g.pointer_up(3);
+        assert!(g.progress.has(Discovery::Backward));
+        // the other way folds the room back up around the universe
+        stir(&mut g, -3.0);
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Crease));
+        assert!(g.world.forms.fold.whole());
+        assert_eq!(g.world.forms.cosmos.phase, forms::cosmos::Phase::Cosmos);
+        // and once more the other way, it is liquid again
+        stir(&mut g, -3.0);
+        wait(&mut g, 4.0);
+        assert!(g.world.ordinary());
     }
 
     #[test]

@@ -474,7 +474,8 @@ impl App {
             a.hum(self.game.keys.hum());
             a.echo(self.game.senses.hum());
         }
-        let night = self.game.world.night > 0.5;
+        // the fold is dark too (forms/fold.rs)
+        let night = self.game.world.night.max(self.game.world.forms.fold.amount()) > 0.5;
         if night != self.night_shown {
             self.night_shown = night;
             if let Some(body) = web_sys::window().and_then(|w| w.document()).and_then(|d| d.body()) {
