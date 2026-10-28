@@ -1,6 +1,6 @@
 # Working on the object
 
-This is the plain-language side of the repository: how to build it, how it is put together, and the few rules that keep it from breaking. The README stays short and says nothing about what the object does. Keep it that way; what it does is mapped elsewhere, not here.
+This is the plain-language side of the repository: how to build it, how it is put together, and the few rules that keep it from breaking. The README stays short and says nothing about what the object does. Keep it that way; what it does is mapped elsewhere, not here. How it should look, move, sound and speak is in `DESIGN.md`.
 
 ## Build, run, test
 
