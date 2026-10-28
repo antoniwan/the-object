@@ -46,7 +46,7 @@ const float FLOOR_Y = -1.45;
 // Bursting (burst.rs): twelve pieces that become twelve triangles.
 uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
 uniform vec4 uTri[12];   // xyz where the piece is (on the floor once landed), w height
-uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke
+uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke, w weathering (extra rounding)
 
 // Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
 // Order matches Consistency in burst.rs: milk, chrome, glass, jelly, stone, honey,
@@ -185,8 +185,12 @@ float shardSdf(vec3 p, int i) {
   q.x += uTriB[i].z * 0.07 * sin(q.y * 7.0 - uTime * 16.0) * q.y;
   float d2 = sdTri2(q.xy, TA[i], TB[i], TC[i]);
   float dz = abs(q.z) - TTHICK[i] * 0.5;
-  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - TROUND[i]) * size;
-  return mix(blob, tri, m);
+  // weather wears it down: the outline shrinks by as much as the edges round, so it keeps its size
+  float w = uTriB[i].w;
+  d2 += w; dz += w * 0.5;
+  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - TROUND[i] - w) * size;
+  // planted ones are cut off at the ground
+  return max(mix(blob, tri, m), FLOOR_Y - p.y);
 }
 
 // Nearest piece and its distance.

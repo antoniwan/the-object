@@ -189,10 +189,12 @@ impl Renderer {
         let gone = if bu.body_gone() { 1.0 } else { 0.0 };
         gl.uniform4f(loc.as_ref(), gone, bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
         let (mut ta, mut tb) = (Vec::new(), Vec::new());
+        // landscape.rs: planted pieces grow, and the weather rounds every edge
+        let round = bu.land.rounding();
         for (i, s) in bu.shards.iter().enumerate() {
             let (pos, morph) = bu.shard_pose(i);
-            ta.extend([pos.x, pos.y, pos.z, s.size]);
-            tb.extend([s.yaw, morph, s.wobble, 0.0]);
+            ta.extend([pos.x, pos.y, pos.z, bu.shard_size(i)]);
+            tb.extend([s.yaw, morph, s.wobble, round]);
         }
         self.v4v("uTri", &ta);
         self.v4v("uTriB", &tb);

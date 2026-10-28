@@ -15,6 +15,8 @@
 //! - on the liquid floor: tap to ripple it, drag up to pull the object back out
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
+//! - in the landscape: drag a piece to carry it, hold one still to plant it,
+//!   carry them all to the middle to mend it (see landscape.rs)
 
 use crate::camera::{Camera, FOCAL};
 use crate::math::*;
@@ -41,6 +43,10 @@ pub enum Sound {
     Discover,
     Provoked,
     Call,
+    /// One of the twelve, struck.
+    Shard { i: usize },
+    /// All twelve at once.
+    Chord,
 }
 
 enum Gesture {
@@ -55,6 +61,8 @@ enum Gesture {
     Lake { start: (f32, f32), at: (f32, f32) },
     /// Pressing the empty ground of the landscape; held still long enough, it gathers.
     Ground { start: (f32, f32), since: f32 },
+    /// Pressing one of the twelve: a tap pokes it, a drag carries it, holding still plants it.
+    Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
 }
 
 /// A flick faster than this, in canvas heights per second, throws the object.
@@ -171,8 +179,31 @@ impl Game {
                     self.discover(Discovery::Call);
                 }
             }
+            Gesture::Shard { i, carried: false, .. } => {
+                let chord = self.world.burst.poke_shard(i);
+                self.sounds.push(Sound::Shard { i });
+                self.discover(Discovery::Shards);
+                if chord {
+                    self.sounds.push(Sound::Chord);
+                    self.discover(Discovery::Chord);
+                }
+            }
+            Gesture::Shard { i, carried: true, .. } => {
+                if self.world.burst.release(i, self.world.body.radius()) {
+                    self.sounds.push(Sound::Merge);
+                }
+            }
             Gesture::Ground { .. } | Gesture::Idle => {}
         }
+    }
+
+    /// Where the pointer meets the floor, if it does.
+    fn floor_point(&self, x: f32, y: f32) -> Option<V3> {
+        let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+        if rd.y > -0.02 {
+            return None;
+        }
+        Some(ro + rd * ((fusion::FLOOR_Y - ro.y) / rd.y))
     }
 
     fn pinch_dist(&self) -> f32 {
@@ -205,13 +236,10 @@ impl Game {
         let since = self.world.time;
         self.pvel = (0.0, 0.0);
         if !self.world.burst.whole() {
+            self.world.burst.land.touch();
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
             self.gesture = match self.world.burst.pick(ro, rd) {
-                Some(i) => {
-                    self.world.burst.poke_shard(i);
-                    self.discover(Discovery::Shards);
-                    Gesture::Idle
-                }
+                Some(i) => Gesture::Shard { i, start: (x, y), since: self.clock, carried: false },
                 None if self.world.burst.phase == burst::Phase::Landscape => {
                     Gesture::Ground { start: (x, y), since: self.clock }
                 }
@@ -296,6 +324,21 @@ impl Game {
                     self.pointer_move(id, x, y, dt);
                 }
             }
+            Gesture::Shard { i, start, since, carried } => {
+                let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
+                if carried || moved > TAP_SLOP {
+                    let to = self.floor_point(x, y);
+                    if to.is_some_and(|to| self.world.burst.carry(i, to)) {
+                        self.world.burst.land.touch();
+                        self.gesture = Gesture::Shard { i, start, since, carried: true };
+                        self.discover(Discovery::Carry);
+                    } else if !carried {
+                        // rooted, it won't move; look around instead
+                        self.gesture = Gesture::Orbiting { start, last: start };
+                        self.pointer_move(id, x, y, dt);
+                    }
+                }
+            }
             Gesture::Lake { start, .. } => {
                 // Pull up from the floor and it comes back out.
                 if (start.1 - y) / self.h > 0.12 && self.world.fusion.rise() {
@@ -369,6 +412,24 @@ impl Game {
         let dir = (b.right * vx - b.up * vy).norm();
         self.world.body.vel += dir * (speed * 4.5).min(16.0);
         self.discover(Discovery::Throw);
+    }
+
+    fn on_land(&mut self, e: crate::landscape::Event) {
+        use crate::landscape::Event as L;
+        match e {
+            L::Chord | L::Planted => {}
+            L::Grown => self.discover(Discovery::Grow),
+            L::Weathered => self.discover(Discovery::Weather),
+            L::Eroded => self.gesture = Gesture::Idle,
+            L::Mended { last } => {
+                // it comes back in the color of the last piece home
+                let tint = crate::landscape::TINTS[last];
+                self.world.body.color = crate::sim::PEARL.lerp(tint, 0.65);
+                self.sounds.push(Sound::Chord);
+                self.discover(Discovery::Mend);
+                self.gesture = Gesture::Idle;
+            }
+        }
     }
 
     /// Distance at which both cells, side by side, just fit across the screen.
@@ -451,6 +512,16 @@ impl Game {
                 self.gesture = Gesture::Idle;
             }
         }
+        if let Gesture::Shard { i, since, carried: false, .. } = self.gesture {
+            if self.clock - since > crate::landscape::PLANT_HOLD_SECS {
+                if self.world.burst.land.toggle_root(i) {
+                    self.discover(Discovery::Plant);
+                }
+                self.world.burst.shards[i].wobble = 0.6;
+                self.sounds.push(Sound::Merge);
+                self.gesture = Gesture::Idle;
+            }
+        }
         for e in self.world.burst.drain_events() {
             match e {
                 burst::Event::Burst => {
@@ -463,6 +534,7 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.9);
                     self.world.add_ripple(-V3::UP, 0.9);
                 }
+                burst::Event::Land(e) => self.on_land(e),
             }
         }
         // Pull back and up so the whole landscape can be seen.
@@ -754,6 +826,111 @@ mod tests {
         for _ in 0..240 {
             g.update(1.0 / 60.0);
         }
+        assert!(g.world.burst.whole());
+    }
+
+    /// Where a world point lands on the 800x600 canvas.
+    fn project(g: &Game, p: V3) -> (f32, f32) {
+        let b = g.cam.basis();
+        let d = p - b.pos;
+        let z = d.dot(b.fwd);
+        (400.0 + d.dot(b.right) * FOCAL / z * 300.0, 300.0 - d.dot(b.up) * FOCAL / z * 300.0)
+    }
+
+    fn burst_it(g: &mut Game) {
+        for i in 0..12 {
+            g.pointer_down(i, 400.0, 300.0);
+            g.pointer_up(i);
+            for _ in 0..12 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.burst.phase, burst::Phase::Landscape);
+    }
+
+    /// The screen point of piece `i`, partway up so the press lands on it.
+    fn shard_at(g: &Game, i: usize) -> (f32, f32) {
+        let (pos, _) = g.world.burst.shard_pose(i);
+        project(g, pos + V3::UP * (g.world.burst.shard_size(i) * 0.3))
+    }
+
+    #[test]
+    fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
+        let mut g = game();
+        burst_it(&mut g);
+        // three quick taps on different pieces: a chord
+        for (n, i) in [0usize, 1, 2].into_iter().enumerate() {
+            let (x, y) = shard_at(&g, i);
+            g.pointer_down(30 + n as i32, x, y);
+            g.pointer_up(30 + n as i32);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Chord));
+        assert!(g.sounds.contains(&Sound::Chord));
+
+        // hold one still and it roots
+        let (x, y) = shard_at(&g, 5);
+        g.pointer_down(40, x, y);
+        for _ in 0..70 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(40);
+        assert!(g.progress.has(Discovery::Plant));
+        assert!(g.world.burst.land.roots[5].rooted);
+        // and holding it again lets it go
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        let (x, y) = shard_at(&g, 5);
+        g.pointer_down(41, x, y);
+        for _ in 0..70 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(41);
+        assert!(!g.world.burst.land.roots[5].rooted);
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+
+        // carry every piece to the middle and it is whole again, in the last one's color
+        let middle = v3(0.0, fusion::FLOOR_Y, 0.6);
+        let mut id = 50;
+        for _ in 0..60 {
+            let Some(i) = (0..burst::SHARDS).find(|&i| !g.world.burst.land.returned(i)) else { break };
+            let (x0, y0) = shard_at(&g, i);
+            let (x1, y1) = project(&g, middle);
+            id += 1;
+            g.pointer_down(id, x0, y0);
+            for k in 1..=30 {
+                let f = k as f32 / 30.0;
+                g.pointer_move(id, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(id);
+            for _ in 0..30 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        assert!(g.progress.has(Discovery::Carry));
+        for _ in 0..300 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
+        assert!(g.world.burst.whole());
+        assert!(g.world.body.color != crate::sim::PEARL);
+    }
+
+    #[test]
+    fn left_alone_the_landscape_weathers_and_rolls_home() {
+        let mut g = game();
+        burst_it(&mut g);
+        for _ in 0..(60 * 60) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Weather));
         assert!(g.world.burst.whole());
     }
 

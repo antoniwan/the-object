@@ -28,9 +28,15 @@ pub enum Discovery {
     Burst,
     Shards,
     Gather,
+    Chord,
+    Carry,
+    Plant,
+    Grow,
+    Weather,
+    Mend,
 }
 
-pub const ALL: [Discovery; 25] = [
+pub const ALL: [Discovery; 31] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -56,6 +62,12 @@ pub const ALL: [Discovery; 25] = [
     Discovery::Burst,
     Discovery::Shards,
     Discovery::Gather,
+    Discovery::Chord,
+    Discovery::Carry,
+    Discovery::Plant,
+    Discovery::Grow,
+    Discovery::Weather,
+    Discovery::Mend,
 ];
 
 impl Discovery {
@@ -86,6 +98,12 @@ impl Discovery {
             Discovery::Burst => "burst",
             Discovery::Shards => "twelve",
             Discovery::Gather => "gather",
+            Discovery::Chord => "chord",
+            Discovery::Carry => "carry",
+            Discovery::Plant => "plant",
+            Discovery::Grow => "grow",
+            Discovery::Weather => "weather",
+            Discovery::Mend => "mend",
         }
     }
 
@@ -116,6 +134,12 @@ impl Discovery {
             Discovery::Burst => "too much inside. the outside won.",
             Discovery::Shards => "twelve pieces. none of them agree.",
             Discovery::Gather => "broken is not the same as gone.",
+            Discovery::Chord => "for one breath, none of them disagreed.",
+            Discovery::Carry => "it goes where it is put. it is not yours.",
+            Discovery::Plant => "what is buried is not finished.",
+            Discovery::Grow => "it came back larger than it left.",
+            Discovery::Weather => "nothing here stays sharp. not even this.",
+            Discovery::Mend => "you put it back. it is not the same.",
         }
     }
 }
@@ -177,7 +201,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Gather as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Mend as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
