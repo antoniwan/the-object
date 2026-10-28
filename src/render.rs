@@ -4,8 +4,10 @@ use crate::camera::{Camera, FOCAL};
 use crate::math::V3;
 use crate::sim::{World, K_DROP, K_HANDLE, MAX_DROPS, MAX_HANDLES, MAX_RIPPLES};
 use crate::morula;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use wasm_bindgen::JsValue;
-use web_sys::{WebGl2RenderingContext as GL, WebGlProgram, WebGlShader};
+use web_sys::{WebGl2RenderingContext as GL, WebGlProgram, WebGlShader, WebGlUniformLocation};
 
 const VERT: &str = r#"#version 300 es
 void main() {
@@ -22,6 +24,8 @@ pub struct Renderer {
     /// The browser can compile shaders in the background (KHR_parallel_shader_compile).
     parallel: bool,
     ready: bool,
+    /// Uniform locations, looked up once: asking the driver by name every frame costs more than the draw's setup.
+    locs: RefCell<HashMap<&'static str, Option<WebGlUniformLocation>>>,
 }
 
 /// GL_COMPLETION_STATUS_KHR.
@@ -45,7 +49,7 @@ impl Renderer {
             gl.attach_shader(&program, s);
         }
         gl.link_program(&program);
-        Ok(Renderer { gl, program, shaders, parallel, ready: false })
+        Ok(Renderer { gl, program, shaders, parallel, ready: false, locs: RefCell::new(HashMap::new()) })
     }
 
     pub fn gl(&self) -> &GL {
@@ -74,30 +78,34 @@ impl Renderer {
         Ok(true)
     }
 
-    fn v3(&self, name: &str, v: V3) {
-        let loc = self.gl.get_uniform_location(&self.program, name);
+    fn loc(&self, name: &'static str) -> Option<WebGlUniformLocation> {
+        self.locs.borrow_mut().entry(name).or_insert_with(|| self.gl.get_uniform_location(&self.program, name)).clone()
+    }
+
+    fn v3(&self, name: &'static str, v: V3) {
+        let loc = self.loc(name);
         self.gl.uniform3f(loc.as_ref(), v.x, v.y, v.z);
     }
-    fn f(&self, name: &str, x: f32) {
-        let loc = self.gl.get_uniform_location(&self.program, name);
+    fn f(&self, name: &'static str, x: f32) {
+        let loc = self.loc(name);
         self.gl.uniform1f(loc.as_ref(), x);
     }
-    fn i(&self, name: &str, x: usize) {
-        let loc = self.gl.get_uniform_location(&self.program, name);
+    fn i(&self, name: &'static str, x: usize) {
+        let loc = self.loc(name);
         self.gl.uniform1i(loc.as_ref(), x as i32);
     }
-    fn fv(&self, name: &str, data: &[f32]) {
+    fn fv(&self, name: &'static str, data: &[f32]) {
         if data.is_empty() {
             return;
         }
-        let loc = self.gl.get_uniform_location(&self.program, name);
+        let loc = self.loc(name);
         self.gl.uniform1fv_with_f32_array(loc.as_ref(), data);
     }
-    fn v4v(&self, name: &str, data: &[f32]) {
+    fn v4v(&self, name: &'static str, data: &[f32]) {
         if data.is_empty() {
             return;
         }
-        let loc = self.gl.get_uniform_location(&self.program, name);
+        let loc = self.loc(name);
         self.gl.uniform4fv_with_f32_array(loc.as_ref(), data);
     }
 
@@ -115,7 +123,7 @@ impl Renderer {
         }
         self.v4v("uCells", &cells);
         if !fate.is_empty() {
-            let loc = self.gl.get_uniform_location(&self.program, "uCellF");
+            let loc = self.loc("uCellF");
             self.gl.uniform2fv_with_f32_array(loc.as_ref(), &fate);
         }
         self.i("uNC", (cells.len() / 4).max(1));
@@ -141,7 +149,7 @@ impl Renderer {
         gl.viewport(0, 0, w as i32, h as i32);
         gl.use_program(Some(&self.program));
 
-        let loc = gl.get_uniform_location(&self.program, "uRes");
+        let loc = self.loc("uRes");
         gl.uniform2f(loc.as_ref(), w as f32, h as f32);
         self.f("uTime", world.time);
         let b = cam.basis();
@@ -157,7 +165,7 @@ impl Renderer {
         let swell = 1.0 + 0.3 * world.burst.swell();
         self.v4v("uBody", &[body.pos.x, body.pos.y, body.pos.z, r * swell]);
         self.v3("uScale", body.scale());
-        let loc = gl.get_uniform_location(&self.program, "uK");
+        let loc = self.loc("uK");
         gl.uniform2f(loc.as_ref(), K_HANDLE * r, K_DROP * r);
 
         let (mut ha, mut hb, mut bulb) = (Vec::new(), Vec::new(), Vec::new());
@@ -189,7 +197,7 @@ impl Renderer {
         }
         self.v4v("uDrop", &drops);
         if !colors.is_empty() {
-            let loc = gl.get_uniform_location(&self.program, "uDropCol");
+            let loc = self.loc("uDropCol");
             gl.uniform3fv_with_f32_array(loc.as_ref(), &colors);
         }
         self.i("uND", drops.len() / 4);
@@ -197,9 +205,9 @@ impl Renderer {
         // Slicing: see meiosis.rs. The shader rebuilds the cells from these.
         let div = &world.division;
         let bl = div.blend();
-        let loc = gl.get_uniform_location(&self.program, "uCut");
+        let loc = self.loc("uCut");
         gl.uniform4f(loc.as_ref(), div.axis.x, div.axis.y, div.axis.z, bl.split);
-        let loc = gl.get_uniform_location(&self.program, "uDiv");
+        let loc = self.loc("uDiv");
         let flash = div.morula.as_ref().map_or(bl.flash, |m| m.look().flash);
         gl.uniform3f(loc.as_ref(), flash, bl.furrow, bl.cell);
         self.draw_morula(world, r);
@@ -211,7 +219,7 @@ impl Renderer {
 
         // Slamming: see fusion.rs.
         let fu = &world.fusion;
-        let loc = gl.get_uniform_location(&self.program, "uLake");
+        let loc = self.loc("uLake");
         let radius = fu.blend().lake * crate::fusion::LAKE_RADIUS;
         gl.uniform4f(loc.as_ref(), fu.impact.0, fu.impact.1, radius, fu.since_impact);
         let mut lr = Vec::new();
@@ -223,9 +231,9 @@ impl Renderer {
 
         // What the lake became, and what the object came back out as: see mere.rs.
         let m = &fu.mere;
-        let loc = gl.get_uniform_location(&self.program, "uMere");
+        let loc = self.loc("uMere");
         gl.uniform4f(loc.as_ref(), m.still, m.deep, m.ice, 0.0);
-        let loc = gl.get_uniform_location(&self.program, "uIce");
+        let loc = self.loc("uIce");
         gl.uniform4f(loc.as_ref(), m.ice_at.0, m.ice_at.1, m.ice_reach, 0.0);
         let mut cr = Vec::new();
         for c in m.cracks.iter().take(crate::mere::MAX_CRACKS) {
@@ -240,15 +248,15 @@ impl Renderer {
             }
             None => (0.0, 0.0, 0.0, -1.0),
         };
-        let loc = gl.get_uniform_location(&self.program, "uJet");
+        let loc = self.loc("uJet");
         gl.uniform4f(loc.as_ref(), jx, jz, column, drop);
         let (quicksilver, ink) = m.coat_mix();
-        let loc = gl.get_uniform_location(&self.program, "uCoat");
+        let loc = self.loc("uCoat");
         gl.uniform2f(loc.as_ref(), quicksilver, ink);
 
         // Bursting: see burst.rs.
         let bu = &world.burst;
-        let loc = gl.get_uniform_location(&self.program, "uBurst");
+        let loc = self.loc("uBurst");
         let gone = if bu.body_gone() { 1.0 } else { 0.0 };
         gl.uniform4f(loc.as_ref(), gone, bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
         let (mut ta, mut tb) = (Vec::new(), Vec::new());
