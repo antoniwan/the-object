@@ -241,6 +241,8 @@ pub struct Ears {
     analyser: AnalyserNode,
     stream: MediaStream,
     buf: Vec<f32>,
+    /// The context's rate never changes, so it is asked once.
+    rate: f32,
 }
 
 /// The context the microphone will be heard through, made inside the player's tap: phones
@@ -258,7 +260,8 @@ impl Ears {
         analyser.set_fft_size(2048);
         source.connect_with_audio_node(&analyser)?;
         let _ = ctx.resume();
-        Ok(Ears { ctx, analyser, stream, buf: vec![0.0; 2048] })
+        let rate = ctx.sample_rate();
+        Ok(Ears { ctx, analyser, stream, buf: vec![0.0; 2048], rate })
     }
 
     /// Touch screens only grant audio inside a gesture, so this is retried on every release.
@@ -268,7 +271,7 @@ impl Ears {
 
     pub fn listen(&mut self) -> Heard {
         self.analyser.get_float_time_domain_data(&mut self.buf);
-        senses::hear(&self.buf, self.ctx.sample_rate())
+        senses::hear(&self.buf, self.rate)
     }
 
     pub fn close(self) {
@@ -284,6 +287,8 @@ pub struct Eyes {
     stream: MediaStream,
     retina: Retina,
     last: f64,
+    /// The picture's pixels, copied into the same place every look.
+    px: Vec<u8>,
 }
 
 impl Eyes {
@@ -301,7 +306,8 @@ impl Eyes {
             .get_context_with_context_options("2d", &obj(&[("willReadFrequently", true.into())]))?
             .ok_or("no 2d")?
             .dyn_into()?;
-        Ok(Eyes { video, sight, stream, retina: Retina::default(), last: 0.0 })
+        let px = vec![0; (SIGHT_W * SIGHT_H * 4) as usize];
+        Ok(Eyes { video, sight, stream, retina: Retina::default(), last: 0.0, px })
     }
 
     /// A look, at most SIGHT_RATE times a second, once the camera has a picture.
@@ -312,8 +318,11 @@ impl Eyes {
         self.last = now;
         let (w, h) = (SIGHT_W as f64, SIGHT_H as f64);
         self.sight.draw_image_with_html_video_element_and_dw_and_dh(&self.video, 0.0, 0.0, w, h).ok()?;
-        let px = self.sight.get_image_data(0.0, 0.0, w, h).ok()?.data();
-        Some(self.retina.look(&px, SIGHT_W as usize, SIGHT_H as usize))
+        let image: JsValue = self.sight.get_image_data(0.0, 0.0, w, h).ok()?.into();
+        let data: js_sys::Uint8ClampedArray = get(&image, "data").dyn_into().ok()?;
+        self.px.resize(data.length() as usize, 0);
+        data.copy_to(&mut self.px);
+        Some(self.retina.look(&self.px, SIGHT_W as usize, SIGHT_H as usize))
     }
 
     pub fn close(mut self) {

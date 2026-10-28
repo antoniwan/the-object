@@ -253,7 +253,7 @@ pub fn step(g: &mut Game, dt: f32) {
         goal = 0.0;
         k.own = None;
     }
-    k.breath += (goal - k.breath) * (1.0 - (-rate * dt).exp());
+    k.breath = ease(k.breath, goal, -rate * dt);
     // Drawn in, it is more of itself for a moment; what it borrowed is given back as it empties.
     let base = g.world.body.volume - k.swell;
     k.swell = base * SWELL * k.breath;
@@ -267,7 +267,8 @@ pub fn step(g: &mut Game, dt: f32) {
     k.lean.0 += (side - k.lean.0) * ease;
     k.lean.1 += (away - k.lean.1) * ease;
     let tipped = k.lean.0.hypot(k.lean.1);
-    let mut found = Vec::new();
+    // At most one of each, and held they come every frame: kept off the heap.
+    let mut found = [None; 2];
     if ordinary && tipped > 0.01 {
         let b = g.cam.basis();
         let mut level = b.fwd;
@@ -279,7 +280,7 @@ pub fn step(g: &mut Game, dt: f32) {
         }
         k.leaned = if tipped > 0.6 { k.leaned + dt } else { 0.0 };
         if k.leaned > LEAN_FOUND {
-            found.push(Discovery::Lean);
+            found[0] = Some(Discovery::Lean);
         }
     } else {
         k.leaned = 0.0;
@@ -297,10 +298,10 @@ pub fn step(g: &mut Game, dt: f32) {
         let goal = palette(p.hue + held * 0.04);
         g.world.body.color = g.world.body.color.lerp(goal, 1.0 - (-0.9 * dt).exp());
         if held > HUM_FOUND {
-            found.push(Discovery::Hum);
+            found[1] = Some(Discovery::Hum);
         }
     }
-    for d in found {
+    for d in found.into_iter().flatten() {
         g.discover(d);
     }
 }

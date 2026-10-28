@@ -135,7 +135,8 @@ pub fn step(g: &mut Game, dt: f32) {
     if !ordinary {
         return;
     }
-    let mut found = Vec::new();
+    // At most one of each, kept off the heap.
+    let mut found = [None; 2];
     if let Some(p) = jolt {
         m.last_jolt = now;
         m.jolts.push(now);
@@ -154,7 +155,7 @@ pub fn step(g: &mut Game, dt: f32) {
         g.cam.shake = g.cam.shake.max(0.012);
         g.sounds.push(Sound::Poke { pitch: 0.08, size: g.world.body.radius() * 1.4 });
         if m.jolts.len() >= SHAKE_JOLTS {
-            found.push(Discovery::Shaken);
+            found[0] = Some(Discovery::Shaken);
         }
     }
     if m.shaking > 0.3 {
@@ -172,10 +173,10 @@ pub fn step(g: &mut Game, dt: f32) {
         let color = g.world.body.color;
         if g.world.spill(g.world.body.pos + out * (r * 1.05), out * 2.6, 0.17 * r, color) {
             g.sounds.push(Sound::Tear);
-            found.push(Discovery::Scatter);
+            found[1] = Some(Discovery::Scatter);
         }
     }
-    for d in found {
+    for d in found.into_iter().flatten() {
         g.discover(d);
     }
 }

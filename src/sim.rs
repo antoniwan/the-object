@@ -352,11 +352,12 @@ impl World {
         // Body: springs back home and to round, wobbling on the way. Home is the
         // middle of the room, or under the floor once it has fused with it.
         let b = &mut self.body;
-        let home = self.fusion.home(b.radius());
+        let r = b.radius();
+        let home = self.fusion.home(r);
         let (k, c) = if self.fusion.whole() { (28.0, 3.5) } else { (10.0, 5.0) };
         b.vel += ((home - b.pos) * k - b.vel * c) * dt;
         b.pos += b.vel * dt;
-        let (pos, vel, kick) = self.fusion.collide(b.pos, b.vel, b.radius(), b.squash);
+        let (pos, vel, kick) = self.fusion.collide(b.pos, b.vel, r, b.squash);
         b.pos = pos;
         b.vel = vel;
         b.squash_vel += kick;
@@ -551,7 +552,7 @@ impl World {
 
     fn step_moods(&mut self, dt: f32) {
         // Agitation: it shivers, then calms down.
-        self.agitation *= (-dt / 3.0).exp();
+        self.agitation = fade(self.agitation, -dt / 3.0);
         if self.agitation > 0.01 {
             let t = self.time;
             let shake = v3((t * 37.0).sin(), (t * 41.0).cos(), (t * 29.0).sin());
@@ -568,7 +569,7 @@ impl World {
         // Watching: it slowly grows toward whoever is looking.
         let goal = if self.watching { 1.0 } else { self.regard };
         let rate = if self.watching { 0.25 } else { 3.0 };
-        self.gaze += (goal - self.gaze) * (1.0 - (-rate * dt).exp());
+        self.gaze = ease(self.gaze, goal, -rate * dt);
 
         // Opening: enough of it free at once and the world turns to night.
         if !self.opened && self.drops.len() >= OPEN_AT {
@@ -579,7 +580,7 @@ impl World {
             self.events.push(Event::Closed);
         }
         let goal = if self.opened { 1.0 } else { self.dim };
-        self.night += (goal - self.night) * (1.0 - (-0.7 * dt).exp());
+        self.night = ease(self.night, goal, -0.7 * dt);
     }
 
     pub fn drain_events(&mut self) -> Vec<Event> {

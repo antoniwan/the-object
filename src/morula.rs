@@ -372,7 +372,8 @@ impl Morula {
             }
         }
         // Neighbors press apart; daughters part as they divide.
-        let mut force = vec![V3::ZERO; n];
+        // Never more than MAX_CELLS (cleave turns to grain first), so this lives on the stack.
+        let mut force = [V3::ZERO; MAX_CELLS];
         for i in 0..n {
             for j in (i + 1)..n {
                 let (a, b) = (&self.cells[i], &self.cells[j]);
@@ -432,7 +433,7 @@ impl Morula {
             None => false,
         };
         let goal = if alive && !self.is_stone() { 1.0 } else { 0.0 };
-        self.eye_open += (goal - self.eye_open) * (1.0 - (-0.8 * dt).exp());
+        self.eye_open = ease(self.eye_open, goal, -0.8 * dt);
         if !alive || self.is_stone() {
             return;
         }

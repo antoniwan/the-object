@@ -12,6 +12,13 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-28
+
+### Changed
+- Less to download: the drawing instructions travel without their notes, 151 KB to 145 KB gzipped. (#PR)
+- Lighter frames: the page is touched only when something on it changes, sounds that hold steady are no longer re-sent, and the picture from the camera reuses its room; about a sixth fewer calls between the two sides each frame, half as many on each pointer move. (#PR)
+- The motion itself costs about a third less a frame, and listening about a third less, with every movement exactly as it was. (#PR)
+
 ## [1.8.0] - 2026-10-28
 
 ### Added
@@ -208,7 +215,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/antoniwan/the-object/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/antoniwan/the-object/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/antoniwan/the-object/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/antoniwan/the-object/compare/v1.5.0...v1.6.0

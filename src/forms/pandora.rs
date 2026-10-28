@@ -112,7 +112,7 @@ impl Pandora {
     }
 
     pub fn step(&mut self, dt: f32) {
-        self.rattle *= (-5.0 * dt).exp();
+        self.rattle = fade(self.rattle, -5.0 * dt);
         self.phase = match self.phase {
             Phase::Forming { t } if t + dt >= FORM_SECS => Phase::Box,
             Phase::Forming { t } => Phase::Forming { t: t + dt },
