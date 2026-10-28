@@ -9,6 +9,7 @@ use crate::burst::Burst;
 use crate::forms::Forms;
 use crate::fusion::Fusion;
 use crate::meiosis::Division;
+use crate::other::Other;
 
 pub const MAX_HANDLES: usize = 4;
 pub const MAX_RIPPLES: usize = 8;
@@ -156,6 +157,9 @@ pub struct World {
     pub burst: Burst,
     /// Pinch, stretch, stir and draw around it: what else it can become (see forms/).
     pub forms: Forms,
+    /// Something else in the room, late on (see other.rs). Not part of the body: it never
+    /// changes whether the body is ordinary.
+    pub other: Other,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -203,6 +207,7 @@ impl World {
             fusion: Fusion::default(),
             burst: Burst::default(),
             forms: Forms::default(),
+            other: Other::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),

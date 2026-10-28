@@ -84,6 +84,34 @@ uniform vec4 uFil2;      // x its thickness, y sphere→thread 0..1, z ringing n
 uniform vec3 uFilSwing;  // which way it swings when plucked
 uniform vec4 uCosmos;    // x liquid→universe 0..1, y how far the galaxy has turned, z a star igniting, w which way it turns
 uniform vec4 uBox;       // x round→box 0..1, y the lid open 0..1, z rattle of a knock, w which way it faces
+
+// ---- the other one (other.rs): its shape -------------------------------------
+uniform vec4 uOther;     // xyz where it is, w its size (0: not in the room)
+uniform vec4 uOther2;    // x how far it has turned, y how far it leans, z how sharp it has become, w ringing
+uniform vec4 uOther3;    // rgb the color it kept from inside the first, a fire in its edges
+uniform float uOtherIn;  // 0..1 how far inside the first it is
+const int OTHER = 40;
+
+// Long and many-sided: two eight-sided cuts at once, sixteen faces, a point at each end.
+// Returns both cuts in its own units; where they are equal is an edge.
+vec2 otherCuts(vec3 p) {
+  vec3 q = (p - uOther.xyz) / uOther.w;
+  float c = cos(uOther2.x), s = sin(uOther2.x);
+  q.xz = mat2(c, s, -s, c) * q.xz;
+  c = cos(uOther2.y);
+  s = sin(uOther2.y);
+  q.xy = mat2(c, s, -s, c) * q.xy;
+  q.y /= 1.6 + 0.6 * uOther2.z;
+  vec3 a = abs(q);
+  vec3 b = vec3(abs(q.x + q.z) * 0.70711, a.y, abs(q.x - q.z) * 0.70711);
+  return vec2(a.x + a.y + a.z, b.x + b.y + b.z) - 1.0;
+}
+
+float otherSdf(vec3 p) {
+  vec2 k = otherCuts(p);
+  return max(k.x, k.y) * 0.57735 * uOther.w;
+}
+// ---- end of the other one's shape ---------------------------------------------
 const float HALF_SIDE = 0.806;
 
 // Each triangle's outline (base on y = 0, height 1), thickness, and edge rounding.
@@ -510,6 +538,12 @@ float scene(vec3 p, out float body, out float piece, out int id) {
     if (i >= uND) break;
     d = smin(d, length(p - uDrop[i].xyz) - uDrop[i].w, uK.y);
   }
+  // the other one, joined last and never smoothly: the two never melt into each other
+  if (uOther.w > 0.0) {
+    float od = otherSdf(p);
+    if (od < piece) { piece = od; id = OTHER; }
+    d = min(d, od);
+  }
   return d;
 }
 
@@ -605,6 +639,7 @@ vec3 floorMatte(vec3 p, vec3 bg) {
       occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
     }
     if (uBurst.x > 0.5) occ = 0.0;
+    if (uOther.w > 0.0) occ += sphOcc(p, vec4(uOther.xyz, uOther.w * 1.3));
     float fade = exp(-0.05 * dot(p.xz, p.xz));
     // the pieces cast their own shadows wherever they stand
     float socc = 0.0;
@@ -868,12 +903,45 @@ vec3 shadeShard(vec3 p, vec3 rd, int i, vec3 n) {
   return col;
 }
 
+// ---- the other one (other.rs): its material ----------------------------------
+// Dark glass. The room is in its faces, each face a little different; light bent through
+// an edge splits into colors, more of them the more times it has been given back.
+vec3 shadeOther(vec3 p, vec3 rd, vec3 n, float ao) {
+  vec3 v = -rd;
+  float ndv = max(dot(n, v), 0.0);
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  float face = hash(floor(n * 3.0 + 0.5));
+  vec2 k = otherCuts(p);
+  float edge = exp(-abs(k.x - k.y) * 26.0);
+  // the colors part by how steeply the light crosses each face, and most at its edges
+  vec3 fire = 0.5 + 0.5 * cos(6.2831 * (face * 0.7 + ndv * 1.6 + k.x * 3.0 + uTime * 0.03 + vec3(0.0, 0.33, 0.67)));
+  float split = 0.12 + 0.5 * uOther3.a;
+  vec3 col = vec3(0.02, 0.022, 0.04) * ao;
+  col += uOther3.rgb * 0.35 * pow(1.0 - ndv, 1.5);
+  col += env(refract(rd, n, 0.66)) * fire * split * (0.25 + 0.75 * (1.0 - ndv));
+  // the room in its faces, each face held at its own angle
+  float fres = 0.05 + 0.95 * pow(1.0 - ndv, 5.0);
+  col = mix(col, env(reflect(rd, n)) * vec3(0.8, 0.84, 0.96), clamp(0.12 + 0.5 * face * face + fres * 0.8, 0.0, 0.92));
+  col += fire * edge * (0.25 + 0.9 * uOther3.a);
+  col += vec3(pow(max(dot(reflect(-L, n), v), 0.0), 260.0)) * 1.5;
+  // struck, it rings cold and bright
+  col += vec3(0.74, 0.82, 1.0) * uOther2.w * (0.15 + 0.5 * pow(1.0 - ndv, 2.0) + edge);
+  if (uNight > 0.001) {
+    // in the dark only its edges show, burning
+    vec3 night = vec3(0.01, 0.01, 0.025) * (0.5 + face) + fire * (edge * (0.6 + uOther3.a) + 0.08 * split);
+    col = mix(col, night, uNight);
+  }
+  return col;
+}
+// ---- end of the other one's material ------------------------------------------
+
 // `far`: the liquid floor past the marcher's reach, where only the plain liquid is wanted.
 // main() probes the field around p in its march loop and hands over what it found:
 // the normal, ambient occlusion, the body's distance, and the nearest piece.
 vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float ds, int id) {
+  if (!far && id == OTHER && ds < db && ds < 0.01) return shadeOther(p, rd, n, ao);
   int shard = -1;
-  if (uBurst.w > 0.0 && !far && id >= 0 && ds < db) shard = id;
+  if (uBurst.w > 0.0 && !far && id >= 0 && id != OTHER && ds < db) shard = id;
   if (shard >= 16) return shadePillar(p, rd, shard - 16, n, ao);
   // One call site for shadeLiquid, so the compiler builds it once here.
   vec3 col = far || shard >= 0 || uDiv.z < 0.999 ? shadeLiquid(p, rd, n, ao, db) : vec3(0.0);
@@ -895,6 +963,16 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
   if (uDiv.z > 0.001 || uStone.x > 0.001) {
     if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
     if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n), uStone.x);
+  }
+  if (uOtherIn > 0.001) {
+    // the other one, inside: a cold dark shape seen through the milk, its edges still splitting light
+    vec3 r = refract(rd, n, 0.8);
+    vec3 oc = uOther.xyz - p;
+    float miss = length(oc - r * max(dot(oc, r), 0.0)) / (uOther.w * 1.5);
+    float core = exp(-miss * miss * 2.2) * uOtherIn;
+    vec3 fire = 0.5 + 0.5 * cos(6.2831 * (miss * 1.7 + uTime * 0.05 + vec3(0.0, 0.33, 0.67)));
+    vec3 dark = vec3(0.03, 0.03, 0.06) + uOther3.rgb * 0.06 + fire * (0.1 + 0.3 * uOther3.a) * smoothstep(0.2, 0.9, miss);
+    col = mix(col, dark, core * 0.85);
   }
   if (uCosmos.x > 0.001) col = mix(col, galaxy(p, rd), uCosmos.x);
   if (uBox.y > 0.0) {
