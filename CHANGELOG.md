@@ -12,12 +12,23 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
-## [1.7.0] - 2026-10-28
+## [1.8.0] - 2026-10-28
 
 ### Added
 - Its universe, stirred on the same way long after it holds one, gets out: the floor goes, the white room comes apart along the seams of a sky cut by mirrors, and it is everywhere, in every direction, each copy turning its own galaxy. (#46)
 - In there, a poke gives the room another mirror; a hand held still runs its time backward until it is let go; the other way round folds the room back up around one of it. (#46)
 - Four discoveries for it, and five thoughts for a universe that has not been let out. (#46)
+
+## [1.7.0] - 2026-10-28
+
+### Added
+- Every shock throws a ring of color out from it, a kick of light and a wash in the color of what happened: pink for a cut, cold for a fall, gold for the lid, red for the river's beat, every color for the burst. (#45)
+- Upset, the edges of the room bruise; wounded, they beat, and something hot shows through it from inside. (#45)
+- Light passes through it: the room bent through its body in split color, and gathered on the floor in its shadow with a ring of color around it. (#45)
+
+### Changed
+- Its skin carries a moving film of whole colors, faint across its face and strong at the edges, brighter while it looks at you; at night its rim takes the film's colors and the stars come back off it. (#45)
+- The room's lights are sharper in its reflections, with a cold strip and a warm one low on either side. (#45)
 
 ## [1.6.0] - 2026-10-28
 
@@ -197,7 +208,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/antoniwan/the-object/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/antoniwan/the-object/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/antoniwan/the-object/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/antoniwan/the-object/compare/v1.4.1...v1.5.0

@@ -144,7 +144,8 @@ impl Renderer {
         self.v4v("uEyeC", &ec);
     }
 
-    pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32) {
+    /// `quality` is the page's adaptive resolution, 0.4..1; below 0.75 the finest light is left out.
+    pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32, quality: f32) {
         let gl = &self.gl;
         gl.viewport(0, 0, w as i32, h as i32);
         gl.use_program(Some(&self.program));
@@ -158,6 +159,10 @@ impl Renderer {
         self.v3("uCamUp", b.up);
         self.v3("uCamFwd", b.fwd);
         self.f("uFocal", FOCAL);
+        let (shock, since) = cam.shock();
+        let loc = self.loc("uShock");
+        gl.uniform2f(loc.as_ref(), shock, since);
+        self.f("uFine", if quality < 0.75 { 0.0 } else { 1.0 });
 
         let body = &world.body;
         let r = body.radius();
