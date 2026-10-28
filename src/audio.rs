@@ -93,6 +93,19 @@ impl Audio {
                 .pluck(Sine, 659.3, 659.3, 0.05, 2.4, 0.15)
                 .and_then(|_| self.pluck(Sine, 987.8, 987.8, 0.035, 2.6, 0.32))
                 .and_then(|_| self.pluck(Sine, 1318.5, 1318.5, 0.02, 2.8, 0.5)),
+            Sound::Shard { i } => {
+                // each piece its own note: the larger, the lower; the hard ones ring, the soft ones thud
+                let f = 1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0);
+                let (give, decay) = crate::burst::CONSISTENCIES[i].give();
+                let ring = (2.6 / decay) as f64;
+                let kind = if decay > 6.0 { Triangle } else { Sine };
+                self.pluck(kind, f, f * (1.0 - 0.04 * give), 0.16, ring, 0.0)
+                    .and_then(|_| self.pluck(Sine, f * 2.01, f * 2.0, 0.03 / decay.max(1.0), ring * 0.6, 0.0))
+            }
+            Sound::Chord => (0..crate::burst::SHARDS).try_for_each(|i| {
+                let f = 1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0);
+                self.pluck(Sine, f, f, 0.035, 3.2, i as f64 * 0.045)
+            }),
             Sound::Call => self.pluck(Sine, 146.8, 196.0, 0.08, 0.7, 0.0),
             Sound::Pinch => self.pluck(Sine, 1046.5, 1174.7, 0.05, 0.3, 0.0),
             Sound::Bloom => self

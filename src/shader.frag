@@ -37,16 +37,33 @@ uniform vec4 uGaze;    // xyz direction it reaches toward, w amount
 // Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
 uniform vec4 uCut;     // xyz normal of the cut, w split: 0 one body, 1 two cells
 uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
+// Past two (morula.rs): up to sixteen cells, then grain, then stone.
+uniform vec4 uCells[16]; // xyz offset from the body center, w radius
+uniform vec2 uCellF[16]; // x wounds 0..1, y death 0..1
+uniform int uNC;         // 0 while it is one body or two cells
+uniform vec4 uMor;       // x cells to grain, y grain count, z previous grain count, w previous to current
+uniform float uGrainR;   // radius of the grain body, in body radii
+uniform vec4 uStone;     // x stone, y risen into the slab, z thawed, w yaw the slab faces
+uniform vec4 uSlab;      // xyz slab center, w smoothing between cells
+uniform vec4 uEye;       // xyz where the eye looks, w how open
+uniform vec4 uEyeC;      // xyz the eye cell's offset from the body center, w its radius
 // Slamming (fusion.rs): the floor turns liquid, spreading from the impact.
 uniform vec4 uLake;      // xy impact point on the floor (x, z), z liquid radius, w seconds since impact
 uniform vec4 uLakeRip[6]; // x, z, age, amplitude of a touch on the lake
 uniform int uNLR;
 const float FLOOR_Y = -1.45;
+// What the lake becomes (mere.rs), each gliding 0..1.
+uniform vec4 uMere;      // x mirror, y deep, z ice
+uniform vec4 uIce;       // xy where it froze from (x, z), z how far the ice reaches
+uniform vec4 uCrack[6];  // x, z, age, seed of each blow to the ice
+uniform int uNCrack;
+uniform vec4 uJet;       // xy where the fountain stands (x, z), z column height, w drop height (< 0: none)
+uniform vec2 uCoat;      // what it rose as: x quicksilver, y ink
 
 // Bursting (burst.rs): twelve pieces that become twelve triangles.
 uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
 uniform vec4 uTri[12];   // xyz where the piece is (on the floor once landed), w height
-uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke
+uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke, w weathering (extra rounding)
 
 // The other forms (forms/). Each is gated on its own amount, so it costs nothing until it is used.
 uniform vec4 uBloom;     // x how open the flower is 0..1, y where the first petal points
@@ -79,6 +96,10 @@ const vec4 TMAT[12] = vec4[12](vec4(90.0, 0.25, 0.6, 0.0), vec4(300.0, 0.95, 0.0
                                vec4(200.0, 0.35, 0.6, 0.12), vec4(15.0, 0.03, 0.05, 0.02), vec4(500.0, 0.55, 0.0, 0.0), vec4(5.0, 0.0, 0.2, 0.45));
 
 const float SEP = 0.95;
+const float PI = 3.14159265;
+const float PHI = 1.61803399;
+// Sides 1 : 4 : 9, holding the volume of a body of radius 1.
+const float SLAB_UNIT = 0.48821;
 const float CELL_SCALE = 0.7937;
 const float K_JOIN = 0.9;
 
@@ -129,11 +150,87 @@ float surfaceDisp(vec3 n) {
 float cellRadius() { return uBody.w * mix(1.0 - K_JOIN * 0.25, CELL_SCALE, uCut.w); }
 vec3 cellOffset() { return uCut.xyz * (SEP * uBody.w * uCut.w); }
 
-// The twin's ripples are the first cell's, mirrored across the cut.
-float cellSurface(vec3 v, float rc, bool twin) {
-  vec3 n = normalize(v + 1e-5);
-  if (twin) n = reflect(n, uCut.xyz);
-  return length(v) - rc - surfaceDisp(n) * uBody.w;
+// The i-th of n points spread evenly over the unit sphere, and the nearest of
+// them to p (spherical Fibonacci mapping, Keinert et al. 2015): four candidates
+// instead of n, so a body of five hundred grains costs the same as one of thirty.
+vec3 sfPoint(float i, float n) {
+  float phi = 2.0 * PI * fract(i * PHI);
+  float ct = 1.0 - 1.0 / n - 2.0 * i / n;
+  float st = sqrt(max(1.0 - ct * ct, 0.0));
+  return vec3(cos(phi) * st, sin(phi) * st, ct);
+}
+
+vec3 nearestSF(vec3 p, float n) {
+  float m = 1.0 - 1.0 / n;
+  float phi = min(atan(p.y, p.x), PI);
+  float k = max(2.0, floor(log(max(n * PI * sqrt(5.0) * (1.0 - p.z * p.z), 1e-6)) / log(PHI * PHI)));
+  float fk = pow(PHI, k) / sqrt(5.0);
+  vec2 F = vec2(floor(fk + 0.5), floor(fk * PHI + 0.5));
+  vec2 ka = 2.0 * F / n;
+  vec2 kb = 2.0 * PI * (fract((F + 1.0) * PHI) - (PHI - 1.0));
+  mat2 iB = mat2(ka.y, -ka.x, kb.y, -kb.x) / (ka.y * kb.x - ka.x * kb.y);
+  vec2 c = floor(iB * vec2(phi, p.z - m));
+  vec3 best = vec3(0.0, 0.0, 1.0);
+  float d = 8.0;
+  for (int s = ZERO; s < 4; s++) {
+    float i = clamp(dot(F, vec2(s & 1, s >> 1) + c), 0.0, n - 1.0);
+    vec3 q = sfPoint(i, n);
+    float dq = dot(q - p, q - p);
+    if (dq < d) { d = dq; best = q; }
+  }
+  return best;
+}
+
+// Height of the grain at direction n: a dome over each of `count` grains, creased between them.
+float grainDome(vec3 n, float count) {
+  float s = sqrt(4.0 * PI / count);
+  float x = length(n - nearestSF(n, count)) / (0.58 * s);
+  return 0.38 * s * sqrt(max(1.0 - x * x, 0.0));
+}
+
+float grainSurface(vec3 q) {
+  float R = uGrainR * uBody.w;
+  vec3 n = normalize(q + 1e-5);
+  // the count after the cut and before it, blended, through one copy of the lookup
+  float h = 0.0;
+  for (int j = ZERO; j < 2; j++) {
+    float w = j == 0 ? uMor.w : 1.0 - uMor.w;
+    if (w < 0.001) continue;
+    h += w * grainDome(n, j == 0 ? uMor.y : uMor.z);
+  }
+  // steep domes: step a little shorter over them
+  return (length(q) - R * (1.0 + h * (1.0 - uStone.x))) * 0.8;
+}
+
+// The cells packed together, or the grain they became, around the body center.
+// Ripples are added by bodySurface.
+float clusterSurface(vec3 q) {
+  float r = uBody.w;
+  float lq = length(q);
+  // nothing of it reaches much past two body radii (BOUND in morula.rs)
+  if (uStone.y < 0.001 && lq > 2.5 * r) return lq - 2.3 * r;
+  float d = 1e3;
+  if (uMor.x < 0.999) {
+    for (int i = ZERO; i < 16; i++) {
+      if (i >= uNC) break;
+      d = smin(d, length(q - uCells[i].xyz) - uCells[i].w, uSlab.w);
+    }
+  }
+  float toBall = max(uMor.x, uStone.x * 0.8);
+  if (toBall > 0.001) d = mix(d, uMor.x > 0.001 ? grainSurface(q) : lq - uGrainR * r, toBall);
+  return d;
+}
+
+// An upright box standing on the floor, turned to face whoever made it.
+float slabSurface(vec3 p) {
+  vec3 q = p - uSlab.xyz;
+  float c = cos(uStone.w), s = sin(uStone.w);
+  q = vec3(c * q.x - s * q.z, q.y, s * q.x + c * q.z);
+  vec3 h = vec3(2.0, 4.5, 0.5) * SLAB_UNIT * uBody.w;
+  // its edges are only just softened, enough to catch the light
+  float bevel = 0.06 * h.z;
+  vec3 o = abs(q) - h + bevel;
+  return length(max(o, 0.0)) + min(max(o.x, max(o.y, o.z)), 0.0) - bevel;
 }
 
 float cellsSurface(vec3 p) {
@@ -142,10 +239,34 @@ float cellsSurface(vec3 p) {
   float r = uBody.w;
   float rc = cellRadius();
   vec3 off = cellOffset();
-  float da = cellSurface(q + off, rc, false);
   // Still one body: both halves coincide, so evaluate one and add the join's bulge.
-  if (uCut.w < 1e-4) return (da - K_JOIN * r * 0.25) * lip;
-  float db = cellSurface(q - off, rc, true);
+  bool one = uCut.w < 1e-4;
+  // One pass per cell, so the compiler builds the ripples once: two cells, one
+  // body, or (past two) everything around its center at once.
+  float da = 0.0, db = 0.0;
+  for (int i = ZERO; i < 2; i++) {
+    vec3 v = i == 0 ? q + off : q - off;
+    float base = length(v) - rc;
+    float amt = 1.0;
+    if (uNC > 0) {
+      v = q;
+      base = clusterSurface(q);
+      // ripples, wobble and gaze run over the whole of it, less as it hardens
+      amt = 0.6 * (1.0 - uStone.x);
+    }
+    vec3 n = normalize(v + 1e-5);
+    // The twin's ripples are the first cell's, mirrored across the cut.
+    if (i == 1) n = reflect(n, uCut.xyz);
+    float di = base - surfaceDisp(n) * r * amt;
+    if (i == 0) da = di; else db = di;
+    if (one || uNC > 0) break;
+  }
+  if (uNC > 0) {
+    float d = da * lip;
+    if (uStone.y > 0.0) d = mix(d, mix(slabSurface(p), length(p - uBody.xyz) - uBody.w, uStone.z), uStone.y);
+    return d;
+  }
+  if (one) return (da - K_JOIN * r * 0.25) * lip;
   return smin(da, db, max(K_JOIN * r * (1.0 - uCut.w), 1e-4)) * lip;
 }
 
@@ -244,8 +365,9 @@ float lakeHeight(vec2 xz) {
     h += 0.06 * uLakeRip[i].w * exp(-a * 0.8) * sin(di * 9.0 - a * 10.0) * exp(-di * 0.35)
          * smoothstep(a * 2.0 + 0.4, a * 2.0 - 0.3, di);
   }
-  h += 0.012 * sin(xz.x * 1.3 + uTime * 0.9) * sin(xz.y * 1.1 - uTime * 0.7);
-  return h * m;
+  h += 0.012 * sin(xz.x * 1.3 + uTime * 0.9) * sin(xz.y * 1.1 - uTime * 0.7) * (1.0 - uMere.z);
+  // a mirror is a lake with nothing moving in it
+  return h * m * (1.0 - uMere.x);
 }
 
 float sdTri2(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
@@ -277,8 +399,12 @@ float shardSdf(vec3 p, int i) {
   q.x += uTriB[i].z * 0.07 * sin(q.y * 7.0 - uTime * 16.0) * q.y;
   float d2 = sdTri2(q.xy, TA[i], TB[i], TC[i]);
   float dz = abs(q.z) - TTHICK[i] * 0.5;
-  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - TROUND[i]) * size;
-  return mix(blob, tri, m);
+  // weather wears it down: the outline shrinks by as much as the edges round, so it keeps its size
+  float w = uTriB[i].w;
+  d2 += w; dz += w * 0.5;
+  float tri = (min(max(d2, dz), 0.0) + length(max(vec2(d2, dz), 0.0)) - TROUND[i] - w) * size;
+  // planted ones are cut off at the ground
+  return max(mix(blob, tri, m), FLOOR_Y - p.y);
 }
 
 // Nearest piece and its distance.
@@ -300,7 +426,15 @@ float scene(vec3 p) {
   }
   if (uLake.z > 0.0) {
     // the body melts into the floor through a smooth join
-    d = smin(d, (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8, 0.45 * uBody.w);
+    float lake = (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8;
+    if (uJet.w > -0.3) {
+      // the fountain: a column thrown up out of the lake, and the drop it lets go of
+      vec3 jb = vec3(uJet.x, FLOOR_Y, uJet.y);
+      float jet = sdTaper(p, jb - vec3(0.0, 0.3, 0.0), jb + vec3(0.0, uJet.z, 0.0), 0.2, 0.07);
+      jet = min(jet, length(p - jb - vec3(0.0, uJet.w + 0.12, 0.0)) - 0.13);
+      lake = smin(lake, jet, 0.18);
+    }
+    d = smin(d, lake, 0.45 * uBody.w);
   }
   for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
@@ -404,6 +538,10 @@ vec3 floorMatte(vec3 p, vec3 bg) {
         occ += sphOcc(p, vec4(uBody.xyz + uFil.xyz * s, uFil2.x * 1.6));
       }
     }
+    if (uNC > 0) {
+      occ = mix(sphOcc(p, vec4(uBody.xyz, uBody.w * 1.25)),
+                sphOcc(p, vec4(uSlab.x, FLOOR_Y + 0.7 * uBody.w, uSlab.z, 0.9 * uBody.w)), uStone.y);
+    }
     for (int i = ZERO; i < 12; i++) {
       if (i >= uND) break;
       occ += sphOcc(p, uDrop[i]);
@@ -469,13 +607,45 @@ float sphereThickness(vec3 ro, vec3 rd, vec3 c, float r) {
   return max(-b + s, 0.0) - max(-b - s, 0.0);
 }
 
+// Which cell p is on: its center and radius, a seed of its own, and its wounds and death.
+void cellAt(vec3 p, out vec3 cc, out float rr, out float twin, out vec2 fate) {
+  fate = vec2(0.0);
+  if (uNC == 0) {
+    twin = dot(p - uBody.xyz, uCut.xyz) > 0.0 ? 1.0 : 0.0;
+    cc = uBody.xyz + cellOffset() * (twin * 2.0 - 1.0);
+    rr = cellRadius();
+    return;
+  }
+  vec3 q = p - uBody.xyz;
+  if (uMor.x > 0.5) {
+    vec3 c = nearestSF(normalize(q + 1e-5), uMor.y);
+    float R = uGrainR * uBody.w;
+    cc = uBody.xyz + c * R;
+    rr = 0.5 * sqrt(4.0 * PI / uMor.y) * R;
+    twin = fract(dot(c, vec3(17.1, 31.7, 7.3))) * 9.0;
+    return;
+  }
+  float best = 1e3;
+  for (int i = ZERO; i < 16; i++) {
+    if (i >= uNC) break;
+    float di = length(q - uCells[i].xyz) - uCells[i].w;
+    if (di < best) {
+      best = di;
+      cc = uBody.xyz + uCells[i].xyz;
+      rr = uCells[i].w;
+      twin = float(i);
+      fate = uCellF[i];
+    }
+  }
+}
+
 // A stained living cell: pale cytoplasm, a magenta membrane, and a violet
 // nucleus with its chromatin, seen through the cell.
 vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
-  vec3 off = cellOffset();
-  float twin = dot(p - uBody.xyz, uCut.xyz) > 0.0 ? 1.0 : 0.0;
-  vec3 cc = uBody.xyz + off * (twin * 2.0 - 1.0);
-  float rr = cellRadius();
+  vec3 cc;
+  float rr, twin;
+  vec2 fate;
+  cellAt(p, cc, rr, twin, fate);
   float ndv = clamp(dot(n, -rd), 0.0, 1.0);
   float rim = pow(1.0 - ndv, 2.2);
   vec3 col = mix(vec3(0.985, 0.925, 0.945), vec3(0.70, 0.27, 0.50), rim * 0.9);
@@ -501,11 +671,46 @@ vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
   }
   col *= mix(vec3(1.0), vec3(0.78, 0.50, 0.66), 1.0 - exp(-g / uBody.w * 10.0));
 
+  if (uNC > 0) {
+    // a wounded cell flushes; a dying one empties to grey
+    col *= mix(vec3(1.0), vec3(1.0, 0.70, 0.76), fate.x * 0.8);
+    col = mix(col, vec3(0.60, 0.60, 0.62) * (0.9 + 0.2 * rim), smoothstep(0.0, 0.35, fate.y));
+    // the newest cut glows through each cell's middle
+    float seam = abs(dot(p - cc, uCut.xyz)) / max(rr, 1e-3);
+    col += uDiv.x * vec3(1.0, 0.35, 0.65) * exp(-seam * 14.0);
+    // The one that became different: an eye, looking where it looks.
+    vec3 ev = p - uBody.xyz - uEyeC.xyz;
+    float near = uEye.w * smoothstep(uEyeC.w * 1.45, uEyeC.w * 0.9, length(ev));
+    if (near > 0.001) {
+      // smaller on a body of grain than on a cell
+      float iris = uMor.x > 0.5 ? 0.975 : 0.86;
+      float a = (1.0 - dot(normalize(ev), uEye.xyz)) / (1.0 - iris);
+      vec3 eye = mix(vec3(0.10, 0.03, 0.14), vec3(0.58, 0.26, 0.66), smoothstep(0.25, 1.0, a));
+      vec3 side = normalize(cross(uEye.xyz, vec3(0.0, 1.0, 0.0)) + 1e-4);
+      float spoke = atan(dot(normalize(ev), side), dot(normalize(ev), cross(uEye.xyz, side)));
+      eye *= 0.8 + 0.2 * sin(spoke * 23.0 + twin) * smoothstep(0.3, 0.6, a);
+      eye = mix(eye, vec3(0.0), smoothstep(0.45 - 0.15 * uEye.w, 0.3 - 0.15 * uEye.w, a));
+      col = mix(col, eye, near * smoothstep(1.08, 0.95, a));
+    }
+  }
+
   vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
   col *= 0.9 + 0.1 * max(dot(n, L), 0.0);
   vec3 r = reflect(rd, n);
   col += vec3(pow(max(dot(r, L), 0.0), 90.0) * 0.8);
   col += vec3(pow(max(dot(r, normalize(vec3(0.8, 0.25, -0.55))), 0.0), 40.0) * 0.12);
+  return col;
+}
+
+// Polished black stone: almost nothing of its own, only what it reflects.
+vec3 shadeStone(vec3 p, vec3 rd, vec3 n) {
+  float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+  vec3 L = normalize(vec3(-0.5, 0.8, 0.45));
+  vec3 col = vec3(0.016, 0.016, 0.02) * (0.5 + 0.5 * max(dot(n, L), 0.0));
+  vec3 r = reflect(rd, n);
+  float fres = 0.05 + 0.95 * pow(1.0 - ndv, 5.0);
+  col += mix(env(r), nightSky(r) * 1.5, uNight) * fres * 0.8;
+  col += vec3(pow(max(dot(r, L), 0.0), 240.0)) * 0.6;
   return col;
 }
 
@@ -558,7 +763,11 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv) {
     col = mix(col, lakeFade(col, p, bg), lakeness);
     col = mix(col, floorMatte(p, bg), floorness);
   }
-  if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, calcNormal(p)), uDiv.z);
+  if (uDiv.z > 0.001 || uStone.x > 0.001) {
+    vec3 n = calcNormal(p);
+    if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
+    if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n), uStone.x);
+  }
   if (uCosmos.x > 0.001) col = mix(col, galaxy(p, rd), uCosmos.x);
   if (uBox.y > 0.0) {
     // inside the open box it is lit from within
@@ -568,9 +777,60 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv) {
     float deep = smoothstep(0.75 * s, -s, q.y);
     col = mix(col, vec3(1.0, 0.94, 0.78) * (0.9 + 0.9 * deep), inside * uBox.y * 0.85);
   }
-  // the cut: a hot seam where the slice plane crosses the surface
-  float seam = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;
-  col += uDiv.x * vec3(1.0, 0.35, 0.65) * (exp(-seam * 60.0) * 1.4 + exp(-seam * 10.0) * 0.12);
+  if (uNC == 0) {
+    // the cut: a hot seam where the slice plane crosses the surface
+    float seam = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;
+    col += uDiv.x * vec3(1.0, 0.35, 0.65) * (exp(-seam * 60.0) * 1.4 + exp(-seam * 10.0) * 0.12);
+  }
+  return col;
+}
+
+// The lake as mirror, deep, and ice. `col` is the plain liquid underneath.
+vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres) {
+  vec3 r = reflect(rd, n);
+  float ndv = max(dot(n, -rd), 0.0);
+  if (uMere.x > 0.0) {
+    // still: the room, perfectly, and the object standing in it where it fell
+    vec3 mir = env(r) * vec3(0.93, 0.94, 0.96);
+    vec3 gc = vec3(uLake.x, FLOOR_Y + uBody.w, uLake.y);
+    vec3 oc = p - gc;
+    float b = dot(oc, r);
+    float disc = b * b - dot(oc, oc) + uBody.w * uBody.w;
+    if (disc > 0.0 && -b - sqrt(disc) > 0.0) {
+      vec3 gn = normalize(p + r * (-b - sqrt(disc)) - gc);
+      float gd = max(dot(gn, -r), 0.0);
+      vec3 ghost = mix(vec3(0.90, 0.91, 0.95) * (0.8 + 0.2 * gn.y), env(reflect(r, gn)), 0.15 + 0.85 * pow(1.0 - gd, 4.0));
+      mir = mix(mir, ghost, 0.92);
+    }
+    col = mix(col, mir, uMere.x);
+  }
+  if (uMere.y > 0.0) {
+    // deep: ink, and the object a faint moon far under it
+    float dd = length(p.xz - uLake.xy);
+    vec3 ink = vec3(0.015, 0.02, 0.04) + env(r) * fres * 0.7
+             + vec3(0.85, 0.88, 1.0) * 0.4 * exp(-dd * dd * 0.6) * (0.8 + 0.2 * sin(uTime * 0.8));
+    col = mix(col, ink, uMere.y);
+  }
+  float im = uMere.z * smoothstep(uIce.z, uIce.z - 0.6, length(p.xz - uIce.xy));
+  if (im > 0.0) {
+    // ice: frosted, pale, holding the shape it froze in, scored by every blow
+    vec3 ice = mix(vec3(0.78, 0.86, 0.93), vec3(0.97, 0.99, 1.0), 0.5 + 0.5 * n.y);
+    ice *= 0.93 + 0.07 * hash(floor(p * 55.0));
+    ice = mix(ice, env(r), 0.2 + 0.6 * pow(1.0 - ndv, 4.0));
+    float cr = 0.0;
+    for (int i = ZERO; i < 6; i++) {
+      if (i >= uNCrack) break;
+      vec2 d = p.xz - uCrack[i].xy;
+      float l = length(d);
+      float reach = 2.4 * min(uCrack[i].z * 8.0, 1.0);
+      float a = atan(d.y, d.x) * 7.0 / 6.2831 + uCrack[i].w * 7.0 + 0.06 * sin(l * 6.0 + uCrack[i].w * 40.0);
+      float spoke = abs(fract(a) - 0.5) * 0.9 * l;
+      cr += smoothstep(0.022, 0.004, spoke) * smoothstep(reach, reach * 0.4, l);
+      cr += smoothstep(0.025, 0.0, abs(l - reach * 0.4)) * step(0.45, fract(a * 0.5 + uCrack[i].w));
+    }
+    ice = mix(ice, vec3(0.32, 0.40, 0.50), clamp(cr, 0.0, 1.0) * 0.8);
+    col = mix(col, ice, im);
+  }
   return col;
 }
 
@@ -654,6 +914,13 @@ vec3 shadeLiquid(vec3 p, vec3 rd) {
   col = mix(col, refl, clamp(fres * 0.9 + 0.08, 0.0, 1.0));
   float spec = pow(max(dot(reflect(-L, n), v), 0.0), 90.0);
   col += vec3(0.9) * spec;
+
+  // The lake's own states (mere.rs), and what the object rose as.
+  float lk = uLake.z > 0.0 ? smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz) : 0.0;
+  if (lk > 0.0) col = mix(col, mereSurface(p, rd, n, col, fres), lk);
+  vec3 r = reflect(rd, n);
+  col = mix(col, env(r) * vec3(0.86, 0.88, 0.92) + vec3(spec), uCoat.x * (1.0 - lk));
+  col = mix(col, vec3(0.018, 0.02, 0.032) + tint * 0.03 + env(r) * fres * 0.8 + vec3(spec) * 0.6, uCoat.y * (1.0 - lk));
 
   if (uNight > 0.001) {
     // At night it becomes a lens: the sky seen through it, a rim of its own color.

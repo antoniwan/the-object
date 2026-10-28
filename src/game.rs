@@ -9,16 +9,25 @@
 //! - two-finger pinch or mouse wheel: squeeze
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
+//! - on two or more cells, swipe through again: every cell divides (see morula.rs);
+//!   poke one cell three times and it dies; hold a squeeze and it turns to stone;
+//!   press and hold the stone and it thaws
 //! - press and hold still: warm it (it changes color)
 //! - leave it alone: it starts to watch the pointer
 //! - stretch it and let go with a fast flick: throw it; thrown hard at the floor it fuses (see fusion.rs)
 //! - on the liquid floor: tap to ripple it, drag up to pull the object back out
+//!   (see mere.rs for the rest): leave it alone and it stills into a mirror; hold
+//!   still on it and it freezes, then tap the ice until it breaks; drag down and it
+//!   goes deep; tap three times in one place and it throws up a fountain. Pulled out
+//!   of a mirror it comes up quicksilver, out of the deep it comes up ink
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
 //! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
 //! - draw a square around it: it becomes a box; knock three times (see forms/pandora.rs)
+//! - in the landscape: drag a piece to carry it, hold one still to plant it,
+//!   carry them all to the middle to mend it (see landscape.rs)
 
 use crate::camera::{Camera, FOCAL};
 use crate::math::*;
@@ -26,6 +35,8 @@ use crate::burst;
 use crate::forms::{self, bloom, filament, pandora};
 use crate::fusion;
 use crate::meiosis::{self, Swipe};
+use crate::mere;
+use crate::morula;
 use crate::progress::{Discovery, Progress};
 use crate::sim::{Event, Hit, Target, World};
 
@@ -56,6 +67,10 @@ pub enum Sound {
     Lid,
     /// It became something it wasn't.
     Become,
+    /// One of the twelve, struck.
+    Shard { i: usize },
+    /// All twelve at once.
+    Chord,
 }
 
 enum Gesture {
@@ -68,14 +83,18 @@ enum Gesture {
     Dragging { drop: u32, plane: V3, offset: V3 },
     Orbiting { start: (f32, f32), last: (f32, f32) },
     Squeezing { start_dist: f32 },
-    /// Touching the liquid floor; `at` is where, on the floor.
-    Lake { start: (f32, f32), at: (f32, f32) },
+    /// Touching the liquid floor; `at` is where, on the floor. Held still, it freezes.
+    Lake { start: (f32, f32), at: (f32, f32), since: f32, moved: bool },
     /// Pressing the empty ground of the landscape; held still long enough, it gathers.
     Ground { start: (f32, f32), since: f32 },
+    /// Pressing one of the twelve: a tap pokes it, a drag carries it, holding still plants it.
+    Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
 }
 
 /// A flick faster than this, in canvas heights per second, throws the object.
 const THROW_SPEED: f32 = 2.2;
+/// Camera distance from which the whole slab can be seen.
+const SLAB_DIST: f32 = 9.0;
 
 pub struct Game {
     pub world: World,
@@ -171,6 +190,11 @@ impl Game {
                 if self.world.division.phase == meiosis::Phase::Two {
                     self.discover(Discovery::Twin);
                 }
+                let r = self.world.body.radius();
+                let at = (hit.pos - self.world.body.pos) * (1.0 / r);
+                if let Some(m) = &mut self.world.division.morula {
+                    m.wound(at);
+                }
                 if self.world.ordinary() {
                     self.world.burst.wound();
                 }
@@ -189,9 +213,14 @@ impl Game {
                     }
                 }
             }
-            Gesture::Lake { at, .. } => {
-                self.world.fusion.touch_lake(at.0, at.1, 1.0);
-                self.discover(Discovery::Lake);
+            Gesture::Lake { at, moved, .. } => {
+                if self.world.fusion.mere.frozen() {
+                    self.world.fusion.mere.crack(at.0, at.1);
+                } else if !moved {
+                    self.world.fusion.touch_lake(at.0, at.1, 1.0);
+                    self.world.fusion.mere.tap(at.0, at.1);
+                    self.discover(Discovery::Lake);
+                }
             }
             Gesture::Dragging { drop, .. } => {
                 if self.world.release_drop(drop) > 4.0 {
@@ -219,6 +248,20 @@ impl Game {
                     self.discover(Discovery::Call);
                 }
             }
+            Gesture::Shard { i, carried: false, .. } => {
+                let chord = self.world.burst.poke_shard(i);
+                self.sounds.push(Sound::Shard { i });
+                self.discover(Discovery::Shards);
+                if chord {
+                    self.sounds.push(Sound::Chord);
+                    self.discover(Discovery::Chord);
+                }
+            }
+            Gesture::Shard { i, carried: true, .. } => {
+                if self.world.burst.release(i, self.world.body.radius()) {
+                    self.sounds.push(Sound::Merge);
+                }
+            }
             Gesture::Ground { .. } | Gesture::Idle => {}
         }
     }
@@ -237,6 +280,15 @@ impl Game {
         let z = d.dot(b.fwd).max(0.1);
         let (ux, uy) = (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z);
         ((ux * self.h + self.w) * 0.5, (self.h - uy * self.h) * 0.5)
+    }
+
+    /// Where the pointer meets the floor, if it does.
+    fn floor_point(&self, x: f32, y: f32) -> Option<V3> {
+        let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+        if rd.y > -0.02 {
+            return None;
+        }
+        Some(ro + rd * ((fusion::FLOOR_Y - ro.y) / rd.y))
     }
 
     fn pinch_dist(&self) -> f32 {
@@ -273,13 +325,10 @@ impl Game {
         let since = self.world.time;
         self.pvel = (0.0, 0.0);
         if !self.world.burst.whole() {
+            self.world.burst.land.touch();
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
             self.gesture = match self.world.burst.pick(ro, rd) {
-                Some(i) => {
-                    self.world.burst.poke_shard(i);
-                    self.discover(Discovery::Shards);
-                    Gesture::Idle
-                }
+                Some(i) => Gesture::Shard { i, start: (x, y), since: self.clock, carried: false },
                 None if self.world.burst.phase == burst::Phase::Landscape => {
                     Gesture::Ground { start: (x, y), since: self.clock }
                 }
@@ -291,7 +340,10 @@ impl Game {
             // It is in the floor now; the floor is what there is to touch.
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
             self.gesture = match self.world.fusion.lake_hit(ro, rd) {
-                Some(at) => Gesture::Lake { start: (x, y), at },
+                Some(at) => {
+                    self.world.fusion.mere.disturb();
+                    Gesture::Lake { start: (x, y), at, since: self.clock, moved: false }
+                }
                 None => Gesture::Orbiting { start: (x, y), last: (x, y) },
             };
             return;
@@ -384,10 +436,43 @@ impl Game {
                     self.pointer_move(id, x, y, dt);
                 }
             }
-            Gesture::Lake { start, .. } => {
-                // Pull up from the floor and it comes back out.
-                if (start.1 - y) / self.h > 0.12 && self.world.fusion.rise() {
-                    self.discover(Discovery::Rise);
+            Gesture::Shard { i, start, since, carried } => {
+                let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h;
+                if carried || moved > TAP_SLOP {
+                    let to = self.floor_point(x, y);
+                    if to.is_some_and(|to| self.world.burst.carry(i, to)) {
+                        self.world.burst.land.touch();
+                        self.gesture = Gesture::Shard { i, start, since, carried: true };
+                        self.discover(Discovery::Carry);
+                    } else if !carried {
+                        // rooted, it won't move; look around instead
+                        self.gesture = Gesture::Orbiting { start, last: start };
+                        self.pointer_move(id, x, y, dt);
+                    }
+                }
+            }
+            Gesture::Lake { start, at, since, .. } => {
+                let moved = ((x - start.0).powi(2) + (y - start.1).powi(2)).sqrt() / self.h > TAP_SLOP;
+                self.gesture = Gesture::Lake { start, at, since, moved };
+                let up = (start.1 - y) / self.h;
+                if up > 0.12 {
+                    // Pull up from the floor and it comes back out, as whatever the floor was.
+                    if self.world.fusion.mere.frozen() {
+                        // ice won't let it: the pull only cracks it
+                        self.world.fusion.mere.crack(at.0, at.1);
+                        self.gesture = Gesture::Idle;
+                    } else if self.world.fusion.rise() {
+                        self.discover(Discovery::Rise);
+                        match self.world.fusion.mere.coat {
+                            mere::Coat::Quicksilver => self.discover(Discovery::Quicksilver),
+                            mere::Coat::Ink => self.discover(Discovery::Ink),
+                            mere::Coat::Pearl => {}
+                        }
+                        self.gesture = Gesture::Idle;
+                    }
+                } else if up < -0.12 && self.world.fusion.phase == fusion::Phase::Fused && self.world.fusion.mere.sink() {
+                    // Push down and it goes deeper.
+                    self.discover(Discovery::Deep);
                     self.gesture = Gesture::Idle;
                 }
             }
@@ -415,7 +500,7 @@ impl Game {
 
     /// Sample the drag segment finely, so a fast flick can't jump over the body.
     fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
-        if !self.world.ordinary() {
+        if !self.world.division.can_slice() || !self.world.fusion.whole() || !self.world.burst.whole() || !self.world.forms.whole() {
             return;
         }
         let len = ((to.0 - from.0).powi(2) + (to.1 - from.1).powi(2)).sqrt();
@@ -435,6 +520,7 @@ impl Game {
     fn slice(&mut self, dx: f32, dy: f32) {
         let b = self.cam.basis();
         let along = b.right * dx - b.up * dy;
+        let first = self.world.division.whole();
         if self.world.division.slice(along.cross(b.fwd)) {
             self.hit_stop = meiosis::HIT_STOP_SECS;
             self.snapped = false;
@@ -442,7 +528,7 @@ impl Game {
             self.cam.yaw_vel = 0.0;
             self.cam.pitch_vel = 0.0;
             self.world.body.squash_vel -= 2.5;
-            self.discover(Discovery::Divide);
+            self.discover(if first { Discovery::Divide } else { Discovery::Cleave });
         }
     }
 
@@ -554,6 +640,53 @@ impl Game {
         }
     }
 
+    fn on_land(&mut self, e: crate::landscape::Event) {
+        use crate::landscape::Event as L;
+        match e {
+            L::Chord | L::Planted => {}
+            L::Grown => self.discover(Discovery::Grow),
+            L::Weathered => self.discover(Discovery::Weather),
+            L::Eroded => self.gesture = Gesture::Idle,
+            L::Mended { last } => {
+                // it comes back in the color of the last piece home
+                let tint = crate::landscape::TINTS[last];
+                self.world.body.color = crate::sim::PEARL.lerp(tint, 0.65);
+                self.sounds.push(Sound::Chord);
+                self.discover(Discovery::Mend);
+                self.gesture = Gesture::Idle;
+            }
+        }
+    }
+
+    fn morula_event(&mut self, e: morula::Event) {
+        match e {
+            morula::Event::Cleaved => self.discover(Discovery::Cleave),
+            morula::Event::BecameGrain => self.discover(Discovery::Grain),
+            morula::Event::Differentiated => self.discover(Discovery::Eye),
+            morula::Event::Died => {
+                self.discover(Discovery::Shed);
+                self.cam.shake = self.cam.shake.max(0.02);
+            }
+            morula::Event::Compacting => {
+                // The slab will stand facing whoever pressed it.
+                if let Some(m) = &mut self.world.division.morula {
+                    m.slab_yaw = self.cam.yaw;
+                }
+                self.discover(Discovery::Stone);
+            }
+            morula::Event::Slab => {
+                self.discover(Discovery::Slab);
+                self.cam.shake = 0.06;
+                self.hit_stop = 0.1;
+            }
+            morula::Event::Thawed => {
+                self.discover(Discovery::Thaw);
+                self.world.add_ripple(V3::UP, 0.9);
+                self.world.add_ripple(-V3::UP, 0.9);
+            }
+        }
+    }
+
     /// Distance at which both cells, side by side, just fit across the screen.
     fn cells_dist(&self) -> f32 {
         let aspect = self.w / self.h.max(1.0);
@@ -605,9 +738,26 @@ impl Game {
                 }
             }
         }
+        if let Gesture::Lake { at, since, moved: false, .. } = self.gesture {
+            if self.clock - since > mere::FREEZE_HOLD
+                && self.world.fusion.phase == fusion::Phase::Fused
+                && self.world.fusion.mere.freeze(at.0, at.1)
+            {
+                self.discover(Discovery::Freeze);
+                self.gesture = Gesture::Idle;
+            }
+        }
         if let Gesture::Warming { since, .. } = self.gesture {
             if self.world.time - since > 1.2 && self.world.warming {
                 self.discover(Discovery::Warm);
+            }
+            // Held long enough, stone remembers it was liquid.
+            if self.world.time - since > morula::THAW_HOLD_SECS {
+                if let Some(m) = &mut self.world.division.morula {
+                    if m.thaw() {
+                        self.cam.shake = 0.03;
+                    }
+                }
             }
         }
 
@@ -650,10 +800,28 @@ impl Game {
         let spread = self.world.burst.spread();
         self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread
             + 1.8 * self.world.forms.filament.morph();
+        // Step back and level the eye to take in the slab.
+        let slab = self.world.division.morula.as_ref().map_or(0.0, |m| m.look().slab * (1.0 - m.look().thaw));
+        if slab > 0.0 {
+            self.cam.dist += (SLAB_DIST - self.cam.dist) * slab;
+            if !orbiting {
+                self.cam.pitch += (0.06 - self.cam.pitch) * (1.0 - (-1.2 * dt).exp()) * slab;
+            }
+        }
         self.update_forms(dt, orbiting);
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);
+                self.gesture = Gesture::Idle;
+            }
+        }
+        if let Gesture::Shard { i, since, carried: false, .. } = self.gesture {
+            if self.clock - since > crate::landscape::PLANT_HOLD_SECS {
+                if self.world.burst.land.toggle_root(i) {
+                    self.discover(Discovery::Plant);
+                }
+                self.world.burst.shards[i].wobble = 0.6;
+                self.sounds.push(Sound::Merge);
                 self.gesture = Gesture::Idle;
             }
         }
@@ -669,6 +837,7 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.9);
                     self.world.add_ripple(-V3::UP, 0.9);
                 }
+                burst::Event::Land(e) => self.on_land(e),
             }
         }
         // Pull back and up so the whole landscape can be seen.
@@ -698,16 +867,41 @@ impl Game {
                 }
             }
         }
+        for e in self.world.fusion.mere.drain_events() {
+            match e {
+                mere::Event::Stilled => self.discover(Discovery::Mirror),
+                mere::Event::Cracked => self.sounds.push(Sound::Poke { pitch: 1.0, size: 0.5 }),
+                mere::Event::Shattered => {
+                    self.sounds.push(Sound::Tear);
+                    self.discover(Discovery::Shatter);
+                    self.cam.shake = self.cam.shake.max(0.05);
+                    let cracks = self.world.fusion.mere.cracks.clone();
+                    for c in cracks {
+                        self.world.fusion.touch_lake(c.x, c.z, 1.4);
+                    }
+                }
+                mere::Event::Fountain => self.discover(Discovery::Fountain),
+                mere::Event::Splash { x, z } => {
+                    self.world.fusion.touch_lake(x, z, 1.2);
+                    self.sounds.push(Sound::Poke { pitch: 0.8, size: 0.4 });
+                }
+                mere::Event::Froze | mere::Event::Sank => {}
+            }
+        }
         // Once it's in the floor, the camera tilts down to look at what it became.
         let lake = self.world.fusion.blend().lake;
         if lake > 0.0 && !orbiting {
             self.cam.pitch += (0.62 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * lake;
         }
         for e in self.world.division.drain_events() {
-            if e == meiosis::Event::Rejoined {
-                self.discover(Discovery::Rejoin);
-                self.world.add_ripple(V3::UP, 0.7);
-                self.world.add_ripple(-V3::UP, 0.7);
+            match e {
+                meiosis::Event::Rejoined => {
+                    self.discover(Discovery::Rejoin);
+                    self.world.add_ripple(V3::UP, 0.7);
+                    self.world.add_ripple(-V3::UP, 0.7);
+                }
+                meiosis::Event::Many(e) => self.morula_event(e),
+                meiosis::Event::Divided => {}
             }
         }
 
@@ -814,6 +1008,66 @@ mod tests {
         g.pointer_down(2, 577.0, 300.0);
         g.pointer_up(2);
         assert!(g.progress.has(Discovery::Twin));
+    }
+
+    fn swipe_down(g: &mut Game, id: i32, x: f32) {
+        g.pointer_down(id, x, 20.0);
+        for i in 1..=6 {
+            g.pointer_move(id, x, 20.0 + i as f32 * 95.0, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(id);
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+    }
+
+    #[test]
+    fn cut_again_and_again_it_multiplies_one_cell_dies_and_squeezed_it_turns_to_stone_until_held() {
+        let mut g = game();
+        swipe_down(&mut g, 1, 400.0);
+        assert_eq!(g.world.division.phase, meiosis::Phase::Two);
+        swipe_down(&mut g, 2, 577.0);
+        swipe_down(&mut g, 3, 400.0);
+        assert!(g.progress.has(Discovery::Cleave));
+        let m = g.world.division.morula.as_ref().unwrap();
+        assert_eq!(m.cells.len(), 8);
+        assert!(g.progress.has(Discovery::Eye));
+
+        for i in 0..3 {
+            g.pointer_down(10 + i, 400.0, 300.0);
+            g.pointer_up(10 + i);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Shed));
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.division.morula.as_ref().unwrap().cells.len(), 7);
+
+        for _ in 0..120 {
+            g.wheel(-200.0);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Stone));
+        for _ in 0..(60 * 7) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Slab));
+        assert!(g.cam.dist > 8.0);
+        assert!(g.pick(400.0, 300.0).is_some(), "the slab can be touched");
+
+        g.pointer_down(20, 400.0, 300.0);
+        for _ in 0..(60 * 3) {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(20);
+        for _ in 0..(60 * 4) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Thaw));
+        assert!(g.world.division.whole());
+        assert!(g.world.division.morula.is_none());
     }
 
     #[test]
@@ -931,6 +1185,95 @@ mod tests {
         }
         assert!(g.world.fusion.whole());
         assert!(g.world.body.pos.len() < 0.2, "back home in the middle");
+    }
+
+    fn slammed() -> Game {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 300.0);
+        for i in 1..=4 {
+            g.pointer_move(1, 400.0, 300.0 + i as f32 * 40.0, 1.0 / 120.0);
+            g.update(1.0 / 120.0);
+        }
+        g.pointer_up(1);
+        for _ in 0..360 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
+        g
+    }
+
+    #[test]
+    fn held_still_the_lake_freezes_and_breaks_under_taps_and_pushed_down_it_comes_up_ink() {
+        let mut g = slammed();
+        g.pointer_down(2, 400.0, 560.0);
+        for _ in 0..70 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(2);
+        assert!(g.progress.has(Discovery::Freeze));
+        assert!(g.world.fusion.mere.frozen());
+        // it can't be pulled up through the ice
+        g.pointer_down(3, 400.0, 560.0);
+        g.pointer_move(3, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(3);
+        assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
+        for i in 0..mere::CRACKS_TO_BREAK {
+            g.pointer_down(10 + i as i32, 380.0 + i as f32 * 10.0, 560.0);
+            g.pointer_up(10 + i as i32);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Shatter));
+        for _ in 0..90 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(!g.world.fusion.mere.frozen());
+
+        // push down: it goes deep, and comes back out ink
+        g.pointer_down(4, 400.0, 500.0);
+        g.pointer_move(4, 400.0, 590.0, 1.0 / 60.0);
+        g.pointer_up(4);
+        assert!(g.progress.has(Discovery::Deep));
+        for _ in 0..180 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.body.pos.y < fusion::FLOOR_Y - 2.0, "it went further down");
+        g.pointer_down(5, 400.0, 560.0);
+        g.pointer_move(5, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(5);
+        assert!(g.progress.has(Discovery::Ink));
+        for _ in 0..420 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.fusion.whole());
+        assert!(g.world.body.pos.len() < 0.2);
+        assert!(g.world.fusion.mere.coat_mix().1 > 0.9);
+    }
+
+    #[test]
+    fn left_alone_the_lake_becomes_a_mirror_and_it_comes_up_quicksilver() {
+        let mut g = slammed();
+        for _ in 0..(60 * 10) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Mirror));
+        g.pointer_down(2, 400.0, 560.0);
+        g.pointer_move(2, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(2);
+        assert!(g.progress.has(Discovery::Quicksilver));
+    }
+
+    #[test]
+    fn three_taps_in_one_place_on_the_lake_throw_up_a_fountain() {
+        let mut g = slammed();
+        for i in 0..3 {
+            g.pointer_down(2 + i, 400.0, 560.0);
+            g.pointer_up(2 + i);
+            for _ in 0..10 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        assert!(g.progress.has(Discovery::Fountain));
+        assert!(g.world.fusion.mere.fountain.is_some());
     }
 
     #[test]
@@ -1074,6 +1417,111 @@ mod tests {
         assert!(g.progress.has(Discovery::Close), "{:?}", g.world.drops.iter().map(|d| (d.pos, d.vel.len())).collect::<Vec<_>>());
         assert!(g.progress.has(Discovery::Round));
         assert!(g.world.ordinary());
+    }
+
+    /// Where a world point lands on the 800x600 canvas.
+    fn project(g: &Game, p: V3) -> (f32, f32) {
+        let b = g.cam.basis();
+        let d = p - b.pos;
+        let z = d.dot(b.fwd);
+        (400.0 + d.dot(b.right) * FOCAL / z * 300.0, 300.0 - d.dot(b.up) * FOCAL / z * 300.0)
+    }
+
+    fn burst_it(g: &mut Game) {
+        for i in 0..12 {
+            g.pointer_down(i, 400.0, 300.0);
+            g.pointer_up(i);
+            for _ in 0..12 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.burst.phase, burst::Phase::Landscape);
+    }
+
+    /// The screen point of piece `i`, partway up so the press lands on it.
+    fn shard_at(g: &Game, i: usize) -> (f32, f32) {
+        let (pos, _) = g.world.burst.shard_pose(i);
+        project(g, pos + V3::UP * (g.world.burst.shard_size(i) * 0.3))
+    }
+
+    #[test]
+    fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
+        let mut g = game();
+        burst_it(&mut g);
+        // three quick taps on different pieces: a chord
+        for (n, i) in [0usize, 1, 2].into_iter().enumerate() {
+            let (x, y) = shard_at(&g, i);
+            g.pointer_down(30 + n as i32, x, y);
+            g.pointer_up(30 + n as i32);
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Chord));
+        assert!(g.sounds.contains(&Sound::Chord));
+
+        // hold one still and it roots
+        let (x, y) = shard_at(&g, 5);
+        g.pointer_down(40, x, y);
+        for _ in 0..70 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(40);
+        assert!(g.progress.has(Discovery::Plant));
+        assert!(g.world.burst.land.roots[5].rooted);
+        // and holding it again lets it go
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        let (x, y) = shard_at(&g, 5);
+        g.pointer_down(41, x, y);
+        for _ in 0..70 {
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(41);
+        assert!(!g.world.burst.land.roots[5].rooted);
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+
+        // carry every piece to the middle and it is whole again, in the last one's color
+        let middle = v3(0.0, fusion::FLOOR_Y, 0.6);
+        let mut id = 50;
+        for _ in 0..60 {
+            let Some(i) = (0..burst::SHARDS).find(|&i| !g.world.burst.land.returned(i)) else { break };
+            let (x0, y0) = shard_at(&g, i);
+            let (x1, y1) = project(&g, middle);
+            id += 1;
+            g.pointer_down(id, x0, y0);
+            for k in 1..=30 {
+                let f = k as f32 / 30.0;
+                g.pointer_move(id, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(id);
+            for _ in 0..30 {
+                g.update(1.0 / 60.0);
+            }
+        }
+        assert!(g.progress.has(Discovery::Carry));
+        for _ in 0..300 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
+        assert!(g.world.burst.whole());
+        assert!(g.world.body.color != crate::sim::PEARL);
+    }
+
+    #[test]
+    fn left_alone_the_landscape_weathers_and_rolls_home() {
+        let mut g = game();
+        burst_it(&mut g);
+        for _ in 0..(60 * 60) {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Weather));
+        assert!(g.world.burst.whole());
     }
 
     #[test]

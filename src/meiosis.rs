@@ -2,11 +2,14 @@
 //! pinches along the cut, parts into two cells, and becomes something alive.
 //! Squeeze the two cells long enough and they become one liquid again.
 //!
+//! Cut the twins again and it keeps dividing; see morula.rs.
+//!
 //! `Phase` is a tiny state machine, but it is not where the smoothness comes
 //! from: each phase only drives a few 0..1 values (`Blend`) that the shader
 //! mixes continuously, so the shape and material never jump.
 
 use crate::math::*;
+use crate::morula::{self, Morula};
 
 /// 2^(-1/3): each of two cells holding half the volume.
 pub const CELL_SCALE: f32 = 0.7937;
@@ -31,6 +34,8 @@ pub enum Phase {
     Dividing { t: f32 },
     Two,
     Rejoining { t: f32 },
+    /// More than two; morula.rs has the rest.
+    Many,
 }
 
 /// The continuous values the shader blends. Every transition only moves these.
@@ -67,6 +72,7 @@ fn dividing(t: f32) -> Blend {
 pub enum Event {
     Divided,
     Rejoined,
+    Many(morula::Event),
 }
 
 pub struct Division {
@@ -75,11 +81,13 @@ pub struct Division {
     pub axis: V3,
     squeezed_for: f32,
     events: Vec<Event>,
+    /// Everything past two cells, while there is more than two.
+    pub morula: Option<Morula>,
 }
 
 impl Default for Division {
     fn default() -> Self {
-        Division { phase: Phase::Whole, axis: v3(1.0, 0.0, 0.0), squeezed_for: 0.0, events: Vec::new() }
+        Division { phase: Phase::Whole, axis: v3(1.0, 0.0, 0.0), squeezed_for: 0.0, events: Vec::new(), morula: None }
     }
 }
 
@@ -93,6 +101,11 @@ impl Division {
             Phase::Whole => Blend::default(),
             Phase::Dividing { t } => dividing(t),
             Phase::Two => dividing(DIVIDE_SECS),
+            Phase::Many => {
+                let look = self.morula.as_ref().map(|m| m.look()).unwrap_or_default();
+                // Thawing, it stops being cells as it stops being stone.
+                Blend { flash: 0.0, cell: 1.0 - look.thaw, ..dividing(DIVIDE_SECS) }
+            }
             // Run the division backwards, without replaying the cut.
             Phase::Rejoining { t } => {
                 let back = DIVIDE_SECS * (1.0 - smoothstep(0.0, REJOIN_SECS, t));
@@ -101,19 +114,58 @@ impl Division {
         }
     }
 
-    /// Cut along `axis`. Only a whole body can be cut.
-    pub fn slice(&mut self, axis: V3) -> bool {
-        if !self.whole() {
-            return false;
+    /// Whether a cut would do anything right now.
+    pub fn can_slice(&self) -> bool {
+        match self.phase {
+            Phase::Whole | Phase::Two => true,
+            Phase::Many => self.morula.as_ref().is_some_and(|m| m.can_cut()),
+            _ => false,
         }
-        self.axis = axis.norm();
-        self.phase = Phase::Dividing { t: 0.0 };
-        true
+    }
+
+    /// Cut along `axis`: a whole body divides in two; cells all divide again.
+    pub fn slice(&mut self, axis: V3) -> bool {
+        match self.phase {
+            Phase::Whole => {
+                self.axis = axis.norm();
+                self.phase = Phase::Dividing { t: 0.0 };
+                true
+            }
+            Phase::Two => {
+                self.morula = Some(Morula::from_two(self.axis, SEP, axis.norm()));
+                self.phase = Phase::Many;
+                true
+            }
+            Phase::Many => self.morula.as_mut().is_some_and(|m| m.cleave(axis)),
+            _ => false,
+        }
+    }
+
+    /// Past two, still alive, and not stone.
+    pub fn living_many(&self) -> bool {
+        self.morula.as_ref().is_some_and(|m| !m.is_stone())
+    }
+
+    /// Stone doesn't move.
+    pub fn is_stone(&self) -> bool {
+        self.morula.as_ref().is_some_and(|m| m.is_stone())
     }
 
     /// `squeeze` is the player's squeeze input (-1..1); held hard enough on two
     /// cells, it presses them back together.
-    pub fn step(&mut self, dt: f32, squeeze: f32) {
+    /// `watch` is the direction the body is looking, for an eye if it has one.
+    pub fn step(&mut self, dt: f32, squeeze: f32, watch: V3) {
+        if let Some(m) = &mut self.morula {
+            m.step(dt, squeeze, watch);
+            for e in m.drain_events() {
+                self.events.push(Event::Many(e));
+                if e == morula::Event::Thawed {
+                    // Liquid again, one body, as if it had never been cut.
+                    self.morula = None;
+                    self.phase = Phase::Whole;
+                }
+            }
+        }
         self.phase = match self.phase {
             Phase::Dividing { t } if t + dt >= DIVIDE_SECS => {
                 self.events.push(Event::Divided);
@@ -135,6 +187,7 @@ impl Division {
             }
             Phase::Rejoining { t } => Phase::Rejoining { t: t + dt },
             Phase::Whole => Phase::Whole,
+            Phase::Many => Phase::Many,
         };
     }
 
@@ -155,6 +208,17 @@ impl Division {
     /// Distance to the body, given its center, radius, and squash scale.
     pub fn body_sdf(&self, p: V3, pos: V3, r: f32, scale: V3) -> f32 {
         let lip = scale.x.min(scale.y);
+        if let Some(m) = &self.morula {
+            let q = (p - pos).div(scale) * (1.0 / r);
+            let mut d = m.sdf_local(q) * r * lip;
+            let look = m.look();
+            if look.slab > 0.0 {
+                let slab = morula::sd_slab(p, morula::slab_center(pos, r), m.slab_yaw, Morula::slab_half() * r);
+                let goal = slab + ((p - pos).len() - r - slab) * look.thaw;
+                d += (goal - d) * look.slab;
+            }
+            return d;
+        }
         let split = self.blend().split;
         let ([a, b], rc) = self.cells(pos, r);
         // Squash about the body center, not each cell's, so it stays one gesture.
@@ -170,6 +234,9 @@ impl Division {
     /// Ripples live in the first cell's frame and are mirrored across the cut
     /// onto its twin. Returns the direction to store for a touch at `p`.
     pub fn ripple_dir(&self, p: V3, pos: V3, r: f32) -> V3 {
+        if self.morula.is_some() {
+            return (p - pos).norm();
+        }
         let (_, center) = self.nearest_cell(p, pos, r);
         let dir = (p - center).norm();
         if self.whole() || (center - pos).dot(self.axis) <= 0.0 {
@@ -182,6 +249,9 @@ impl Division {
     /// Distance from `p` to the nearest cell's surface (including the join's bulge
     /// while still joined), and that cell's center.
     pub fn nearest_cell(&self, p: V3, pos: V3, r: f32) -> (f32, V3) {
+        if self.morula.is_some() {
+            return (self.body_sdf(p, pos, r, v3(1.0, 1.0, 1.0)), pos);
+        }
         let ([a, b], rc) = self.cells(pos, r);
         let surface = rc + K_JOIN * r * 0.25 * (1.0 - self.blend().split);
         let (da, db) = ((p - a).len(), (p - b).len());
@@ -233,7 +303,7 @@ mod tests {
         let mut d = Division::default();
         assert!(d.slice(v3(1.0, 0.0, 0.0)));
         for _ in 0..400 {
-            d.step(1.0 / 120.0, 0.0);
+            d.step(1.0 / 120.0, 0.0, V3::UP);
         }
         assert_eq!(d.phase, Phase::Two);
         assert_eq!(d.drain_events(), vec![Event::Divided]);
@@ -252,10 +322,10 @@ mod tests {
         let mut d = Division::default();
         d.slice(v3(0.0, 0.0, 1.0));
         for _ in 0..400 {
-            d.step(1.0 / 120.0, 0.0);
+            d.step(1.0 / 120.0, 0.0, V3::UP);
         }
         for _ in 0..500 {
-            d.step(1.0 / 120.0, 0.8);
+            d.step(1.0 / 120.0, 0.8, V3::UP);
         }
         assert_eq!(d.phase, Phase::Whole);
         assert!(d.drain_events().contains(&Event::Rejoined));

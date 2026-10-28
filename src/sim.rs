@@ -355,7 +355,16 @@ impl World {
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.5, 1.9);
 
-        self.division.step(dt, b.squeeze);
+        let watch = self.gaze_dir;
+        self.division.step(dt, b.squeeze, watch);
+        if self.division.is_stone() {
+            // Stone doesn't move, and doesn't give.
+            let b = &mut self.body;
+            b.vel = V3::ZERO;
+            b.pos = b.pos.lerp(home, 1.0 - (-4.0 * dt).exp());
+            b.squash = 1.0;
+            b.squash_vel = 0.0;
+        }
         self.fusion.step(dt);
         self.burst.step(dt);
         self.forms.step(dt);
