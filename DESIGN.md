@@ -44,6 +44,8 @@ The world is almost white, the object is almost white, and color is something th
 | eye | `#1a0824` pupil to `#9442a8` iris | one cell stops agreeing and looks | `shadeCell()` |
 | stone | `#040405`, reflection only | every seam closed; the 1 : 4 : 9 slab | `shadeStone()` |
 | mere | mirror `#edf0f5`, ice `#c7dbed` to `#f7fcff`, cracks `#526680`, deep ink `#04050a` | the liquid floor's states | `mereSurface()`, `mere.rs` |
+| blood | `#6b050d` river, `#9e0d17` at its banks, `#360306` in its depths, sheen `#ffdbdb` | the twelve, crowded together anywhere but the middle, melt and run as a river; brighter (×1.9) on each heartbeat | `river.rs` `BLOOD`, `shadeBlood()` |
+| blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game.rs` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
 
@@ -143,7 +145,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hit-stop | 0.12 s | the freeze right after a cut (`meiosis.rs`) |
 | quick change | 0.5 – 1.5 s | a bud growing, ice thawing, the floor taking it in |
 | becoming | 2.2 – 3.5 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6 |
-| letting go | 1.6 – 2.8 s | folding 2.4, settling 2.8, gathering 2.8 |
+| letting go | 1.6 – 2.8 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4 |
+| the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
 
 ### Decay and recovery
@@ -174,7 +177,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 
 - **Envelope.** One shape for everything: an 8 ms attack, an exponential slide from one pitch to another over half the decay, an exponential fade. Chords are plucks staggered by 0.03 – 0.75 s.
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
-- **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter.
+- **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread.
 - **No music.** The continuous sounds are a hum while it is warmed and a drone at night. Silence is the default.
@@ -243,6 +246,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
 | pinch or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim.rs` |
+| crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
 
