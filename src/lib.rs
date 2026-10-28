@@ -1,3 +1,6 @@
+//! The object. Everything outside render.rs, web.rs and audio.rs is plain Rust with no
+//! browser types, so it builds and tests natively; those three only exist in the wasm build.
+
 pub mod aura;
 pub mod burst;
 pub mod camera;

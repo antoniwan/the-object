@@ -1,5 +1,6 @@
-//! What the player has found out they can do. This is the seed of the unlock
-//! system: new verbs and new objects can be gated on what has been discovered.
+//! What the player has found out they can do: every discovery, its name, and the one line
+//! shown when it is found. Kept between visits. How many have been found is what contact.rs
+//! reads to decide how much the object shows it has been paying attention.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Discovery {

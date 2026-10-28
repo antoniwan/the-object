@@ -1,3 +1,5 @@
+//! The orbit camera: where the player looks from, how it drifts, and the screen shake.
+
 use crate::math::*;
 
 /// Focal length used by both the picker and the shader.
