@@ -111,6 +111,7 @@ On 2026-10-28 the live site crashed a desktop browser. The shader had grown to t
 
 - **Every loop starts from `ZERO`**, not `0`. `ZERO` is a zero the compiler can't see through, so the loop stays a loop instead of being unrolled.
 - **Don't add new calls to `scene()`, `shadeLiquid()` or `calcNormal()`.** Add your shape inside `scene()` or your material inside the existing call instead.
+- **Grow `marchSpan()` with the scene.** Rays are marched only between the bounds it builds (spheres around the body, its drops, tendrils and the other one, and a layer over the floor). A new shape that reaches past them is cut off; give it its own bound there. On real GPUs a branch on a uniform skips its code; SwiftShader runs it anyway, so fewer `scene()` calls is the only speedup that shows there.
 - **Measure before and after** any shader change: load the page in headless Chromium at a tiny viewport (48×32) and time the first frame. If it gets noticeably slower, find out why before merging.
 - On-screen effects that don't need the shader belong in the page (CSS, `glyph.js`), not in `shader.frag`.
 
