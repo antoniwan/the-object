@@ -19,6 +19,20 @@ const MERGE_COOLDOWN: f32 = 0.5;
 /// Smoothing radii for the liquid joins, as a fraction of the body radius.
 pub const K_HANDLE: f32 = 0.30;
 pub const K_DROP: f32 = 0.22;
+/// This many free drops at once and it opens.
+pub const OPEN_AT: usize = 6;
+/// Pokes within PROVOKE_WINDOW seconds that count as harassment.
+const PROVOKE_POKES: usize = 6;
+const PROVOKE_WINDOW: f32 = 2.0;
+
+pub const PEARL: V3 = v3(0.96, 0.96, 0.98);
+
+/// Soft pastel cycle the body drifts through while it is held still.
+pub fn palette(t: f32) -> V3 {
+    let tau = std::f32::consts::TAU;
+    let c = |o: f32| 0.70 + 0.30 * (tau * (t + o)).cos();
+    v3(c(0.0), c(0.33), c(0.67))
+}
 
 pub struct Body {
     pub pos: V3,
@@ -30,6 +44,7 @@ pub struct Body {
     pub squash_vel: f32,
     /// Squeeze input in -1..1, set by the player every frame while squeezing.
     pub squeeze: f32,
+    pub color: V3,
 }
 
 impl Body {
@@ -90,6 +105,7 @@ pub struct Drop {
     pub r: f32,
     pub target: Option<V3>,
     pub age: f32,
+    pub color: V3,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -113,6 +129,14 @@ pub enum Event {
     MergedIntoBody { drop: u32 },
     /// Two drops became one; `absorbed` no longer exists, `into` does.
     MergedDrops { absorbed: u32, into: u32 },
+    /// Two different colors became one.
+    Mixed,
+    /// Poked too often, too fast.
+    Provoked,
+    /// Enough of it is free that the world turns to night.
+    Opened,
+    /// Everything came back; day returns.
+    Closed,
 }
 
 pub struct World {
@@ -123,6 +147,19 @@ pub struct World {
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
+    /// 0..1, how upset it is. Decays.
+    pub agitation: f32,
+    recent_pokes: Vec<f32>,
+    /// 0..1 blend toward the night world.
+    pub night: f32,
+    pub opened: bool,
+    /// Set by the player while holding it still: it slowly changes color.
+    pub warming: bool,
+    warm_phase: f32,
+    /// Set when nobody has touched it for a while: it reaches toward the viewer.
+    pub watching: bool,
+    pub gaze_dir: V3,
+    pub gaze: f32,
 }
 
 impl Default for World {
@@ -141,6 +178,7 @@ impl World {
                 squash: 1.0,
                 squash_vel: 0.0,
                 squeeze: 0.0,
+                color: PEARL,
             },
             handles: Vec::new(),
             ripples: Vec::new(),
@@ -148,6 +186,15 @@ impl World {
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
+            agitation: 0.0,
+            recent_pokes: Vec::new(),
+            night: 0.0,
+            opened: false,
+            warming: false,
+            warm_phase: 0.0,
+            watching: false,
+            gaze_dir: v3(0.0, 0.0, 1.0),
+            gaze: 0.0,
         }
     }
 
@@ -181,9 +228,21 @@ impl World {
     pub fn poke(&mut self, hit: Hit, strength: f32) {
         match hit.target {
             Target::Body => {
+                let now = self.time;
+                self.recent_pokes.retain(|t| now - *t < PROVOKE_WINDOW);
+                self.recent_pokes.push(now);
+                if self.recent_pokes.len() >= PROVOKE_POKES && self.agitation < 0.5 {
+                    self.events.push(Event::Provoked);
+                }
+                if self.recent_pokes.len() >= PROVOKE_POKES {
+                    self.agitation = 1.0;
+                }
+                // Touching it startles it out of watching.
+                self.gaze *= 0.2;
+                // Upset, it jumps further, but its shape stays its own.
                 let dir = (hit.pos - self.body.pos).norm();
                 self.add_ripple(dir, strength);
-                self.body.vel -= dir * (0.9 * strength);
+                self.body.vel -= dir * (0.9 * strength * (1.0 + self.agitation));
                 // Poking from above flattens it, from the side makes it bob up.
                 self.body.squash_vel += if dir.y.abs() > 0.6 { -4.0 } else { 2.5 } * strength;
             }
@@ -197,7 +256,9 @@ impl World {
 
     pub fn begin_stretch(&mut self, at: V3) -> Option<u32> {
         if self.handles.len() >= MAX_HANDLES {
-            return None;
+            // Let go of the oldest stump that is still settling, if there is one.
+            let i = self.handles.iter().position(|h| h.target.is_none())?;
+            self.handles.remove(i);
         }
         let id = self.id();
         let dir = (at - self.body.pos).norm();
@@ -244,7 +305,7 @@ impl World {
         b.pos += b.vel * dt;
         let squash_goal = (1.0 + b.squeeze * 0.55).clamp(0.45, 1.9);
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
-        b.squash = (b.squash + b.squash_vel * dt).clamp(0.3, 2.4);
+        b.squash = (b.squash + b.squash_vel * dt).clamp(0.5, 1.9);
 
         self.step_handles(dt);
 
@@ -254,6 +315,7 @@ impl World {
         self.ripples.retain(|r| r.age < 3.5);
 
         self.step_drops(dt);
+        self.step_moods(dt);
     }
 
     fn step_handles(&mut self, dt: f32) {
@@ -297,7 +359,8 @@ impl World {
         let (_, _, bulb) = h.radii(body);
         let r = bulb * 1.05;
         let rest = h.rest(body);
-        let drop = Drop { id: drop_id, pos: h.tip, vel: h.vel, r, target: h.target, age: 0.0 };
+        let color = self.body.color;
+        let drop = Drop { id: drop_id, pos: h.tip, vel: h.vel, r, target: h.target, age: 0.0, color };
         // The stump snaps back toward the body with some overshoot.
         h.target = None;
         h.vel = (rest - h.tip) * 4.0;
@@ -311,6 +374,7 @@ impl World {
 
     fn step_drops(&mut self, dt: f32) {
         let body_pos = self.body.pos;
+        let night = self.night;
         for d in &mut self.drops {
             d.age += dt;
             if let Some(t) = d.target {
@@ -318,14 +382,36 @@ impl World {
             } else {
                 // Free drops drift slowly home.
                 let to = body_pos - d.pos;
-                d.vel += (to.norm() * 0.55 - d.vel * 0.5) * dt;
+                // At night they orbit instead, spiralling home slowly.
+                let n = night;
+                let tangent = V3::UP.cross(to).norm();
+                d.vel += (to.norm() * (0.22 * (1.0 - 0.85 * n)) + tangent * (0.05 * n) - d.vel * (1.2 - 1.0 * n)) * dt;
                 // Soft wall so nothing floats out of view.
                 let out = d.pos.len() - 3.2;
                 if out > 0.0 {
-                    d.vel -= d.pos.norm() * (out * 30.0 * dt);
+                    let n = d.pos.norm();
+                    let outward = d.vel.dot(n).max(0.0);
+                    d.vel -= n * (outward * (1.0 - (-8.0 * dt).exp()) + out * 6.0 * dt);
                 }
             }
             d.pos += d.vel * dt;
+        }
+
+        // Free drops gently push each other apart, so they spread out like a constellation.
+        for i in 0..self.drops.len() {
+            for j in (i + 1)..self.drops.len() {
+                let d = self.drops[i].pos - self.drops[j].pos;
+                let gap = d.len() - (self.drops[i].r + self.drops[j].r) * 1.6;
+                if gap < 0.0 {
+                    let push = d.norm() * (-gap * 4.0 * dt);
+                    if self.drops[i].target.is_none() {
+                        self.drops[i].vel += push;
+                    }
+                    if self.drops[j].target.is_none() {
+                        self.drops[j].vel -= push;
+                    }
+                }
+            }
         }
 
         // Drops falling back into the body.
@@ -338,6 +424,11 @@ impl World {
                 let d = self.drops.remove(i);
                 let v = d.r * d.r * d.r;
                 self.body.vel += d.vel * (v / (self.body.volume + v));
+                let w = v / (self.body.volume + v);
+                if (self.body.color - d.color).len() > 0.08 {
+                    self.events.push(Event::Mixed);
+                }
+                self.body.color = self.body.color.lerp(d.color, w);
                 self.body.volume += v;
                 self.add_ripple((d.pos - self.body.pos).norm(), 0.8);
                 self.events.push(Event::MergedIntoBody { drop: d.id });
@@ -353,7 +444,9 @@ impl World {
             while j < self.drops.len() {
                 let (a, b) = (&self.drops[i], &self.drops[j]);
                 let close = (a.pos - b.pos).len() < (a.r + b.r) * 0.8;
-                if close && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
+                // Free drops keep their distance; one has to be carried into another.
+                let carried = a.target.is_some() || b.target.is_some();
+                if close && carried && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
                     let keep_a = a.target.is_some() || (b.target.is_none() && a.r >= b.r);
                     let (ki, gi) = if keep_a { (i, j) } else { (j, i) };
                     let gone = self.drops.remove(gi);
@@ -366,6 +459,11 @@ impl World {
                     }
                     k.vel = k.vel.lerp(gone.vel, w);
                     k.r = (vk + vg).cbrt();
+                    let mixed = (k.color - gone.color).len() > 0.08;
+                    k.color = k.color.lerp(gone.color, w);
+                    if mixed {
+                        self.events.push(Event::Mixed);
+                    }
                     let into = k.id;
                     self.events.push(Event::MergedDrops { absorbed: gone.id, into });
                     // Restart the scan; indices have shifted.
@@ -377,6 +475,39 @@ impl World {
             }
             i += 1;
         }
+    }
+
+    fn step_moods(&mut self, dt: f32) {
+        // Agitation: it shivers, then calms down.
+        self.agitation *= (-dt / 3.0).exp();
+        if self.agitation > 0.01 {
+            let t = self.time;
+            let shake = v3((t * 37.0).sin(), (t * 41.0).cos(), (t * 29.0).sin());
+            self.body.vel += shake * (9.0 * self.agitation * dt);
+        }
+
+        // Warmth: held still, it drifts through colors.
+        if self.warming {
+            self.warm_phase += dt * 0.22;
+            let goal = palette(self.warm_phase);
+            self.body.color = self.body.color.lerp(goal, 1.0 - (-1.5 * dt).exp());
+        }
+
+        // Watching: it slowly grows toward whoever is looking.
+        let goal = if self.watching { 1.0 } else { 0.0 };
+        let rate = if self.watching { 0.25 } else { 3.0 };
+        self.gaze += (goal - self.gaze) * (1.0 - (-rate * dt).exp());
+
+        // Opening: enough of it free at once and the world turns to night.
+        if !self.opened && self.drops.len() >= OPEN_AT {
+            self.opened = true;
+            self.events.push(Event::Opened);
+        } else if self.opened && self.drops.is_empty() {
+            self.opened = false;
+            self.events.push(Event::Closed);
+        }
+        let goal = if self.opened { 1.0 } else { 0.0 };
+        self.night += (goal - self.night) * (1.0 - (-0.7 * dt).exp());
     }
 
     pub fn drain_events(&mut self) -> Vec<Event> {
