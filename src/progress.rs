@@ -30,7 +30,7 @@ pub enum Discovery {
     Gather,
 }
 
-pub const ALL: [Discovery; 15] = [
+pub const ALL: [Discovery; 25] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -46,6 +46,16 @@ pub const ALL: [Discovery; 15] = [
     Discovery::Close,
     Discovery::Return,
     Discovery::Call,
+    Discovery::Divide,
+    Discovery::Twin,
+    Discovery::Rejoin,
+    Discovery::Throw,
+    Discovery::Slam,
+    Discovery::Lake,
+    Discovery::Rise,
+    Discovery::Burst,
+    Discovery::Shards,
+    Discovery::Gather,
 ];
 
 impl Discovery {
@@ -161,5 +171,15 @@ mod tests {
         assert_eq!(q.count(), 2);
         assert_eq!(Progress::load("").count(), 0);
         assert_eq!(Progress::load("nonsense,poke").count(), 1);
+    }
+
+    #[test]
+    fn all_lists_every_discovery() {
+        // Discoveries missing from ALL are forgotten between visits.
+        // Keep the last variant here when appending to the enum.
+        assert_eq!(ALL.len(), Discovery::Gather as usize + 1);
+        for (i, d) in ALL.iter().enumerate() {
+            assert_eq!(*d as usize, i);
+        }
     }
 }
