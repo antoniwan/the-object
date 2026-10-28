@@ -4,10 +4,12 @@
 //! twelve triangles, each its own shape, color and consistency, standing in
 //! a white landscape. Poke a triangle and it answers in its own material.
 //! Hold still on the empty ground and the pieces come home.
+//! What else the landscape does is in landscape.rs.
 //!
 //! Like meiosis.rs and fusion.rs, `Phase` only decides which continuous values
 //! move; the shader blends them, so the burst and the flight never jump.
 
+use crate::landscape::{self, Land};
 use crate::math::*;
 
 pub const SHARDS: usize = 12;
@@ -20,6 +22,8 @@ const HEAL_AFTER_SECS: f32 = 2.5;
 const SWELL_SECS: f32 = 0.35;
 const FLIGHT_SECS: f32 = 2.4;
 const GATHER_SECS: f32 = 2.8;
+/// Each liquid bead's radius, as a fraction of the body's; the shader's blob matches it.
+pub const BEAD: f32 = 0.437;
 /// Holding still on empty ground this long calls the pieces home.
 pub const GATHER_HOLD_SECS: f32 = 1.4;
 /// Camera distance from which the whole landscape can be seen.
@@ -53,7 +57,7 @@ impl Consistency {
 }
 
 /// Height of each piece once landed, in world units. Shapes live in the shader.
-const SIZES: [f32; SHARDS] = [3.6, 4.8, 3.1, 2.5, 5.9, 2.8, 4.1, 2.2, 5.3, 2.7, 6.4, 3.4];
+pub const SIZES: [f32; SHARDS] = [3.6, 4.8, 3.1, 2.5, 5.9, 2.8, 4.1, 2.2, 5.3, 2.7, 6.4, 3.4];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
@@ -68,6 +72,7 @@ pub enum Phase {
 pub enum Event {
     Burst,
     Gathered,
+    Land(landscape::Event),
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -86,6 +91,7 @@ pub struct Burst {
     pub wounds: f32,
     since_wound: f32,
     pub shards: [Shard; SHARDS],
+    pub land: Land,
     events: Vec<Event>,
 }
 
@@ -94,18 +100,22 @@ fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+fn scatter() -> [Shard; SHARDS] {
+    let mut shards = [Shard::default(); SHARDS];
+    for (i, s) in shards.iter_mut().enumerate() {
+        // A golden-angle spiral spreads them evenly without a grid.
+        let a = i as f32 * 2.399_963 + 0.6;
+        let r = 6.0 + i as f32 * 1.05;
+        s.home = v3(a.cos() * r, FLOOR_Y, a.sin() * r);
+        s.yaw = a * 1.7 + i as f32;
+        s.size = SIZES[i];
+    }
+    shards
+}
+
 impl Default for Burst {
     fn default() -> Self {
-        let mut shards = [Shard::default(); SHARDS];
-        for (i, s) in shards.iter_mut().enumerate() {
-            // A golden-angle spiral spreads them evenly without a grid.
-            let a = i as f32 * 2.399_963 + 0.6;
-            let r = 6.0 + i as f32 * 1.05;
-            s.home = v3(a.cos() * r, FLOOR_Y, a.sin() * r);
-            s.yaw = a * 1.7 + i as f32;
-            s.size = SIZES[i];
-        }
-        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards, events: Vec::new() }
+        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards: scatter(), land: Land::default(), events: Vec::new() }
     }
 }
 
@@ -154,12 +164,50 @@ impl Burst {
     /// Where piece `i` is now, and how far it has turned from blob into triangle (0..1).
     pub fn shard_pose(&self, i: usize) -> (V3, f32) {
         let s = self.spread();
-        let home = self.shards[i].home;
+        let (home, melt) = self.land.place(i, self.shards[i].home);
+        if self.land.returned(i) {
+            // it melts on its way to its bead, and stays there until the body takes its place
+            return (home, 1.0 - melt);
+        }
         // Out along an arc: rise, then come down where it will stand.
         let flat = V3::ZERO.lerp(home, s);
-        let arc = (s * std::f32::consts::PI).sin() * (3.0 + home.len() * 0.35);
-        let pos = v3(flat.x, flat.y + arc, flat.z);
+        let arc = (s * std::f32::consts::PI).sin() * (3.0 + self.shards[i].home.len() * 0.35);
+        // planted, it stands partly underground
+        let (depth, _) = self.land.depth_and_scale(i);
+        let sunk = depth * self.shard_size(i) * s;
+        let pos = v3(flat.x, flat.y + arc - sunk, flat.z);
         (pos, smoothstep(0.55, 1.0, s))
+    }
+
+    /// Height of piece `i`; planted ones grow.
+    pub fn shard_size(&self, i: usize) -> f32 {
+        let (_, scale) = self.land.depth_and_scale(i);
+        self.shards[i].size * (1.0 + (scale - 1.0) * self.spread())
+    }
+
+    /// Slide piece `i` over the ground toward `to`, shoving the others aside.
+    pub fn carry(&mut self, i: usize, to: V3) -> bool {
+        if self.phase != Phase::Landscape || !self.land.can_carry(i) {
+            return false;
+        }
+        let mut homes = self.shards.map(|s| s.home);
+        let sizes = std::array::from_fn(|j| self.shard_size(j));
+        let at = self.land.shove(i, v3(to.x, FLOOR_Y, to.z), &mut homes, &sizes);
+        homes[i] = at;
+        for (s, h) in self.shards.iter_mut().zip(homes) {
+            s.home = h;
+        }
+        true
+    }
+
+    /// Let go of a carried piece. Near the middle it melts into a bead where the body was.
+    pub fn release(&mut self, i: usize, body_r: f32) -> bool {
+        if self.phase != Phase::Landscape || !self.land.release(i, self.shards[i].home) {
+            return false;
+        }
+        let blob = BEAD * body_r;
+        self.shards[i].home = landscape::bead(i, blob);
+        true
     }
 
     /// One poke on the body. Returns true if that one killed it.
@@ -171,6 +219,9 @@ impl Burst {
         self.since_wound = 0.0;
         if self.wounds >= FATAL_WOUNDS {
             self.phase = Phase::Bursting { t: 0.0 };
+            // every burst is a new landscape
+            self.shards = scatter();
+            self.land = Land::default();
             self.wounds = 0.0;
             self.events.push(Event::Burst);
             return true;
@@ -178,8 +229,16 @@ impl Burst {
         false
     }
 
-    pub fn poke_shard(&mut self, i: usize) {
+    /// Returns true if this poke made all twelve ring together.
+    pub fn poke_shard(&mut self, i: usize) -> bool {
         self.shards[i].wobble = 1.0;
+        if self.land.struck(i) {
+            for s in self.shards.iter_mut() {
+                s.wobble = 1.0;
+            }
+            return true;
+        }
+        false
     }
 
     pub fn gather(&mut self) -> bool {
@@ -210,6 +269,22 @@ impl Burst {
             let (_, decay) = CONSISTENCIES[i].give();
             s.wobble *= (-decay * dt).exp();
         }
+        if self.phase == Phase::Landscape {
+            self.land.step(dt);
+        }
+        for e in self.land.drain_events() {
+            match e {
+                landscape::Event::Eroded => {
+                    self.gather();
+                }
+                landscape::Event::Mended { .. } => {
+                    // the beads are already home; the camera comes in, then they are one again
+                    self.phase = Phase::Gathering { t: 0.0 };
+                }
+                _ => {}
+            }
+            self.events.push(Event::Land(e));
+        }
     }
 
     /// Which landed piece a ray hits first, by a bounding sphere around each.
@@ -218,11 +293,15 @@ impl Burst {
             return None;
         }
         let mut best: Option<(f32, usize)> = None;
-        for (i, s) in self.shards.iter().enumerate() {
-            let c = s.home + V3::UP * (s.size * 0.45);
+        for i in 0..SHARDS {
+            if self.land.returned(i) {
+                continue;
+            }
+            let size = self.shard_size(i);
+            let c = self.shard_pose(i).0 + V3::UP * (size * 0.45);
             let oc = ro - c;
             let b = oc.dot(rd);
-            let disc = b * b - (oc.dot(oc) - (s.size * 0.5).powi(2));
+            let disc = b * b - (oc.dot(oc) - (size * 0.5).powi(2));
             if disc < 0.0 {
                 continue;
             }
