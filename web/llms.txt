@@ -11,7 +11,6 @@ Made by Antonio Rodríguez Martínez (antoniwan). Written in Rust, compiled to W
 ## Links
 
 - [The object](https://the-object.antoniwan.online/): touch it
-- [itch.io](https://antoniwan.itch.io/the-object): the same object, on itch.io
 - [Source](https://github.com/antoniwan/the-object): the simulation, the shader, and the page
 - [On itch.io](https://antoniwan.itch.io/the-object): the same object, also listed there
 - [Antonio Rodríguez Martínez](https://antoniwan.online): the author
