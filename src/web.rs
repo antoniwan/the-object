@@ -1,6 +1,7 @@
 //! Browser glue: canvas, input events, the frame loop, and the small HUD.
 
 use crate::audio::Audio;
+use crate::aura::{aura, roman};
 use crate::game::Game;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
@@ -13,7 +14,7 @@ use web_sys::{
     Storage, WebGl2RenderingContext, WheelEvent,
 };
 
-const TOAST_SECONDS: f64 = 2.6;
+const TOAST_SECONDS: f64 = 4.2;
 const KEY_FOUND: &str = "the-object.found";
 const KEY_VISITS: &str = "the-object.visits";
 /// A big screen at full density is millions of raymarched pixels; past this it renders smaller and scales up.
@@ -56,7 +57,7 @@ impl Hud {
 
     fn show_count(&self, found: usize) {
         if found > 0 {
-            self.count.set_text_content(Some(&format!("{found} discovered")));
+            self.count.set_text_content(Some(&roman(found)));
         }
     }
 
@@ -94,6 +95,8 @@ struct App {
     awake: bool,
     /// The GPU dropped the context (driver reset, too much work); we wait for it to come back.
     lost: bool,
+    /// The aura last handed to the page, so the CSS only changes when the object does.
+    aura_shown: String,
 }
 
 impl App {
@@ -142,6 +145,25 @@ impl App {
                 false
             }
         }
+    }
+
+    /// Lets the words on the page take the object's color, unrest and place (see web/glyph.js).
+    fn show_aura(&mut self) {
+        let a = aura(&self.game.world, &self.game.cam, self.game.w, self.game.h);
+        let q = |v: f32| (v * 100.0).round() / 100.0;
+        let key = format!("{} {} {} {} {} {}", q(a.tint.x), q(a.tint.y), q(a.tint.z), q(a.unrest), q(a.x), q(a.y));
+        if key == self.aura_shown {
+            return;
+        }
+        self.aura_shown = key;
+        let Some(root) = web_sys::window().and_then(|w| w.document()).and_then(|d| d.document_element()) else { return };
+        let Ok(root) = root.dyn_into::<HtmlElement>() else { return };
+        let style = root.style();
+        let rgb = |v: f32| (q(v) * 255.0).round();
+        let _ = style.set_property("--tint", &format!("{} {} {}", rgb(a.tint.x), rgb(a.tint.y), rgb(a.tint.z)));
+        let _ = style.set_property("--unrest", &q(a.unrest).to_string());
+        let _ = style.set_property("--ox", &format!("{}%", q(a.x) * 100.0));
+        let _ = style.set_property("--oy", &format!("{}%", q(a.y) * 100.0));
     }
 
     fn frame(&mut self, now: f64) {
@@ -193,6 +215,7 @@ impl App {
             }
         }
         self.hud.update(now / 1000.0, self.game.progress.count());
+        self.show_aura();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height());
     }
 }
@@ -252,6 +275,7 @@ pub fn start() -> Result<(), JsValue> {
         waiting: 0,
         awake: false,
         lost: false,
+        aura_shown: String::new(),
     }));
     app.borrow_mut().resize();
 
