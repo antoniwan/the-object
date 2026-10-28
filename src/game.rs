@@ -9,9 +9,12 @@
 //! - two-finger pinch or mouse wheel: squeeze
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
+//! - stretch it and let go with a fast flick: throw it; thrown hard at the floor it fuses (see fusion.rs)
+//! - on the liquid floor: tap to ripple it, drag up to pull the object back out
 
 use crate::camera::{Camera, FOCAL};
 use crate::math::*;
+use crate::fusion;
 use crate::meiosis::{self, Swipe};
 use crate::progress::{Discovery, Progress};
 use crate::sim::{Event, Hit, Target, World};
@@ -26,7 +29,12 @@ enum Gesture {
     Dragging { drop: u32, plane: V3, offset: V3 },
     Orbiting { last: (f32, f32) },
     Squeezing { start_dist: f32 },
+    /// Touching the liquid floor; `at` is where, on the floor.
+    Lake { start: (f32, f32), at: (f32, f32) },
 }
+
+/// A flick faster than this, in canvas heights per second, throws the object.
+const THROW_SPEED: f32 = 2.2;
 
 pub struct Game {
     pub world: World,
@@ -45,6 +53,8 @@ pub struct Game {
     /// Real seconds left of the freeze right after a cut.
     hit_stop: f32,
     snapped: bool,
+    /// Smoothed pointer velocity, in canvas pixels per second.
+    pvel: (f32, f32),
     /// New discoveries for the HUD to announce.
     pub announcements: Vec<Discovery>,
 }
@@ -65,6 +75,7 @@ impl Game {
             clock: 0.0,
             hit_stop: 0.0,
             snapped: false,
+            pvel: (0.0, 0.0),
             announcements: Vec::new(),
         }
     }
@@ -101,7 +112,14 @@ impl Game {
                     self.discover(Discovery::Twin);
                 }
             }
-            Gesture::Stretching { handle, .. } => self.world.release_handle(handle),
+            Gesture::Stretching { handle, .. } => {
+                self.world.release_handle(handle);
+                self.throw();
+            }
+            Gesture::Lake { at, .. } => {
+                self.world.fusion.touch_lake(at.0, at.1, 1.0);
+                self.discover(Discovery::Lake);
+            }
             Gesture::Dragging { drop, .. } => {
                 if self.world.release_drop(drop) > 4.0 {
                     self.discover(Discovery::Fling);
@@ -136,6 +154,16 @@ impl Game {
         self.cam.yaw_vel = 0.0;
         self.cam.pitch_vel = 0.0;
         self.swipe = Swipe::default();
+        self.pvel = (0.0, 0.0);
+        if !self.world.fusion.whole() {
+            // It is in the floor now; the floor is what there is to touch.
+            let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+            self.gesture = match self.world.fusion.lake_hit(ro, rd) {
+                Some(at) => Gesture::Lake { start: (x, y), at },
+                None => Gesture::Orbiting { last: (x, y) },
+            };
+            return;
+        }
         self.gesture = match self.pick(x, y) {
             Some(hit @ Hit { target: Target::Body, .. }) => Gesture::Pending { start: (x, y), hit },
             Some(Hit { target: Target::Drop(drop), pos, .. }) => {
@@ -149,6 +177,10 @@ impl Game {
 
     pub fn pointer_move(&mut self, id: i32, x: f32, y: f32, dt: f32) {
         let Some(p) = self.pointers.iter_mut().find(|p| p.0 == id) else { return };
+        if dt > 0.0 {
+            let v = ((x - p.1) / dt, (y - p.2) / dt);
+            self.pvel = (self.pvel.0 * 0.4 + v.0 * 0.6, self.pvel.1 * 0.4 + v.1 * 0.6);
+        }
         p.1 = x;
         p.2 = y;
         match self.gesture {
@@ -189,6 +221,13 @@ impl Game {
                 }
                 self.gesture = Gesture::Orbiting { last: (x, y) };
             }
+            Gesture::Lake { start, .. } => {
+                // Pull up from the floor and it comes back out.
+                if (start.1 - y) / self.h > 0.12 && self.world.fusion.rise() {
+                    self.discover(Discovery::Rise);
+                    self.gesture = Gesture::Idle;
+                }
+            }
             Gesture::Squeezing { start_dist } if self.pointers.len() >= 2 => {
                 let ratio = self.pinch_dist() / start_dist;
                 let s = ((ratio - 1.0) * 1.6).clamp(-1.0, 1.0);
@@ -213,7 +252,7 @@ impl Game {
 
     /// Sample the drag segment finely, so a fast flick can't jump over the body.
     fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
-        if !self.world.division.whole() {
+        if !self.world.division.whole() || !self.world.fusion.whole() {
             return;
         }
         let len = ((to.0 - from.0).powi(2) + (to.1 - from.1).powi(2)).sqrt();
@@ -242,6 +281,19 @@ impl Game {
             self.world.body.squash_vel -= 2.5;
             self.discover(Discovery::Divide);
         }
+    }
+
+    /// Let go of a stretch with a fast flick and the whole object flies that way.
+    fn throw(&mut self) {
+        let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
+        let speed = (vx * vx + vy * vy).sqrt();
+        if speed < THROW_SPEED || !self.world.division.whole() || !self.world.fusion.whole() {
+            return;
+        }
+        let b = self.cam.basis();
+        let dir = (b.right * vx - b.up * vy).norm();
+        self.world.body.vel += dir * (speed * 4.5).min(16.0);
+        self.discover(Discovery::Throw);
     }
 
     /// Distance at which both cells, side by side, just fit across the screen.
@@ -287,6 +339,28 @@ impl Game {
             self.snapped = true;
             self.world.add_ripple(self.world.division.axis, 0.9);
             self.cam.shake = self.cam.shake.max(0.035);
+        }
+        for e in self.world.fusion.drain_events() {
+            match e {
+                fusion::Event::Slammed => {
+                    self.discover(Discovery::Slam);
+                    self.cam.shake = 0.09;
+                    self.hit_stop = 0.1;
+                    self.gesture = Gesture::Idle;
+                }
+                fusion::Event::Bounced { speed } => {
+                    self.world.add_ripple(-V3::UP, (speed * 0.12).min(0.9));
+                }
+                fusion::Event::Rose => {
+                    self.world.add_ripple(V3::UP, 0.8);
+                    self.world.add_ripple(-V3::UP, 0.8);
+                }
+            }
+        }
+        // Once it's in the floor, the camera tilts down to look at what it became.
+        let lake = self.world.fusion.blend().lake;
+        if lake > 0.0 && !orbiting {
+            self.cam.pitch += (0.62 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * lake;
         }
         for e in self.world.division.drain_events() {
             if e == meiosis::Event::Rejoined {
@@ -401,6 +475,41 @@ mod tests {
         }
         g.pointer_up(1);
         assert!(g.world.division.whole());
+    }
+
+    #[test]
+    fn a_hard_downward_throw_slams_it_into_the_floor_and_pulling_up_brings_it_back() {
+        let mut g = game();
+        g.pointer_down(1, 400.0, 300.0);
+        for i in 1..=4 {
+            g.pointer_move(1, 400.0, 300.0 + i as f32 * 40.0, 1.0 / 120.0);
+            g.update(1.0 / 120.0);
+        }
+        g.pointer_up(1);
+        assert!(g.progress.has(Discovery::Throw));
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Slam));
+        for _ in 0..240 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
+        assert!(g.world.body.pos.y < fusion::FLOOR_Y);
+
+        // tap the liquid floor, then pull up from it
+        g.pointer_down(2, 400.0, 560.0);
+        g.pointer_up(2);
+        assert!(g.progress.has(Discovery::Lake));
+        g.pointer_down(3, 400.0, 560.0);
+        g.pointer_move(3, 400.0, 400.0, 1.0 / 60.0);
+        g.pointer_up(3);
+        assert!(g.progress.has(Discovery::Rise));
+        for _ in 0..360 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.world.fusion.whole());
+        assert!(g.world.body.pos.len() < 0.2, "back home in the middle");
     }
 
     #[test]

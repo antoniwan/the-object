@@ -5,6 +5,7 @@
 //! makes everything read as one liquid. The shader in `render.rs` mirrors `sdf()`.
 
 use crate::math::*;
+use crate::fusion::Fusion;
 use crate::meiosis::Division;
 
 pub const MAX_HANDLES: usize = 4;
@@ -123,6 +124,8 @@ pub struct World {
     pub drops: Vec<Drop>,
     /// Slicing: whether the body is one liquid or two cells.
     pub division: Division,
+    /// Slamming: whether it has fused with the floor.
+    pub fusion: Fusion,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -149,6 +152,7 @@ impl World {
             ripples: Vec::new(),
             drops: Vec::new(),
             division: Division::default(),
+            fusion: Fusion::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -243,15 +247,25 @@ impl World {
     pub fn step(&mut self, dt: f32) {
         self.time += dt;
 
-        // Body: springs back to the center and to round, wobbling on the way.
+        // Body: springs back home and to round, wobbling on the way. Home is the
+        // middle of the room, or under the floor once it has fused with it.
         let b = &mut self.body;
-        b.vel += (-b.pos * 28.0 - b.vel * 3.5) * dt;
+        let home = self.fusion.home(b.radius());
+        let (k, c) = if self.fusion.whole() { (28.0, 3.5) } else { (10.0, 5.0) };
+        b.vel += ((home - b.pos) * k - b.vel * c) * dt;
         b.pos += b.vel * dt;
-        let squash_goal = (1.0 + b.squeeze * 0.55).clamp(0.45, 1.9);
+        let (pos, vel, kick) = self.fusion.collide(b.pos, b.vel, b.radius(), b.squash);
+        b.pos = pos;
+        b.vel = vel;
+        b.squash_vel += kick;
+        // It flattens as it melts into the floor.
+        let melt = 1.0 - 0.5 * self.fusion.blend().sink;
+        let squash_goal = (1.0 + b.squeeze * 0.55).clamp(0.45, 1.9).min(melt);
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.3, 2.4);
 
         self.division.step(dt, b.squeeze);
+        self.fusion.step(dt);
         self.step_handles(dt);
 
         for r in &mut self.ripples {

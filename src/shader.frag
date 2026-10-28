@@ -28,6 +28,12 @@ uniform int uND;
 // Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
 uniform vec4 uCut;     // xyz normal of the cut, w split: 0 one body, 1 two cells
 uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
+// Slamming (fusion.rs): the floor turns liquid, spreading from the impact.
+uniform vec4 uLake;      // xy impact point on the floor (x, z), z liquid radius, w seconds since impact
+uniform vec4 uLakeRip[6]; // x, z, age, amplitude of a touch on the lake
+uniform int uNLR;
+const float FLOOR_Y = -1.45;
+
 const float SEP = 0.95;
 const float CELL_SCALE = 0.7937;
 const float K_JOIN = 0.9;
@@ -88,8 +94,35 @@ float bodySurface(vec3 p) {
   return smin(da, db, max(K_JOIN * r * (1.0 - uCut.w), 1e-4)) * lip;
 }
 
+// How much of the floor at xz is liquid, 0..1.
+float lakeMask(vec2 xz) { return smoothstep(uLake.z, uLake.z - 0.8, length(xz - uLake.xy)); }
+
+// Height of the liquid floor: rings from the impact, rings from touches, a slow swell.
+float lakeHeight(vec2 xz) {
+  float m = lakeMask(xz);
+  if (m <= 0.0) return 0.0;
+  float dist = length(xz - uLake.xy);
+  float t = uLake.w;
+  float front = t * 2.4;
+  float h = 0.10 * exp(-t * 0.5) * sin(dist * 5.0 - t * 8.0) * exp(-dist * 0.22)
+            * smoothstep(front + 0.6, front - 0.6, dist);
+  for (int i = 0; i < 6; i++) {
+    if (i >= uNLR) break;
+    float di = length(xz - uLakeRip[i].xy);
+    float a = uLakeRip[i].z;
+    h += 0.06 * uLakeRip[i].w * exp(-a * 0.8) * sin(di * 9.0 - a * 10.0) * exp(-di * 0.35)
+         * smoothstep(a * 2.0 + 0.4, a * 2.0 - 0.3, di);
+  }
+  h += 0.012 * sin(xz.x * 1.3 + uTime * 0.9) * sin(xz.y * 1.1 - uTime * 0.7);
+  return h * m;
+}
+
 float scene(vec3 p) {
   float d = bodySurface(p);
+  if (uLake.z > 0.0) {
+    // the body melts into the floor through a smooth join
+    d = smin(d, (p.y - FLOOR_Y - lakeHeight(p.xz)) * 0.8, 0.45 * uBody.w);
+  }
   for (int i = 0; i < 4; i++) {
     if (i >= uNH) break;
     float stem = sdTaper(p, uHA[i].xyz, uHB[i].xyz, uHA[i].w, uHB[i].w);
@@ -119,19 +152,15 @@ vec3 env(vec3 r) {
   return c;
 }
 
-const float FLOOR_Y = -1.45;
-
 float sphOcc(vec3 pos, vec4 sph) {
   vec3 di = sph.xyz - pos;
   float l = length(di);
   return max(0.0, di.y / l) * (sph.w * sph.w) / (l * l);
 }
 
-vec3 background(vec3 ro, vec3 rd, vec2 uv) {
-  vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
-  if (rd.y < 0.0) {
-    float t = (FLOOR_Y - ro.y) / rd.y;
-    vec3 p = ro + rd * t;
+// The matte white floor at p, with the soft shadows of everything above it.
+vec3 floorMatte(vec3 p, vec3 bg) {
+  {
     vec3 off = cellOffset();
     float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
     float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1))
@@ -146,6 +175,24 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv) {
     }
     float fade = exp(-0.05 * dot(p.xz, p.xz));
     bg *= 1.0 - 0.55 * clamp(occ, 0.0, 1.0) * fade;
+  }
+  return bg;
+}
+
+vec3 shadeLiquid(vec3 p, vec3 rd);
+
+// The liquid floor dissolves into the white with distance, so it has no far edge.
+vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
+  return mix(col, bg, smoothstep(6.0, 20.0, length(p - uCamPos)));
+}
+
+vec3 background(vec3 ro, vec3 rd, vec2 uv) {
+  vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
+  if (rd.y < 0.0) {
+    vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
+    bg = floorMatte(p, bg);
+    // past the marcher's reach the liquid floor still shows, flat
+    if (uLake.z > 0.0) bg = mix(bg, lakeFade(shadeLiquid(p, rd), p, bg), lakeMask(p.xz));
   }
   return bg;
 }
@@ -202,10 +249,16 @@ vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
   return col;
 }
 
-vec3 shadeLiquid(vec3 p, vec3 rd);
-
-vec3 shade(vec3 p, vec3 rd) {
+vec3 shade(vec3 p, vec3 rd, vec2 uv) {
   vec3 col = uDiv.z < 0.999 ? shadeLiquid(p, rd) : vec3(0.0);
+  if (uLake.z > 0.0) {
+    // where the floor is hit but hasn't turned liquid yet, it is still the white floor
+    float floorness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * (1.0 - lakeMask(p.xz));
+    vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
+    float lakeness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz);
+    col = mix(col, lakeFade(col, p, bg), lakeness);
+    col = mix(col, floorMatte(p, bg), floorness);
+  }
   if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, calcNormal(p)), uDiv.z);
   // the cut: a hot seam where the slice plane crosses the surface
   float seam = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;
@@ -262,7 +315,7 @@ void main() {
     if (t > 14.0) break;
   }
 
-  vec3 col = hit ? shade(ro + rd * t, rd) : background(ro, rd, uv);
+  vec3 col = hit ? shade(ro + rd * t, rd, uv) : background(ro, rd, uv);
   col = pow(col, vec3(0.97));
   outColor = vec4(col, 1.0);
 }
