@@ -69,7 +69,7 @@ When it bursts, each piece is its own material. Index-matched in `burst.rs` `CON
 | `--tint` | from the object every frame; at rest about `#787884` | glyphs in the middle of decoding, the alien reply (`aura.rs`) |
 | `words` | `#7d7d86` | hint, toast line, count |
 | `words-strong` | `#4a4a52` | the toast's name (the discovery's one word) |
-| `words-faint` | `#9a9aa3` | the loader's whisper, errors |
+| `words-faint` | `#9a9aa3` | the loader's whisper, errors, its thoughts (at 80%) |
 | `words-night` | `#6d7088`, names `#c9cbe0` | the same, after dark (3 s transition) |
 | loader film | `#f6c3d8` `#c6dcf6` `#d4f3e3` `#f3e6c2` | conic gradient over the loader's pearl, soft-light at 55% |
 
@@ -84,6 +84,7 @@ Three free fonts from Fontsource, self-hosted in `web/fonts/` with their license
 | voice | Cormorant Garamond italic 400 | 17px / 1.4 | 0.04em | lowercase | hint, discovery lines |
 | name | Cormorant Garamond upright 500 | 13px / 1.4 | 0.5em | lowercase | the discovery's name above its line |
 | whisper | Cormorant Garamond italic 400 | 16px / 1.4 | 0.08em | lowercase | loader lines |
+| thought | Cormorant Garamond italic 400 | 15px / 1.4 | 0.1em | lowercase | what it is thinking (`thoughts.rs`) |
 | count | JetBrains Mono 400 | 10px / 1 | 0.3em | lowercase roman numerals | how many it has shown you (`aura.rs` `roman()`) |
 | system | JetBrains Mono 400 | 10px / 1.4 | normal | as is | errors only |
 | alien | Noto Sans Math, subset ("Glyphs") | inherits | 0.4em | n/a | its reply at contact, the kept-steps answer |
@@ -112,13 +113,15 @@ There is one screen, full bleed, no scroll, no chrome.
 | Token | Value | Where |
 | --- | --- | --- |
 | `edge-v` | `9vh` | the hint sits 9vh from the bottom; the toast 9vh from the top |
+| `thought` | `15vh` from the bottom, under the object's screen position (`--ox`, kept between 28% and 72%) | a thought; it drifts with the object over 3 s |
 | `edge-corner` | `16px` right, `14px` bottom | the count |
+| `edge-corner-left` | `16px` left, `14px` bottom | the marks while it hears or sees: `◍` hearing, `◉` seeing, in its tint at 70%, breathing |
 | `toast-name-gap` | `6px` | between the name and its line |
 | `seed` | `18px` | the loader's pearl, centered |
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
 | `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
 
-The object is always the center of attention. Words go above it (what was found) and below it (what to try), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. The only key is `m`, which mutes, and it is not announced.
+The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped.
 
 ## 5. Motion and time
 
@@ -135,6 +138,11 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
+| `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
+| `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
+| `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
+| `HELD_SECS` / `HUM_SECS` | 0.8 s / 2.4 s | a note held this steady comes back, for this long |
+| `BREATH_SLOW` | 1.2 s | space held this long is a breath; three in a row, none more than 9 s apart, and it follows |
 
 ### Transformation durations
 
@@ -164,6 +172,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- |
 | glyph step | 85 ms per stage, 28 ms stagger, 650 ms spread, 60 ms flicker |
 | toast | in over 0.6 s, stays 4.2 s; the question 7 s; the reply 10 s |
+| thought | rises over 2.4 s, stays 7 s, sinks over 2.4 s; anything found or said sends it away. The first comes no sooner than 30 s into a visit, after 20 s without a discovery, 3.5 s with no hand on anything and 8 s in one place; then at most one every 45 s |
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
@@ -180,7 +189,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread.
-- **No music.** The continuous sounds are a hum while it is warmed and a drone at night. Silence is the default.
+- **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
 
 A new form gets a sound only if it changes what the object is; use `Sound::Become` before inventing one.
 
@@ -198,7 +207,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 - Let it feel slightly off: a fact that should not be true, said calmly.
 - Keep it under about 60 characters. The longest one today is 61.
 - Address the player as "you" sparingly, and only when it is about what they did.
-- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
+- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `speak.` and `show yourself.` when it asks to hear and see). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
 
 **Examples from the game**
 
@@ -224,6 +233,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 ### Other text
 
 - **The hint** is one invitation, then gone: `lay a hand on it`.
+- **Thoughts** (`thoughts.rs`) are what can be seen of its mind when the player has stopped finding things. They are its hints, so they follow the strictest version of the voice: never a gesture, a verb from the grammar table, a count or a tip; suggest what it has not been yet, from its side (`it has never had a corner. it is curious about them.`). Always "it", never "i": its own words are still the signs. Early thoughts are about itself; once it has started to learn the player, the same thought turns toward them (`it does not know yet how far it goes.` becomes `it wonders how far you would take it.`). Never the same thought twice in a visit. A test in `thoughts.rs` checks the words.
 - **The loader** whispers in the object's uncertainty: `something is choosing a surface`, `it has not yet agreed to a shape`, `it is shy of being seen`. On failure: `it stayed on the other side`. Never "loading" or a percentage.
 - **The object's own words** are the twelve signs, never letters, until the one word `you`.
 - **README and metadata** use the same register in sentence case: short declarative sentences, no adjectives of praise, nothing that names it. ("There is an object. You can touch it.")
@@ -250,6 +260,27 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
+| type a letter | (keyboard) | letters | a ripple where the key sits, q high left, n low right; each its own note | `keys.rs` |
+| hold a letter | (keyboard) | hum | the note sung back, the surface trembling in time, that letter's color seeping in | `keys.rs` |
+| hold space, let go | (keyboard) | breath | it swells a tenth and sighs out; breathed with slowly, it breathes four more on its own, at your pace | `keys.rs` |
+| arrow keys | (keyboard) | lean | the room tips; it and the loose drops slide downhill, and come home when level | `keys.rs` |
+| type its word | (keyboard), after contact | said | it reaches toward you | `keys.rs` |
+
+**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once.
+
+| What the player does | Verb | What it does | Module |
+| --- | --- | --- | --- |
+| speak | voice | trembles where the pitch lands, low notes low on it | `senses.rs` |
+| hold a note, then stop | sing | hums the note back, the same pitch, lower | `senses.rs` |
+| whisper | whisper | goes still and leans in | `senses.rs` |
+| blow | blow | a drop comes off the far side | `senses.rs` |
+| shout, keep shouting | shout | upset, shaking harder the longer it goes | `senses.rs` |
+| a sudden loud sound, or a fast movement | startle | flinches away | `senses.rs` |
+| move in front of it | seen | turns toward where you moved | `senses.rs` |
+| cover the camera | blind | the room goes dark until you uncover it | `senses.rs`, `sim.rs` `dim` |
+| be watched by the eye at eight cells | watched | the eye follows you | `senses.rs`, `morula.rs` |
+
+**The keyboard** is not a second mouse. Nothing on the pointer side is mapped to keys; each key reaches it from somewhere of its own (a letter from its place on the keyboard, space as breath, the arrows as the floor). Keys are read by place (`KeyboardEvent.code`), so the places hold on any layout. Like everything else, they act only on the ordinary liquid, and nothing explains them.
 
 **The grammar's rules**
 
@@ -281,5 +312,5 @@ These are in `CONTRIBUTING.md` in full. They are here because they limit what a 
 - **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game.rs` and `sim.rs` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
-- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. The object's memory of the player is `localStorage`.
+- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
 - **The site is the build.** `web/` is everything that is served; build output is never committed.

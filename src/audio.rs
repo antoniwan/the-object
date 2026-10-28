@@ -14,6 +14,8 @@ pub struct Audio {
     /// The hum while it is held still, and the low drone of the night.
     warm: (OscillatorNode, GainNode),
     drone: (OscillatorNode, OscillatorNode, GainNode),
+    /// A letter held down, sung back (keys.rs).
+    hum: (OscillatorNode, GainNode),
     /// A note the player held, hummed back (senses.rs).
     echo: (OscillatorNode, GainNode),
     pub muted: bool,
@@ -33,8 +35,9 @@ impl Audio {
         b.frequency().set_value(82.6);
         b.connect_with_audio_node(&ga)?;
         b.start()?;
+        let hum = Self::voice(&ctx, &master, OscillatorType::Sine, 130.8)?;
         let echo = Self::voice(&ctx, &master, OscillatorType::Sine, 110.0)?;
-        Ok(Audio { ctx, master, warm, drone: (a, b, ga), echo, muted: false })
+        Ok(Audio { ctx, master, warm, drone: (a, b, ga), hum, echo, muted: false })
     }
 
     /// A continuously running oscillator behind a silent gain.
@@ -151,6 +154,18 @@ impl Audio {
     }
 
     /// Continuous sounds that follow the world's state.
+    /// `pitch` 0..1 picks a note from the scale, an octave under the pokes; `None` lets it fade.
+    pub fn hum(&self, pitch: Option<f32>) {
+        let t = self.ctx.current_time();
+        let Some(p) = pitch else {
+            let _ = self.hum.1.gain().set_target_at_time(0.0, t, 0.3);
+            return;
+        };
+        let step = SCALE[((p * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)];
+        let _ = self.hum.0.frequency().set_target_at_time(130.8 * 2f32.powf(step / 12.0), t, 0.05);
+        let _ = self.hum.1.gain().set_target_at_time(0.06, t, 0.25);
+    }
+
     pub fn follow(&self, world: &World) {
         let t = self.ctx.current_time();
         let c = world.body.color;
@@ -160,8 +175,8 @@ impl Audio {
         let _ = self.drone.2.gain().set_target_at_time(0.07 * world.night, t, 0.5);
     }
 
-    /// Hums `(pitch, 0..1)` back, or falls silent.
-    pub fn hum(&self, hum: Option<(f32, f32)>) {
+    /// Sings a note the player held back to them, `(pitch, 0..1)`, or falls silent.
+    pub fn echo(&self, hum: Option<(f32, f32)>) {
         let t = self.ctx.current_time();
         let (f, k) = hum.unwrap_or((0.0, 0.0));
         if f > 0.0 {

@@ -1,12 +1,14 @@
-//! Browser glue: canvas, input events, the frame loop, the three lines of text
-//! (hint, toast, count), what is saved between visits, and the microphone and camera once the
-//! player has let it have them (senses.rs, devices.rs).
+//! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the lines of text
+//! (hint, toast, count, now and then a thought, and the marks while it hears or sees), what is
+//! saved between visits, and the microphone and camera once the player has let it have them
+//! (senses.rs, devices.rs).
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
 use crate::contact::{self, Contact, KEEP_STEPS};
 use crate::devices::{self, Answer, Ears, Eyes};
 use crate::game::Game;
+use crate::keys;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
 use crate::senses::{self, Kind, Senses};
@@ -30,6 +32,8 @@ const KEY_SENSES: &str = "the-object.senses";
 const ASK_SECONDS: f64 = 7.0;
 /// Its reply stays up longer than anything else it says.
 const REPLY_SECONDS: f64 = 10.0;
+/// A thought surfaces, stays this long, then sinks (thoughts.rs).
+const THOUGHT_SECONDS: f64 = 7.0;
 /// A big screen at full density is millions of raymarched pixels; past this it renders smaller and scales up.
 const MAX_PIXELS: f64 = 1.6e6;
 /// Frames the loader gets to paint before anything that might block.
@@ -80,10 +84,12 @@ struct Hud {
     hint: HtmlElement,
     toast: HtmlElement,
     count: HtmlElement,
+    thought: HtmlElement,
     /// The mark that shows it is hearing or seeing; tapped, it stops.
     marks: HtmlElement,
     queue: Vec<Line>,
     toast_until: f64,
+    thought_until: f64,
 }
 
 impl Hud {
@@ -91,7 +97,28 @@ impl Hud {
         let get = |id: &str| -> Result<HtmlElement, JsValue> {
             Ok(doc.get_element_by_id(id).ok_or(format!("#{id} missing"))?.dyn_into()?)
         };
-        Ok(Hud { hint: get("hint")?, toast: get("toast")?, count: get("count")?, marks: get("senses")?, queue: Vec::new(), toast_until: 0.0 })
+        Ok(Hud {
+            hint: get("hint")?,
+            toast: get("toast")?,
+            count: get("count")?,
+            thought: get("thought")?,
+            marks: get("senses")?,
+            queue: Vec::new(),
+            toast_until: 0.0,
+            thought_until: 0.0,
+        })
+    }
+
+    /// A thought surfaces under it. Anything found, or anything it says, sends the thought away.
+    fn think(&mut self, now: f64, line: Option<&str>) {
+        if let Some(line) = line {
+            self.thought.set_text_content(Some(line));
+            let _ = self.thought.class_list().add_1("show");
+            self.thought_until = now + THOUGHT_SECONDS;
+        } else if now >= self.thought_until || !self.queue.is_empty() {
+            self.thought_until = 0.0;
+            let _ = self.thought.class_list().remove_1("show");
+        }
     }
 
     fn show_count(&self, found: usize) {
@@ -411,7 +438,8 @@ impl App {
                 a.play(s);
             }
             a.follow(&self.game.world);
-            a.hum(self.game.senses.hum());
+            a.hum(self.game.keys.hum());
+            a.echo(self.game.senses.hum());
         }
         let night = self.game.world.night > 0.5;
         if night != self.night_shown {
@@ -420,6 +448,8 @@ impl App {
                 let _ = body.class_list().toggle_with_force("night", night);
             }
         }
+        let thought = self.game.thoughts.out.drain(..).last();
+        self.hud.think(now / 1000.0, thought);
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height());
@@ -576,15 +606,36 @@ pub fn start() -> Result<(), JsValue> {
     listen(target, "contextmenu", false, |e: web_sys::Event| e.prevent_default())?;
     {
         let app = app.clone();
-        listen(window.as_ref(), "keydown", true, move |e: KeyboardEvent| {
+        listen(window.as_ref(), "keydown", false, move |e: KeyboardEvent| {
+            // The browser's own shortcuts stay the browser's.
+            if e.ctrl_key() || e.meta_key() || e.alt_key() {
+                return;
+            }
+            let mut a = app.borrow_mut();
+            if a.audio.is_none() {
+                a.audio = Audio::new().ok();
+            } else if let Some(audio) = &a.audio {
+                audio.resume();
+            }
             if e.key() == "m" {
-                if let Some(a) = &mut app.borrow_mut().audio {
-                    a.toggle_mute();
+                if let Some(audio) = &mut a.audio {
+                    audio.toggle_mute();
                 }
             }
             if e.key() == "Escape" {
-                app.borrow_mut().close_all();
+                a.close_all();
             }
+            if !e.repeat() && keys::down(&mut a.game, &e.code()) {
+                e.prevent_default();
+            } else if e.repeat() && (e.code() == "Space" || e.code().starts_with("Arrow")) {
+                e.prevent_default();
+            }
+        })?;
+    }
+    {
+        let app = app.clone();
+        listen(window.as_ref(), "keyup", true, move |e: KeyboardEvent| {
+            keys::up(&mut app.borrow_mut().game, &e.code());
         })?;
     }
     {
@@ -593,6 +644,12 @@ pub fn start() -> Result<(), JsValue> {
         let toast: web_sys::EventTarget = app.borrow().hud.toast.clone().into();
         listen(&toast, "click", true, move |e: web_sys::MouseEvent| {
             app.borrow_mut().take_offer(e.time_stamp());
+        })?;
+    }
+    {
+        let app = app.clone();
+        listen(window.as_ref(), "blur", true, move |_: web_sys::Event| {
+            keys::release(&mut app.borrow_mut().game);
         })?;
     }
     {

@@ -6,7 +6,7 @@
 <title>the object</title>
 <meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
 <meta name="author" content="Antonio Rodríguez Martínez">
-<meta name="version" content="1.1.2">
+<meta name="version" content="1.4.0">
 <meta name="theme-color" content="#f8f7f5">
 <link rel="canonical" href="https://the-object.antoniwan.online/">
 <link rel="author" href="https://antoniwan.online">
@@ -57,7 +57,7 @@
       "inLanguage": "en",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "softwareVersion": "1.1.2",
+      "softwareVersion": "1.4.0",
       "datePublished": "2026-10-28",
       "author": { "@id": "https://antoniwan.online/#person" },
       "creator": { "@id": "https://antoniwan.online/#person" },
@@ -98,6 +98,9 @@
   #toast b { display: block; font: normal 500 13px/1.4 var(--words); color: #4a4a52; letter-spacing: .5em; margin: 0 0 6px .5em; }
   /* Its reply at contact: signs, not letters (src/contact.rs). */
   #toast .alien { font-family: "Glyphs", var(--mono); font-style: normal; letter-spacing: .4em; color: rgb(var(--tint)); text-shadow: 0 0 .6em rgb(var(--tint) / .4); }
+  /* What it is thinking: under it, wherever it is, quieter than anything found (src/thoughts.rs). */
+  #thought { left: clamp(28%, var(--ox, 50%), 72%); bottom: 15vh; width: min(84vw, 30em); transform: translate(-50%, 4px); text-align: center; font-size: 15px; letter-spacing: .1em; color: #9a9aa3; opacity: 0; transition: opacity 2.4s ease-in-out, transform 2.4s ease-in-out, left 3s ease-in-out, color 3s; }
+  #thought.show { opacity: .8; transform: translate(-50%, 0); }
   /* Its word when it asks to hear or see you (src/senses.rs): the only words that can be tapped. */
   #toast.show .offer { pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
   /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. */
@@ -117,6 +120,7 @@
   .gw i.s3 { font-family: var(--mono); color: color-mix(in oklab, rgb(var(--tint)) 45%, currentColor); }
   body.night .hud { color: #6d7088; }
   body.night #toast b { color: #c9cbe0; }
+  body.night #thought { color: #6d7088; }
   .hud { transition: color 3s; }
   @keyframes breathe { 0%, 100% { opacity: .35 } 50% { opacity: .85 } }
 
@@ -161,6 +165,7 @@
 <div id="hint" class="hud" data-glyph>lay a hand on it</div>
 <div id="toast" class="hud" data-glyph></div>
 <div id="count" class="hud" data-glyph></div>
+<div id="thought" class="hud" data-glyph></div>
 <div id="senses" class="hud" data-glyph role="button" tabindex="-1"></div>
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>

@@ -199,7 +199,7 @@ function stir(now) {
 const watched = [...document.querySelectorAll('[data-glyph]')];
 function shown(el) {
   if (!el.textContent.trim() || !document.body.classList.contains('awake')) return false;
-  if (el.id === 'toast') return el.classList.contains('show');
+  if (el.id === 'toast' || el.id === 'thought') return el.classList.contains('show');
   if (el.id === 'hint') return !el.classList.contains('gone');
   return el.closest('#veil') === null;
 }
@@ -221,7 +221,7 @@ const observer = new MutationObserver((records) => {
   for (const el of changed) {
     if (fresh.has(el)) continue;
     const leaving =
-      (el.id === 'toast' && !el.classList.contains('show')) ||
+      ((el.id === 'toast' || el.id === 'thought') && !el.classList.contains('show')) ||
       (el.id === 'hint' && el.classList.contains('gone'));
     // The wasm re-sends the same class every frame; only the first one is news.
     if (leaving && !gone.has(el)) {

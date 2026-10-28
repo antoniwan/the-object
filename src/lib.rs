@@ -8,6 +8,7 @@ pub mod contact;
 pub mod forms;
 pub mod fusion;
 pub mod game;
+pub mod keys;
 pub mod landscape;
 pub mod math;
 pub mod meiosis;
@@ -17,6 +18,7 @@ pub mod progress;
 pub mod river;
 pub mod senses;
 pub mod sim;
+pub mod thoughts;
 pub mod version;
 
 #[cfg(target_arch = "wasm32")]

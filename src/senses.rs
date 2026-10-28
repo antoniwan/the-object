@@ -544,7 +544,7 @@ impl Senses {
                 self.voiced = 0.0;
                 if self.note.1 >= HELD_SECS {
                     self.hum = Some((hum_pitch(self.note.0), 0.0));
-                    self.found.push(Discovery::Hum);
+                    self.found.push(Discovery::Sing);
                 }
                 self.note = (0.0, 0.0);
             }
@@ -790,13 +790,13 @@ mod tests {
         run(&mut s, &mut w, &l, 1.2, |s| s.heard(hear(&tone(440.0, 0.1), RATE)));
         assert_eq!(s.hum(), None, "not while you are still singing");
         let found = run(&mut s, &mut w, &l, 0.5, |s| s.heard(Heard::default()));
-        assert!(found.contains(&Discovery::Hum));
+        assert!(found.contains(&Discovery::Sing));
         let (f, _) = s.hum().expect("humming");
         assert!((f - 220.0).abs() < 5.0, "the same note, lower: {f}");
         // its own hum, picked up by the microphone, is not a new note
         run(&mut s, &mut w, &l, HUM_SECS, |s| s.heard(hear(&tone(220.0, 0.1), RATE)));
         let found = run(&mut s, &mut w, &l, 0.6, |s| s.heard(Heard::default()));
-        assert!(!found.contains(&Discovery::Hum) && s.hum().is_none());
+        assert!(!found.contains(&Discovery::Sing) && s.hum().is_none());
         // a note too short is not held
         let (mut w, mut s) = (World::new(), open(Kind::Hear));
         run(&mut s, &mut w, &l, 0.4, |s| s.heard(hear(&tone(300.0, 0.1), RATE)));
