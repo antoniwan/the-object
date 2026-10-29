@@ -12,6 +12,16 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-10-29
+
+### Changed
+- At night a phone's own bars darken with the room. (#70)
+- If you ask your device for less motion, the room shakes and flashes less and the words stop breathing. (#70)
+
+### Fixed
+- Leaving the tab no longer makes it click; its sound fades out, and fades back in when you return. (#70)
+- A pinch while it loads no longer leaves the page zoomed. (#70)
+
 ## [1.17.1] - 2026-10-29
 
 ### Changed
@@ -357,7 +367,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.17.2...HEAD
+[1.17.2]: https://github.com/antoniwan/the-object/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/antoniwan/the-object/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/antoniwan/the-object/compare/v1.16.7...v1.17.0
 [1.16.7]: https://github.com/antoniwan/the-object/compare/v1.16.6...v1.16.7
