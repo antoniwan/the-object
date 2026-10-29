@@ -12,6 +12,12 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.5] - 2026-10-29
+
+### Changed
+- The devlog is one post a day now, for every day something changed, with short moving pictures of what is new. A version no longer waits for a post of its own; the tests fail once a day has gone by without one. (#65)
+- Those pictures are filmed the same way every time, from scripted hands on a clock that only moves when it is told to. (#65)
+
 ## [1.16.4] - 2026-10-29
 
 ### Changed
@@ -330,7 +336,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.4...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.5...HEAD
+[1.16.5]: https://github.com/antoniwan/the-object/compare/v1.16.4...v1.16.5
 [1.16.4]: https://github.com/antoniwan/the-object/compare/v1.16.3...v1.16.4
 [1.16.3]: https://github.com/antoniwan/the-object/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/antoniwan/the-object/compare/v1.16.1...v1.16.2
