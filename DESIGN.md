@@ -229,6 +229,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | agitation | `exp(-dt / 3.0)` | an upset fades over about three seconds |
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
 | after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |
+| light under two | goes over 0.8 s once two cells become many | the light focused under it never goes out in one frame (`morula.rs` `first_light`) |
 | the eye | opens and closes at rate 0.8 / s; its cell killed, it shuts at 7 / s, well before the cell is shed | it never blinks out in one frame (`morula.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
