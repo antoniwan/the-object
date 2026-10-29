@@ -3,6 +3,7 @@
 
 use super::App;
 use crate::input::senses::{self, Kind};
+use crate::input::words;
 use crate::platform::devices::{self, Ears, Eyes};
 use crate::platform::speech::{self, Can, Note, Speech};
 use wasm_bindgen::prelude::*;
@@ -10,6 +11,9 @@ use wasm_bindgen::prelude::*;
 /// Where the browser can only make words by sending the voice away, it may still ask for that,
 /// in its own word, with the reason under it (`Kind::Words`).
 const WORDS_AWAY: bool = true;
+
+/// Things said in a row with no word in them it knows, before it listens in the other language.
+const UNKNOWN_TURN: u32 = 2;
 
 impl App {
     /// Stops hearing (or seeing) at once: the device is let go before anything else happens.
@@ -71,11 +75,11 @@ impl App {
                 devices::ask(kind, self.answers.clone());
                 // Whether words can be made on the device is only asked now, inside the tap.
                 if self.can_speech.get() == Can::Perhaps {
-                    speech::ready(self.can_speech.clone(), &self.lang);
+                    speech::ready(self.can_speech.clone(), &self.tongues);
                 }
             }
             Kind::See => devices::ask(kind, self.answers.clone()),
-            Kind::Words => match Speech::start(false, &self.lang, self.notes.clone()) {
+            Kind::Words => match Speech::start(false, &self.tongues, self.notes.clone()) {
                 Some(sp) => {
                     self.speech = Some(sp);
                     self.game.senses.opened(Kind::Words);
@@ -155,13 +159,26 @@ impl App {
         let can = self.can_speech.get();
         self.game.senses.can_words = WORDS_AWAY && can == Can::Away && self.game.senses.can_hear;
         if self.ears.is_some() && self.speech.is_none() && can == Can::Here && !self.speech_gone {
-            self.speech = Speech::start(true, &self.lang, self.notes.clone());
+            self.speech = Speech::start(true, &self.tongues, self.notes.clone());
             self.speech_gone = self.speech.is_none();
         }
         let notes = std::mem::take(&mut *self.notes.borrow_mut());
         for note in notes {
             match note {
-                Note::Text { session, index, text } => self.game.words.hear(session, index, &text),
+                Note::Text { session, index, guesses, done } => {
+                    let text = words::likeliest(&guesses);
+                    self.game.words.hear(session, index, text);
+                    // Twice in a row nothing it knows: perhaps it is listening in the wrong language.
+                    if done {
+                        self.unknown = if words::known(text) { 0 } else { self.unknown + 1 };
+                        if self.unknown >= UNKNOWN_TURN {
+                            self.unknown = 0;
+                            if let Some(sp) = &self.speech {
+                                sp.turn();
+                            }
+                        }
+                    }
+                }
                 Note::Refused | Note::Gone => {
                     self.speech_gone = true;
                     let away = self.game.senses.words == senses::Leave::Open;

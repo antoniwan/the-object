@@ -12,6 +12,12 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-10-29
+
+### Changed
+- It hears quieter sounds. A whisper at arm's length from a phone is enough now, and so is a soft voice. It learns how loud the room is on its own, so a fan or a street is only the room, and a voice over it is still someone.
+- It listens for words in English and in Spanish. It starts in the browser's own language and keeps the other one near; when what it hears keeps making no sense, it listens in the other, and stays where it last understood. Spanish words with a pronoun on the end count, and it knows more of them in both languages than before. Of the browser's guesses at what was said, it takes the one it understands.
+
 ## [1.17.0] - 2026-10-29
 
 ### Added
@@ -351,7 +357,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/antoniwan/the-object/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/antoniwan/the-object/compare/v1.16.7...v1.17.0
 [1.16.7]: https://github.com/antoniwan/the-object/compare/v1.16.6...v1.16.7
 [1.16.6]: https://github.com/antoniwan/the-object/compare/v1.16.5...v1.16.6

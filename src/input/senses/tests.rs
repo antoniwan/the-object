@@ -231,6 +231,28 @@ fn a_whisper_stills_it_and_a_breath_takes_a_drop() {
 }
 
 #[test]
+fn a_whisper_at_arms_length_is_heard_and_a_steady_room_is_not() {
+    // As quiet as a phone's raw microphone hears a whisper, in breaths with gaps between.
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    let (soft, l) = (hear(&hiss(0.006), RATE), look(Stage::Echo, 0.0));
+    let mut t = 0;
+    let found = run(&mut s, &mut w, &l, 3.0, |s| {
+        t += 1;
+        s.heard(if t % 50 < 40 { soft } else { Heard::default() })
+    });
+    assert!(found.contains(&Discovery::Whisper));
+
+    // The same hiss, never stopping, is a fan: after a while it is only the room.
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    run(&mut s, &mut w, &l, 40.0, |s| s.heard(soft));
+    let found = run(&mut s, &mut w, &l, 2.0, |s| s.heard(soft));
+    assert!(!found.contains(&Discovery::Whisper));
+    // and a voice over it still is someone
+    let found = run(&mut s, &mut w, &l, 1.0, |s| s.heard(hear(&tone(220.0, 0.02), RATE)));
+    assert!(found.contains(&Discovery::Voice));
+}
+
+#[test]
 fn its_own_sounds_are_not_yours() {
     let (mut w, mut s) = (World::new(), open(Kind::Hear));
     let l = look(Stage::Echo, 0.0);

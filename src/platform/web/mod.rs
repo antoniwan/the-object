@@ -82,7 +82,10 @@ struct App {
     speech: Option<Speech>,
     notes: Rc<RefCell<Vec<Note>>>,
     speech_gone: bool,
-    lang: String,
+    /// The languages words are listened for in (speech.rs).
+    tongues: Vec<String>,
+    /// Things said in a row with nothing in them it knows.
+    unknown: u32,
 }
 
 impl App {
@@ -250,7 +253,7 @@ pub fn start() -> Result<(), JsValue> {
 
     game.senses.can_hear = devices::possible(Kind::Hear);
     game.senses.can_see = devices::possible(Kind::See);
-    let lang = speech::lang();
+    let tongues = speech::tongues();
     let can_speech = Rc::new(Cell::new(if game.senses.can_hear { speech::can() } else { Can::Nothing }));
     let feeling = devices::feeling();
     match feeling {
@@ -290,7 +293,8 @@ pub fn start() -> Result<(), JsValue> {
         speech: None,
         notes: Rc::new(RefCell::new(Vec::new())),
         speech_gone: false,
-        lang,
+        tongues,
+        unknown: 0,
     }));
     app.borrow_mut().resize();
     if feeling == devices::Feeling::Free {
