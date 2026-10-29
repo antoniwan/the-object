@@ -15,7 +15,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.18.2] - 2026-10-29
 
 ### Changed
-- Today's devlog post reaches the evening's versions, with a moving picture of buds coming between two fingers. (#73)
+- Today's devlog post reaches the evening's versions, with a moving picture of buds coming between two fingers. (#75)
 
 ## [1.18.1] - 2026-10-29
 
