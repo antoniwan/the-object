@@ -92,6 +92,12 @@ impl Hud {
         }
     }
 
+    /// Whatever the toast was saying is cut short, and this goes first.
+    pub(super) fn urgent(&mut self, line: Line) {
+        self.toast_until = 0.0;
+        self.queue.insert(0, line);
+    }
+
     /// Read out, never shown.
     pub(super) fn say(&self, words: &str) {
         self.said.set_text_content(Some(words));

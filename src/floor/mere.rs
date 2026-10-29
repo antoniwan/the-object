@@ -13,7 +13,7 @@
 use crate::math::smoothstep;
 
 /// Untouched this long (seconds), the lake begins to still.
-pub const STILL_AFTER: f32 = 6.0;
+const STILL_AFTER: f32 = 6.0;
 const STILL_SECS: f32 = 2.5;
 /// Holding a press still on the lake this long (seconds) freezes it.
 pub const FREEZE_HOLD: f32 = 0.9;

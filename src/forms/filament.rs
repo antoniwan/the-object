@@ -8,7 +8,7 @@ use super::Event;
 use crate::math::*;
 
 /// Half the thread's length once fully drawn, in world units: past both edges of the screen.
-pub const HALF_LEN: f32 = 11.0;
+const HALF_LEN: f32 = 11.0;
 /// A tendril held at least this stretched (in body radii) for `TAUT_SECS` becomes the thread.
 pub const TAUT: f32 = 0.95;
 pub const TAUT_SECS: f32 = 0.9;

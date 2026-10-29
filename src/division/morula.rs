@@ -24,9 +24,9 @@ use crate::division::meiosis::CELL_SCALE;
 /// More cells than this and they become grain instead.
 pub const MAX_CELLS: usize = 16;
 /// Grain stops dividing here.
-pub const MAX_GRAIN: u32 = 512;
-pub const CLEAVE_SECS: f32 = 2.2;
-pub const COMPACT_SECS: f32 = 6.0;
+const MAX_GRAIN: u32 = 512;
+const CLEAVE_SECS: f32 = 2.2;
+const COMPACT_SECS: f32 = 6.0;
 pub const THAW_SECS: f32 = 3.5;
 /// Seconds of holding the stone that bring the liquid back.
 pub const THAW_HOLD_SECS: f32 = 2.2;
@@ -42,9 +42,9 @@ const PACK: f32 = 0.84;
 /// Nothing of it reaches further than this from its center, in body radii.
 pub const BOUND: f32 = 1.9;
 /// The grain body is a little larger than its volume, for the space between grains.
-pub const GRAIN_LOOSE: f32 = 1.1;
+const GRAIN_LOOSE: f32 = 1.1;
 /// Thickness of the slab in body radii: its sides are 1 : 4 : 9 and it holds the body's volume.
-pub fn slab_unit() -> f32 {
+fn slab_unit() -> f32 {
     (4.0 / 3.0 * std::f32::consts::PI / 36.0).cbrt()
 }
 
@@ -116,7 +116,7 @@ fn rotate(v: V3, axis: V3, angle: f32) -> V3 {
 
 /// A small fixed scatter, so cells cut along the same plane don't stack.
 fn jitter(i: usize, salt: u32) -> V3 {
-    let f = |k: f32| ((i as f32 * 12.9898 + salt as f32 * 78.233 + k * 37.719).sin() * 43758.547).fract() - 0.5;
+    let f = |k: f32| hash(i as f32 * 12.9898 + salt as f32 * 78.233 + k * 37.719) - 0.5;
     v3(f(1.0), f(2.0), f(3.0))
 }
 

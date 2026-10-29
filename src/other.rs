@@ -32,7 +32,7 @@ const ARRIVE_STILL: f32 = 6.0;
 /// How long it takes to come down.
 const ARRIVE_SECS: f32 = 4.0;
 /// Half its width. It is about twice as long as it is wide.
-pub const SIZE: f32 = 0.4;
+const SIZE: f32 = 0.4;
 /// How close to the soft one's surface its middle can come, in sizes.
 const BOUND: f32 = 1.45;
 /// How far from its middle a touch still finds it.
@@ -285,7 +285,7 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
     }
     o.guard -= dt;
     let sharp = if o.guard > 0.0 { 1.0 } else { 0.0 };
-    o.edge += (sharp - o.edge) * (1.0 - (-2.0 * dt).exp());
+    o.edge = ease(o.edge, sharp, -2.0 * dt);
 
     // Left alone together, they circle, and the soft one watches it instead of you.
     let circling = o.here() && plain && o.guard <= 0.0 && o.carried.is_none() && !look.busy && look.still > CIRCLE_AFTER;
@@ -343,10 +343,10 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
 
     // Turning: slowly on its own, faster when struck or sharpened.
     let base = 0.35 + 1.4 * o.edge;
-    o.spin += (base - o.spin) * (1.0 - (-0.8 * dt).exp());
+    o.spin = ease(o.spin, base, -0.8 * dt);
     o.yaw += o.spin * dt;
     o.tilt = 0.25 + 0.15 * (o.time * 0.4).sin() - 0.2 * o.edge;
-    o.ring *= (-1.2 * dt).exp();
+    o.ring = fade(o.ring, -1.2 * dt);
 
     // Squeezed while it is inside, the soft one gives it back.
     if o.phase == Phase::Inside && w.body.squeeze.abs() > 0.45 {

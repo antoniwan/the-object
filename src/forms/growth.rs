@@ -11,7 +11,7 @@
 use super::Event;
 
 /// Where it gets to on its own: a shoot.
-pub const ROOT: f32 = 0.6;
+const ROOT: f32 = 0.6;
 pub const FULL: f32 = 4.0;
 /// How far one tap brings it on.
 pub const TEND: f32 = 0.35;

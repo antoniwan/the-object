@@ -7,7 +7,7 @@ use super::Event;
 use crate::math::{ease, fade, smoothstep};
 
 /// Turns of stirring (in one direction, without stopping long) that make the universe.
-pub const STIR_TURNS: f32 = 2.5;
+const STIR_TURNS: f32 = 2.5;
 /// Stop stirring for more than `PAUSE_SECS` and the stir fades, over about `FORGET_SECS`.
 const PAUSE_SECS: f32 = 0.6;
 const FORGET_SECS: f32 = 3.0;

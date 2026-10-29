@@ -24,8 +24,8 @@ const FORGET_SECS: f32 = 3.0;
 /// Held this long, its time turns round.
 pub const BACKWARD_SECS: f32 = 0.6;
 /// How many mirrors the room folds into first, and the most it takes before it starts again.
-pub const FIRST_MIRRORS: u32 = 4;
-pub const MOST_MIRRORS: u32 = 12;
+const FIRST_MIRRORS: u32 = 4;
+const MOST_MIRRORS: u32 = 12;
 const MIRROR_SECS: f32 = 0.9;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

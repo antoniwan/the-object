@@ -93,6 +93,17 @@ pub fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// Hermite ease from 0 to 1, clamped: `smoothstep(0.0, 1.0, t)` without the subtract and divide.
+pub fn smooth01(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// A fixed scatter from a number: the fractional part of a large multiple of its sine.
+pub fn hash(a: f32) -> f32 {
+    (a.sin() * 43_758.547).fract()
+}
+
 /// Polynomial smooth minimum: the "liquid" join between two shapes.
 pub fn smin(a: f32, b: f32, k: f32) -> f32 {
     let h = (0.5 + 0.5 * (b - a) / k).clamp(0.0, 1.0);

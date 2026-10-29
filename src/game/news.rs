@@ -56,8 +56,7 @@ impl Game {
                     self.discover(Discovery::Lid);
                 }
                 F::Rounded => {
-                    self.world.add_ripple(V3::UP, 0.8);
-                    self.world.add_ripple(-V3::UP, 0.8);
+                    self.world.ripple_both(0.8);
                     self.discover(Discovery::Round);
                 }
                 F::Everywhere => {
@@ -89,8 +88,7 @@ impl Game {
                     self.discover(Discovery::Mound);
                 }
                 F::Unearthed => {
-                    self.world.add_ripple(V3::UP, 0.8);
-                    self.world.add_ripple(-V3::UP, 0.8);
+                    self.world.ripple_both(0.8);
                     self.discover(Discovery::Unearth);
                 }
                 F::Rooted => {
@@ -243,8 +241,7 @@ impl Game {
             }
             morula::Event::Thawed => {
                 self.discover(Discovery::Thaw);
-                self.world.add_ripple(V3::UP, 0.9);
-                self.world.add_ripple(-V3::UP, 0.9);
+                self.world.ripple_both(0.9);
             }
         }
     }

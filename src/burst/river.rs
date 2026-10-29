@@ -25,9 +25,9 @@ pub const SLOTS: usize = ROWS * LANES;
 /// Distance between columns, along the river and across it.
 pub const GAP: f32 = 1.6;
 /// All twelve within this distance of where they crowd together, and they run.
-pub const GROUP_RADIUS: f32 = 7.0;
+const GROUP_RADIUS: f32 = 7.0;
 /// Columns standing at once that fill the view.
-pub const FILL: usize = 30;
+const FILL: usize = 30;
 /// How far the river runs either way from where it rose.
 const LENGTH: f32 = 36.0;
 const SPREAD_SECS: f32 = 5.0;
@@ -108,23 +108,19 @@ impl Default for River {
     }
 }
 
-fn ease(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
 
 fn meander(s: f32) -> f32 {
     2.2 * (0.21 * s).sin() + 1.1 * (0.47 * s + 1.3).sin()
 }
 
 /// Half the river's width, a distance `s` along it.
-pub fn half_width(s: f32) -> f32 {
+fn half_width(s: f32) -> f32 {
     3.2 + 0.6 * (0.33 * s + 0.4).sin()
 }
 
 /// How tall column `slot` stands, in world units.
 pub fn tall(slot: usize) -> f32 {
-    let h = ((slot as f32 * 12.9898).sin() * 43_758.547).fract().abs();
+    let h = hash(slot as f32 * 12.9898).abs();
     2.6 + 4.2 * h
 }
 
@@ -154,7 +150,7 @@ impl River {
 
     /// How far it reaches either way.
     pub fn reach(&self) -> f32 {
-        LENGTH * ease(self.age / SPREAD_SECS).max(0.08)
+        LENGTH * smooth01(self.age / SPREAD_SECS).max(0.08)
     }
 
     fn dir(&self) -> (f32, f32) {
