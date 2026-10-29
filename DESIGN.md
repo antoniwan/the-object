@@ -56,6 +56,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
 | dust | `#ccc7d4`, grainy, a few grains still glinting in the film's colors | the flower let go of; drifts on the floor, and the cloud they fall from | `shader.frag` `DUST`, `dustFloor()` |
+| bark / leaf / blossom | `#6e666f` / `#9ec78c` / `#ed6b9e` | what grows out of the mound: bark from the mound's own grey, pale leaves, and late, the flower's pink again | `BARK`, `LEAF`, `BLOSSOM`, `treeSdf()` |
 | mound | `#b3abb3`, faint layers, the film back at its grazing edges; lit from inside while pressed | the dust heaped and settled; the only thing it is that stands on the ground | `MOUND`, `shadeHeap()` |
 | fold | `#080412` the dark between, then a cosine run through `#e50839` `#6b00db` `#0091e0` `#6b9f3e` (`foldPal()`), squared, so mostly the violet and blue of the galaxy's arms come through, on an orbit-trap fractal | the galaxy's own colors let out into the room; each copy of it takes a different turn of the run | `shader.frag` fold block |
 | fold seams | `#f2d9ff`, flaring on a new mirror | where the mirrors meet | `foldSky()` |
@@ -172,6 +173,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
 | `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
 | `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
+| `TEND` / `WITHER_AFTER` | 0.35 of a stage / 30 s | each tap on the mound grows what roots in it this much; untended this long, it draws back toward a shoot (`forms/growth.rs`) |
 | `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
 | `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
@@ -200,7 +202,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
 | kept together | follow 5 / s, lean 2 / s, turn 0.5 / s; a touch 0.12 s a piece; a breath 3.0 s + 0.35 s a piece | a cut steps each side back, fading `exp(-3 t)`; a drag off the ground faster than 1.5 canvas heights / s cuts instead of looking around (`kin.rs`) |
-| slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
+| slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75; what roots in the mound grows a stage every 3.3 s while tended, and draws back a stage every 20 s once left 30 s |
 
 ### Decay and recovery
 
@@ -299,6 +301,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
 | short tug, let go at once | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
+| tap, again and again | the mound | tend | it takes root by itself; tended, it grows into branches, leaves and blossom; left alone, it draws back | `forms/growth.rs` |
 | drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
 | keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |

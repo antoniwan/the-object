@@ -115,9 +115,12 @@ pub enum Discovery {
     Sweep,
     Mound,
     Unearth,
+    Root,
+    Canopy,
+    Wither,
 }
 
-pub const ALL: [Discovery; 111] = [
+pub const ALL: [Discovery; 114] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -229,6 +232,9 @@ pub const ALL: [Discovery; 111] = [
     Discovery::Sweep,
     Discovery::Mound,
     Discovery::Unearth,
+    Discovery::Root,
+    Discovery::Canopy,
+    Discovery::Wither,
 ];
 
 impl Discovery {
@@ -345,6 +351,9 @@ impl Discovery {
             Discovery::Sweep => "sweep",
             Discovery::Mound => "mound",
             Discovery::Unearth => "unearth",
+            Discovery::Root => "root",
+            Discovery::Canopy => "canopy",
+            Discovery::Wither => "wither",
         }
     }
 
@@ -461,6 +470,9 @@ impl Discovery {
             Discovery::Sweep => "pushed, every grain leans back toward the rest.",
             Discovery::Mound => "it is heavy now. it chose the ground.",
             Discovery::Unearth => "it came up out of itself and left nothing behind.",
+            Discovery::Root => "it reached down. the ground let it.",
+            Discovery::Canopy => "it grew toward the light, and kept the flower it was.",
+            Discovery::Wither => "it forgot the light, a little at a time.",
         }
     }
 }
@@ -525,7 +537,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Unearth as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Wither as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

@@ -27,7 +27,8 @@
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
 //! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
 //! - pinch the flower: it comes apart into dust on the floor; drag through the dust to sweep it,
-//!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs)
+//!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
+//!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
 //! - stir the universe on, the same way: the room folds and it is everywhere; poke to add a
@@ -375,8 +376,8 @@ impl Game {
                 }
             }
             Gesture::Dust { mound: true, moved: false, .. } => {
-                if self.world.forms.dust.tap() {
-                    self.sounds.push(Sound::Poke { pitch: 0.0, size: 1.6 });
+                if let Some(grown) = self.world.forms.dust.tap() {
+                    self.sounds.push(Sound::Poke { pitch: grown, size: 1.6 - grown });
                 }
             }
             Gesture::Dust { .. } => {}
@@ -497,7 +498,10 @@ impl Game {
                     start: (x, y),
                     last: (at.x, at.z),
                     since: self.clock,
-                    mound: self.world.forms.dust.on_mound(at.x, at.z),
+                    mound: self.world.forms.dust.on_mound(at.x, at.z) || {
+                        let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
+                        self.world.forms.dust.touches_growth(ro, rd)
+                    },
                     moved: false,
                 },
                 None => Gesture::Orbiting { start: (x, y), last: (x, y) },
@@ -884,6 +888,15 @@ impl Game {
                     self.world.add_ripple(-V3::UP, 0.8);
                     self.discover(Discovery::Unearth);
                 }
+                F::Rooted => {
+                    self.world.forms.dust.thud = 0.5;
+                    self.discover(Discovery::Root);
+                }
+                F::Canopy => {
+                    self.sounds.push(Sound::Bloom);
+                    self.discover(Discovery::Canopy);
+                }
+                F::Withered => self.discover(Discovery::Wither),
             }
         }
         // Everything it was keeping gets out at once.
@@ -917,7 +930,9 @@ impl Game {
         // The camera rises to look into the flower, and stays up to look down on the dust.
         let open = self.world.forms.bloom.open().max(self.world.forms.dust.view());
         if open > 0.0 && !orbiting {
-            self.cam.pitch += (0.78 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * open;
+            // as what roots in the mound grows, the eye comes down to see it standing
+            let level = 0.78 - 0.3 * self.world.forms.dust.growth.shown / forms::growth::FULL;
+            self.cam.pitch += (level - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * open;
         }
     }
 

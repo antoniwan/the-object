@@ -3,7 +3,8 @@
 //! - pinch it (a short tug, let go at once): a bud stays where you pinched.
 //!   Five buds and it opens into a flower. Tap the flower and it folds back up.
 //!   Pinch the flower and it comes apart into dust on the floor; sweep the dust
-//!   together and it heaps into a mound; hold the mound and it rises (see dust.rs).
+//!   together and it heaps into a mound; something takes root in it and grows as far as it
+//!   is tended (growth.rs); hold the mound and it rises (see dust.rs).
 //! - stretch it and hold it taut without letting it tear: it stops resisting
 //!   and draws out into one thread, longer than the room. Tap the thread to
 //!   pluck it; where you pluck decides the harmonic. Hold it still and it winds back.
@@ -23,6 +24,7 @@ pub mod cosmos;
 pub mod dust;
 pub mod filament;
 pub mod fold;
+pub mod growth;
 pub mod pandora;
 
 use crate::math::*;
@@ -79,6 +81,12 @@ pub enum Event {
     Grounded,
     /// It came back up out of the mound.
     Unearthed,
+    /// Something took root in the mound.
+    Rooted,
+    /// Tended all the way: in leaf and blossom.
+    Canopy,
+    /// Left alone, what grew drew back down.
+    Withered,
 }
 
 #[derive(Default)]
