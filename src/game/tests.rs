@@ -220,7 +220,8 @@ fn two_fingers_pinched_together_on_it_and_let_go_leave_a_bud_between_them() {
     let mut g = game();
     two_fingers(&mut g, (420.0, 260.0), (480.0, 260.0), (440.0, 260.0), (460.0, 260.0), 0.0);
     assert!(g.progress.has(Discovery::Pinch));
-    assert!(g.progress.has(Discovery::Squeeze), "a pinch is a squeeze too");
+    assert!(!g.progress.has(Discovery::Squeeze), "a pinch of its skin does not flatten all of it");
+    assert!(g.world.body.squash > 0.85, "{}", g.world.body.squash);
     let buds = &g.world.forms.bloom.buds;
     assert_eq!(buds.len(), 1);
     let b = g.cam.basis();
@@ -274,6 +275,22 @@ fn a_trackpad_pinch_held_still_in_safari_presses_two_cells_back_into_one() {
     g.pad.gesture(None);
     wait(&mut g, 3.0);
     assert!(g.progress.has(Discovery::Rejoin));
+}
+
+#[test]
+fn pulled_the_other_way_it_stands_taller_and_settles() {
+    let mut g = game();
+    for _ in 0..20 {
+        g.wheel(-60.0);
+        g.update(1.0 / 60.0);
+    }
+    assert!(g.progress.has(Discovery::Squeeze));
+    assert!(g.world.body.squash > 1.15, "it stands taller: {}", g.world.body.squash);
+    wait(&mut g, 3.0);
+    assert!((g.world.body.squash - 1.0).abs() < 0.03, "and settles");
+    // fingers spread apart on the screen pull it the same way (a moment after they lift, it is still tall)
+    two_fingers(&mut g, (200.0, 300.0), (600.0, 300.0), (100.0, 300.0), (700.0, 300.0), 0.3);
+    assert!(g.world.body.squash > 1.05, "{}", g.world.body.squash);
 }
 
 #[test]
@@ -600,6 +617,23 @@ fn two_fingers_pinched_together_on_the_flower_bring_it_to_dust() {
     let (x, y) = g.screen(g.world.body.pos);
     two_fingers(&mut g, (x - 40.0, y), (x + 40.0, y), (x - 10.0, y), (x + 10.0, y), 0.0);
     assert!(!g.world.forms.dust.whole(), "it comes apart");
+}
+
+#[test]
+fn the_flower_tugged_a_little_too_slowly_only_flinches() {
+    let mut g = game();
+    flower(&mut g);
+    g.sounds.clear();
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 9.0, 3, 1.0 / 60.0, 0.5);
+    assert!(g.world.forms.dust.whole(), "it did not come apart");
+    assert!(g.sounds.contains(&Sound::Almost));
+    wait(&mut g, 0.3);
+    assert!(g.world.forms.bloom.open() < 0.9, "its petals drew in");
+    wait(&mut g, 1.5);
+    assert_eq!(g.world.forms.bloom.open(), 1.0);
+    // let go at once, the same tug brings it to dust
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 9.0, 3, 1.0 / 60.0, 0.0);
+    assert!(!g.world.forms.dust.whole());
 }
 
 #[test]

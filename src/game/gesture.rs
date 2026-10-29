@@ -139,8 +139,12 @@ impl Game {
                 self.world.other.release((b.right * vx - b.up * vy) * 3.0);
             }
             Gesture::Tug { since, .. } => {
-                if self.clock - since < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
+                let secs = self.clock - since;
+                if secs < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
                     self.world.add_ripple(V3::UP, 0.5);
+                } else if secs < bloom::NEAR_MAX_SECS && self.world.forms.bloom.flinch() {
+                    // A little too slow: its petals only flinch in.
+                    self.sounds.push(Sound::Almost);
                 }
             }
             Gesture::Dust { mound: true, moved: false, .. } => {
@@ -485,9 +489,9 @@ impl Game {
                 }
             }
             Gesture::Squeezing { start_dist, since, least, on } if self.pointers.len() >= 2 => {
-                let ratio = self.pinch_dist() / start_dist;
-                self.gesture = Gesture::Squeezing { start_dist, since, least: least.min(ratio), on };
-                let s = crate::input::pad::squeeze(ratio);
+                let now = self.pinch_dist();
+                self.gesture = Gesture::Squeezing { start_dist, since, least: least.min(now / start_dist), on };
+                let s = crate::input::pad::fingers(start_dist, now, self.h);
                 self.world.body.squeeze = s;
                 if s.abs() > 0.3 {
                     self.discover(Discovery::Squeeze);

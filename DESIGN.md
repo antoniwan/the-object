@@ -179,8 +179,10 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `THROW_SPEED` | 2.2 canvas heights / s | a flick faster than this throws it |
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
-| `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s (`forms/bloom.rs`) |
+| `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s; on the flower, its petals flinch in by 0.18 of how open it is and open again over 1.4 s (`forms/bloom.rs`) |
 | `FINGERS_CLOSE` / `FINGERS_MAX_SECS` | 0.75 / 0.7 s | two fingers that both began on it, closed to this share of how far apart they began and let go this fast, pinch it between them (`forms/bloom.rs`) |
+| `FINGERS_HALF` | 0.25 canvas heights | two fingers squeeze it by how much closer they came, but never more than moving this far would (as much as closing to half); fingers that begin close together on it pinch its skin without flattening all of it (`input/pad.rs`) |
+| squeeze | 0.55 / 0.3 of its height | squeezed all the way it flattens to 0.45 of its height; pulled the other way (fingers spread, the wheel turned up) it stands up to 1.3 times as tall, and settles when let go (`sim/mod.rs`) |
 | `REST_SECS` (pad) | 0.35 s | a trackpad pinch squeezes it as far as two fingers on a screen would, held while the fingers move and this long after; Safari's pinch holds until it ends (`input/pad.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
@@ -258,7 +260,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Away.** Left for another tab, it goes silent at once: the whole mix fades with a 12 ms time constant and the audio context is suspended 90 ms later, so nothing is cut mid-swing and clicks. Looked at again, it fades back in over the same 12 ms, as it was.
-- **Nearly.** A pinch that leaves a bud rises C6 → D6 (`Sound::Pinch`); one let go of a little too late falls C6 → A5, quieter (0.018), so the hand hears how close it came (`Sound::Almost`).
+- **Nearly.** A pinch that leaves a bud rises C6 → D6 (`Sound::Pinch`); one let go of a little too late, or the flower's petals flinching, falls C6 → A5, quieter (0.018), so the hand hears how close it came (`Sound::Almost`).
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
