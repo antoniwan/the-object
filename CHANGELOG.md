@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-29
+
+### Added
+- A small microphone waits in the bottom-left corner from the first moment of every visit. Tapped, the browser asks; allowed, it fades and the mark for hearing comes in its place. Stopped, it comes back. It is never shown where the page cannot hear, such as the copy on itch.io, or after a no. Where words must leave the page to be made, it asks for them as soon as it hears you, not only late in the arc.
+
 ## [1.16.7] - 2026-10-29
 
 ### Fixed
@@ -346,7 +351,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.7...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/antoniwan/the-object/compare/v1.16.7...v1.17.0
 [1.16.7]: https://github.com/antoniwan/the-object/compare/v1.16.6...v1.16.7
 [1.16.6]: https://github.com/antoniwan/the-object/compare/v1.16.5...v1.16.6
 [1.16.5]: https://github.com/antoniwan/the-object/compare/v1.16.4...v1.16.5

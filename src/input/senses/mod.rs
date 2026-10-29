@@ -1,6 +1,7 @@
 //! It can be let hear you and see you. It never takes either; late in the arc it asks, once a
 //! visit, in one word, and only the player's own tap on that word lets the browser ask for the
-//! microphone or the camera (web.rs, devices.rs). On phones that only let a page feel how they
+//! microphone or the camera (web.rs, devices.rs). Hearing can also be given from the first
+//! moment, by a tap on the small microphone in the corner, which waits there until it is. On phones that only let a page feel how they
 //! are held after asking, it asks for that the same way, a little earlier (`hold the room.`);
 //! what it does with it is in motion.rs. Words come out of hearing (words.rs): where the
 //! browser can only make them by sending the voice away, that is asked for on its own, last
@@ -264,12 +265,13 @@ impl Senses {
         }
     }
 
-    /// Asked this visit and not taken up (the word went by, or it was stopped since), and never
-    /// told no: the mark waits in the corner, faint, and a tap on it is the same as on the word.
-    /// Only hearing and sight; words need the line under them, and feeling has no mark.
+    /// Its mark waits in the corner, and a tap on it is the same as on the word. Hearing waits
+    /// from the start of every visit, as the one mark that can always be seen (even while its word
+    /// is up), until it hears or is told no. Sight waits only once asked this visit and not taken up (the word went by, or
+    /// it was stopped since), faint. Words need the line under them, and feeling has no mark.
     pub fn waiting(&self, kind: Kind) -> bool {
         match kind {
-            Kind::Hear => self.can_hear && self.offered_hear && self.hear == Leave::Closed,
+            Kind::Hear => self.can_hear && matches!(self.hear, Leave::Closed | Leave::Offered(_)),
             Kind::See => self.can_see && self.offered_see && self.see == Leave::Closed,
             Kind::Feel | Kind::Words => false,
         }
@@ -413,9 +415,8 @@ impl Senses {
             && !self.offered_words
             && self.words == Leave::Closed
             && self.hear == Leave::Open
-            && look.stage >= Stage::Echo
         {
-            // Only once it already hears you: words are more than sound.
+            // Only once it already hears you, however early that was: words are more than sound.
             self.offered_words = true;
             Kind::Words
         } else {

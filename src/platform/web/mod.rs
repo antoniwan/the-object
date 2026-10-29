@@ -450,6 +450,13 @@ pub fn start() -> Result<(), JsValue> {
         })?;
     }
     {
+        let app = app.clone();
+        let mic: web_sys::EventTarget = app.borrow().hud.mic.clone().into();
+        listen(&mic, "click", true, move |_: web_sys::MouseEvent| {
+            app.borrow_mut().take_waiting(Kind::Hear);
+        })?;
+    }
+    {
         // Nobody is looking at the page: it stops hearing and seeing.
         let app = app.clone();
         let d = doc.clone();

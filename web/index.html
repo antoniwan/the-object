@@ -6,7 +6,7 @@
 <title>the object</title>
 <meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
 <meta name="author" content="Antonio Rodríguez Martínez">
-<meta name="version" content="1.16.7">
+<meta name="version" content="1.17.0">
 <meta name="theme-color" content="#f8f7f5">
 <link rel="canonical" href="https://the-object.antoniwan.online/">
 <link rel="author" href="https://antoniwan.online">
@@ -57,7 +57,7 @@
       "inLanguage": "en",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "softwareVersion": "1.16.7",
+      "softwareVersion": "1.17.0",
       "datePublished": "2026-10-28",
       "author": { "@id": "https://antoniwan.online/#person" },
       "creator": { "@id": "https://antoniwan.online/#person" },
@@ -116,11 +116,21 @@
   /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. A mark it asked
      for and was not given stays faint and still; tapped, the browser asks (src/web.rs show_marks).
      The padding is only reach: the marks sit 16px in and 14px up, clear of a phone's rounded edge. */
-  #senses { left: calc(4px + env(safe-area-inset-left, 0px)); bottom: calc(2px + env(safe-area-inset-bottom, 0px)); padding: 12px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s; pointer-events: none; touch-action: manipulation; }
+  #senses { left: calc(4px + env(safe-area-inset-left, 0px)); bottom: calc(2px + env(safe-area-inset-bottom, 0px)); padding: 12px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s, left 1.2s ease-in-out; pointer-events: none; touch-action: manipulation; }
   #senses.on, #senses.wait { opacity: .7; pointer-events: auto; cursor: pointer; }
   #senses > span:not(.w) { animation: breathe 3.5s ease-in-out infinite; }
   #senses .w { opacity: .4; transition: opacity 1.2s; }
   #senses .w:hover { opacity: .8; }
+  /* Before it hears: a small microphone in that corner, from the first moment, for anyone who
+     would rather be heard than wait to be asked. Tapped, the browser asks; given, it fades as the
+     mark for hearing comes in its place. Never shown where it cannot hear, nor after a no. */
+  #mic { position: fixed; left: calc(4px + env(safe-area-inset-left, 0px)); bottom: calc(2px + env(safe-area-inset-bottom, 0px)); padding: 12px; margin: 0; border: 0; background: none; color: rgb(var(--tint)); line-height: 0; opacity: 0; visibility: hidden; transition: opacity 1.2s, visibility 0s linear 1.2s; pointer-events: none; touch-action: manipulation; -webkit-appearance: none; appearance: none; }
+  #mic svg { width: 14px; height: 20px; display: block; animation: breathe 3.5s ease-in-out infinite; }
+  body.awake #mic.on { opacity: .85; visibility: visible; transition: opacity 1.2s, visibility 0s; pointer-events: auto; cursor: pointer; }
+  #mic:hover svg, #mic:focus-visible svg { animation: none; opacity: 1; }
+  #mic:focus { outline: none; }
+  /* Beside the microphone while it waits, so the two never sit on each other. */
+  #senses.beside { left: calc(32px + env(safe-area-inset-left, 0px)); }
   #count { right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
   /* Read out, never shown: the toast and the thought in plain letters, for a screen reader. */
   #said { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -166,7 +176,7 @@
   @media (prefers-reduced-motion: reduce) {
     #seed i { animation: none !important; }
     #whisper > span:first-child { opacity: 1; }
-    #toast .offer, #senses > span { animation: none !important; }
+    #toast .offer, #senses > span, #mic svg { animation: none !important; }
   }
 </style>
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -187,6 +197,7 @@
 <div id="count" class="hud" data-glyph></div>
 <div id="thought" class="hud" data-glyph aria-hidden="true"></div>
 <div id="senses" class="hud" data-glyph role="button" tabindex="-1"></div>
+<button id="mic" type="button" tabindex="-1" aria-hidden="true" aria-label="let it hear you. the browser will ask for the microphone." title="let it hear you"><svg viewBox="0 0 12 17" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y=".75" width="5" height="9.5" rx="2.5"/><path d="M1 7.75a5 5 0 0 0 10 0M6 12.75v3.5M3.75 16.25h4.5"/></svg></button>
 <div id="said" role="status" aria-live="polite"></div>
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>

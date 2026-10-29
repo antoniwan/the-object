@@ -128,4 +128,15 @@ export default {
       await t.wait(5);
     },
   },
+  mic: {
+    about: 'from the first moment, the microphone waits in the corner; tapped and allowed, it fades and the mark for hearing comes',
+    voice: true,
+    async play(t) {
+      await t.wait(2);
+      t.roll();
+      await t.wait(2.5);
+      await t.click('mic');
+      await t.wait(3.5);
+    },
+  },
 };
