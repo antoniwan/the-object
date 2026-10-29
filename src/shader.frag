@@ -661,10 +661,12 @@ float scene(vec3 p, out float body, out float piece, out int id) {
 
 // Where the ray passes through the sphere at c of radius r, widening span s to take it in;
 // r below zero is no sphere. marchSpan() chooses with step() and pick() instead of branches.
-// a where m is 0, b where m is 1, exactly (mix() is not exact when a is huge).
-float pick(float a, float b, float m) { return a * (1.0 - m) + b * m; }
-vec2 pick(vec2 a, vec2 b, float m) { return a * (1.0 - m) + b * m; }
-vec4 pick(vec4 a, vec4 b, float m) { return a * (1.0 - m) + b * m; }
+// a where m is 0, b where m is 1, exactly. A select, not arithmetic: a * (1 - m) + b * m is
+// free for a fast-math compiler to rewrite as a + (b - a) * m, which loses b entirely when a
+// is 1e9. Safari on iPhone does exactly that, and the body's span collapsed to nothing.
+float pick(float a, float b, float m) { return m > 0.5 ? b : a; }
+vec2 pick(vec2 a, vec2 b, float m) { return m > 0.5 ? b : a; }
+vec4 pick(vec4 a, vec4 b, float m) { return m > 0.5 ? b : a; }
 
 vec2 spanSphere(vec3 ro, vec3 rd, vec3 c, float r, vec2 s) {
   vec3 oc = ro - c;
