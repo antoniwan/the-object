@@ -32,6 +32,22 @@ async function sweep(t, strokes, secs) {
   }
 }
 
+// Two fingers on it at [x, y], `apart` view heights across at `angle`, pinched together in `secs`.
+async function fingers(t, [x, y], apart, angle, secs) {
+  const [dx, dy] = [(Math.cos(angle) * apart) / 2, (Math.sin(angle) * apart) / 2];
+  await t.down(1, x - dx, y - dy);
+  await t.down(2, x + dx, y + dy);
+  const n = Math.max(1, Math.round(secs / 0.02));
+  for (let k = 1; k <= n; k++) {
+    const f = 1 - 0.8 * (k / n);
+    await t.move(1, x - dx * f, y - dy * f);
+    await t.move(2, x + dx * f, y + dy * f);
+    await t.wait(0.02);
+  }
+  await t.up(1, x - dx * 0.2, y - dy * 0.2);
+  await t.up(2, x + dx * 0.2, y + dy * 0.2);
+}
+
 // A slice from above the view to below it, through the middle.
 const cut = (t, x = 0) => t.drag([[x, -0.47], [x, 0.48]], 0.1);
 
@@ -231,6 +247,27 @@ export default {
       t.roll();
       await t.drag([[-0.417, -0.367], [0.417, -0.367], [0.417, 0.367], [-0.417, 0.367], [-0.417, -0.367]], 1.7);
       await t.wait(3);
+    },
+  },
+  buds: {
+    about: 'two fingers pinched together on it leave a bud between them; let go of late, one nearly rises; five and it opens',
+    async play(t) {
+      await t.wait(1);
+      t.roll();
+      await t.wait(0.4);
+      const at = (i) => (i * TAU) / 5 - Math.PI / 2;
+      for (let i = 0; i < 4; i++) {
+        await fingers(t, [Math.cos(at(i)) * 0.09, Math.sin(at(i)) * 0.09 - 0.02], 0.08, at(i) + Math.PI / 2, 0.2);
+        await t.wait(0.8);
+      }
+      // one pull, let go of a little too late
+      const [dx, dy] = [Math.cos(at(4)), Math.sin(at(4))];
+      await t.drag([[dx * 0.083, dy * 0.083], [dx * 0.153, dy * 0.153]], 0.06, 1, { lift: false });
+      await t.wait(0.6);
+      await t.up(1, dx * 0.153, dy * 0.153);
+      await t.wait(1.6);
+      await fingers(t, [dx * 0.09, dy * 0.09 - 0.02], 0.08, at(4) + Math.PI / 2, 0.2);
+      await t.wait(4);
     },
   },
 };

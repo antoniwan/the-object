@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-10-29
+
+### Changed
+- Today's devlog post reaches the evening's versions, with a moving picture of buds coming between two fingers. (#73)
+
 ## [1.18.1] - 2026-10-29
 
 ### Fixed
@@ -386,7 +391,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.18.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.18.2...HEAD
+[1.18.2]: https://github.com/antoniwan/the-object/compare/v1.18.1...v1.18.2
 [1.18.1]: https://github.com/antoniwan/the-object/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/antoniwan/the-object/compare/v1.17.2...v1.18.0
 [1.17.2]: https://github.com/antoniwan/the-object/compare/v1.17.1...v1.17.2
