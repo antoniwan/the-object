@@ -26,6 +26,8 @@
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
 //! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
+//! - pinch the flower: it comes apart into dust on the floor; drag through the dust to sweep it,
+//!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
 //! - stir the universe on, the same way: the room folds and it is everywhere; poke to add a
@@ -132,6 +134,11 @@ enum Gesture {
     River,
     /// Pressing the other one (other.rs): a tap strikes it, a drag carries it.
     Other { start: (f32, f32), plane: V3, offset: V3, carried: bool },
+    /// A short pull on the flower, which would not stretch: let go at once, it is a pinch.
+    Tug { start: (f32, f32), since: f32 },
+    /// On the floor while it is dust (forms/dust.rs): dragging sweeps it from `last`;
+    /// pressing the mound and holding still brings it back up.
+    Dust { start: (f32, f32), last: (f32, f32), since: f32, mound: bool, moved: bool },
 }
 
 /// Distance between two points on the canvas.
@@ -362,8 +369,20 @@ impl Game {
                 let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
                 self.world.other.release((b.right * vx - b.up * vy) * 3.0);
             }
+            Gesture::Tug { since, .. } => {
+                if self.clock - since < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
+                    self.world.add_ripple(V3::UP, 0.5);
+                }
+            }
+            Gesture::Dust { mound: true, moved: false, .. } => {
+                if self.world.forms.dust.tap() {
+                    self.sounds.push(Sound::Poke { pitch: 0.0, size: 1.6 });
+                }
+            }
+            Gesture::Dust { .. } => {}
             Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Idle => {}
         }
+        self.world.forms.dust.press = 0.0;
     }
 
     /// A tap on a body that has become something else. Returns true if that form answered it.
@@ -471,6 +490,20 @@ impl Game {
             };
             return;
         }
+        if !self.world.forms.dust.whole() {
+            // It is dust on the floor now; the floor is what there is to touch.
+            self.gesture = match self.floor_point(x, y) {
+                Some(at) => Gesture::Dust {
+                    start: (x, y),
+                    last: (at.x, at.z),
+                    since: self.clock,
+                    mound: self.world.forms.dust.on_mound(at.x, at.z),
+                    moved: false,
+                },
+                None => Gesture::Orbiting { start: (x, y), last: (x, y) },
+            };
+            return;
+        }
         if !self.world.fusion.whole() {
             // It is in the floor now; the floor is what there is to touch.
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
@@ -524,16 +557,18 @@ impl Game {
         p.1 = x;
         p.2 = y;
         match self.gesture {
-            Gesture::Pending { start, hit, .. } | Gesture::Warming { start, hit, .. } => {
+            Gesture::Pending { start, hit, since } | Gesture::Warming { start, hit, since } => {
                 let moved = dist(start, (x, y)) / self.h;
                 if moved > TAP_SLOP {
                     self.world.warming = false;
                     // Cells (and flowers, threads, boxes) don't stretch into tendrils; dragging them just looks around.
                     let f = &self.world.forms;
                     let stretchy = self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
+                    let flower = f.bloom.phase == bloom::Phase::Flower;
                     let stretch = if stretchy { self.world.begin_stretch(hit.pos) } else { None };
                     self.gesture = match stretch {
                         Some(handle) => Gesture::Stretching { handle, plane: hit.pos, since: self.clock, reach: 0.0, taut: 0.0, angle: None },
+                        None if flower => Gesture::Tug { start, since: self.clock - (self.world.time - since) },
                         None => Gesture::Orbiting { start, last: (x, y) },
                     };
                     self.pointer_move(id, x, y, dt);
@@ -591,6 +626,26 @@ impl Game {
             }
             Gesture::River => {
                 self.raise_column(x, y, false);
+            }
+            Gesture::Tug { start, .. } => {
+                // pulled further, it was never a pinch: look around
+                if dist(start, (x, y)) / self.h > bloom::TUG_MAX {
+                    self.gesture = Gesture::Orbiting { start, last: start };
+                    self.pointer_move(id, x, y, dt);
+                }
+            }
+            Gesture::Dust { start, last, since, mound, moved } => {
+                let moved = moved || dist(start, (x, y)) / self.h > TAP_SLOP;
+                let mut to = last;
+                if moved {
+                    if let Some(at) = self.floor_point(x, y) {
+                        to = (at.x, at.z);
+                        if self.world.forms.dust.sweep(last, to) {
+                            self.discover(Discovery::Sweep);
+                        }
+                    }
+                }
+                self.gesture = Gesture::Dust { start, last: to, since, mound, moved };
             }
             Gesture::Ground { start, .. } => {
                 let moved = dist(start, (x, y)) / self.h;
@@ -813,6 +868,22 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.7);
                     self.discover(Discovery::Crease);
                 }
+                F::Crumbled => {
+                    self.sounds.push(Sound::Become);
+                    self.cam.shake = 0.05;
+                    self.discover(Discovery::Dust);
+                }
+                F::Swept => {}
+                F::Heaped => self.sounds.push(Sound::Become),
+                F::Grounded => {
+                    self.cam.shake = 0.03;
+                    self.discover(Discovery::Mound);
+                }
+                F::Unearthed => {
+                    self.world.add_ripple(V3::UP, 0.8);
+                    self.world.add_ripple(-V3::UP, 0.8);
+                    self.discover(Discovery::Unearth);
+                }
             }
         }
         // Everything it was keeping gets out at once.
@@ -843,8 +914,8 @@ impl Game {
             self.cam.yaw += (self.look_from.0 - self.cam.yaw) * k;
             self.cam.pitch += (self.look_from.1 - self.cam.pitch) * k;
         }
-        // The camera rises to look into the flower.
-        let open = self.world.forms.bloom.open();
+        // The camera rises to look into the flower, and stays up to look down on the dust.
+        let open = self.world.forms.bloom.open().max(self.world.forms.dust.view());
         if open > 0.0 && !orbiting {
             self.cam.pitch += (0.78 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * open;
         }
@@ -1149,7 +1220,8 @@ impl Game {
         let spread = self.world.burst.spread();
         self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread
             + 1.8 * self.world.forms.filament.morph()
-            + 1.4 * self.world.forms.fold.amount();
+            + 1.4 * self.world.forms.fold.amount()
+            + 3.6 * self.world.forms.dust.view();
         // Step back and level the eye to take in the slab.
         let slab = self.world.division.morula.as_ref().map_or(0.0, |m| {
             let l = m.look();
@@ -1187,6 +1259,14 @@ impl Game {
             felt: self.motion.alive && self.senses.is_open(senses::Kind::Feel),
         };
         self.thoughts.step(dt, self.idle, &mind);
+        if let Gesture::Dust { since, mound: true, moved: false, .. } = self.gesture {
+            let held = (self.clock - since) / forms::dust::RISE_HOLD_SECS;
+            self.world.forms.dust.press = held.min(1.0);
+            if held >= 1.0 && self.world.forms.dust.rise() {
+                self.sounds.push(Sound::Become);
+                self.gesture = Gesture::Idle;
+            }
+        }
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);
@@ -1787,6 +1867,85 @@ mod tests {
         wait(&mut g, 3.0);
         assert!(g.progress.has(Discovery::Fold));
         assert!(g.world.ordinary());
+    }
+
+    fn flower(g: &mut Game) {
+        for i in 0..5 {
+            let a = i as f32 * std::f32::consts::TAU / 5.0;
+            let (dx, dy) = (a.cos(), a.sin());
+            let (x0, y0) = (400.0 + dx * 50.0, 300.0 + dy * 50.0);
+            g.pointer_down(1, x0, y0);
+            for k in 1..=3 {
+                g.pointer_move(1, x0 + dx * 14.0 * k as f32, y0 + dy * 14.0 * k as f32, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(1);
+            wait(g, 0.6);
+        }
+        wait(g, 4.0);
+        assert!(g.progress.has(Discovery::Bloom));
+    }
+
+    #[test]
+    fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
+        let mut g = game();
+        flower(&mut g);
+        // pulled a long way, the flower only looks around
+        g.pointer_down(1, 400.0, 300.0);
+        g.pointer_move(1, 400.0, 420.0, 1.0 / 60.0);
+        g.pointer_up(1);
+        wait(&mut g, 0.5);
+        assert!(g.world.forms.dust.whole());
+        // a short pull let go of at once: it comes apart
+        g.pointer_down(1, 400.0, 300.0);
+        g.update(1.0 / 60.0);
+        g.pointer_move(1, 400.0, 325.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+        g.pointer_up(1);
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Dust));
+        assert!(g.world.forms.bloom.whole() && !g.world.ordinary());
+        assert!(g.world.raycast(g.cam.basis().pos, (g.world.body.pos - g.cam.basis().pos).norm()).is_none(), "nothing left to touch");
+        // sweep each drift into the fullest one, with strokes across the floor
+        let floor = |x: f32, z: f32| v3(x, crate::fusion::FLOOR_Y, z);
+        for _ in 0..12 {
+            if g.world.forms.dust.phase != forms::dust::Phase::Dust {
+                break;
+            }
+            let k = g.world.forms.dust.biggest();
+            let to = g.world.forms.dust.clumps[k];
+            for i in 0..forms::dust::CLUMPS {
+                let c = g.world.forms.dust.clumps[i];
+                if i == k || c.amount <= 0.0 {
+                    continue;
+                }
+                let (ox, oz) = (c.x - to.x, c.z - to.z);
+                let from = project(&g, floor(c.x + ox * 0.15, c.z + oz * 0.15));
+                let end = project(&g, floor(to.x, to.z));
+                g.pointer_down(3, from.0, from.1);
+                for s in 1..=8 {
+                    let f = s as f32 / 8.0;
+                    g.pointer_move(3, from.0 + (end.0 - from.0) * f, from.1 + (end.1 - from.1) * f, 1.0 / 60.0);
+                }
+                g.pointer_up(3);
+            }
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Sweep));
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Mound), "{:?}", g.world.forms.dust.clumps);
+        let (hx, hz, _, h) = g.world.forms.dust.heap();
+        let on = project(&g, floor(hx, hz) + V3::UP * (h * 0.5));
+        g.pointer_down(4, on.0, on.1);
+        g.pointer_up(4);
+        assert!(g.world.forms.dust.thud > 0.5, "it answers a tap");
+        g.pointer_down(5, on.0, on.1);
+        wait(&mut g, 1.5);
+        g.pointer_up(5);
+        wait(&mut g, 3.0);
+        assert!(g.progress.has(Discovery::Unearth));
+        assert!(g.world.ordinary());
+        assert!(g.world.body.pos.len() < 0.3, "it floats where it did");
     }
 
     #[test]

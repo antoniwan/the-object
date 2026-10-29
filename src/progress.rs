@@ -111,9 +111,13 @@ pub enum Discovery {
     Word,
     Greeting,
     Unanswered,
+    Dust,
+    Sweep,
+    Mound,
+    Unearth,
 }
 
-pub const ALL: [Discovery; 107] = [
+pub const ALL: [Discovery; 111] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -221,6 +225,10 @@ pub const ALL: [Discovery; 107] = [
     Discovery::Word,
     Discovery::Greeting,
     Discovery::Unanswered,
+    Discovery::Dust,
+    Discovery::Sweep,
+    Discovery::Mound,
+    Discovery::Unearth,
 ];
 
 impl Discovery {
@@ -333,6 +341,10 @@ impl Discovery {
             Discovery::Word => "word",
             Discovery::Greeting => "greeting",
             Discovery::Unanswered => "unanswered",
+            Discovery::Dust => "dust",
+            Discovery::Sweep => "sweep",
+            Discovery::Mound => "mound",
+            Discovery::Unearth => "unearth",
         }
     }
 
@@ -445,6 +457,10 @@ impl Discovery {
             Discovery::Word => "a word landed where a hand would have.",
             Discovery::Greeting => "it answered in the only words it has.",
             Discovery::Unanswered => "it heard you. it remembers the rest.",
+            Discovery::Dust => "it let go of every part of itself at once.",
+            Discovery::Sweep => "pushed, every grain leans back toward the rest.",
+            Discovery::Mound => "it is heavy now. it chose the ground.",
+            Discovery::Unearth => "it came up out of itself and left nothing behind.",
         }
     }
 }
@@ -509,7 +525,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Unanswered as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Unearth as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
