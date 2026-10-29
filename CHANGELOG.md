@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-10-29
+
+### Fixed
+- Since 1.11.0 the page could fall over as it opened, in browsers built on Chrome's engine that are not Chrome itself. It no longer asks anything about words until it has been let hear you, and then asks Chrome alone whether they can be made on the device. (#58)
+
 ## [1.13.0] - 2026-10-29
 
 ### Added
@@ -276,7 +281,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0

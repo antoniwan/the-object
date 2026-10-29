@@ -382,9 +382,9 @@ impl App {
             Kind::Hear => {
                 self.ear_ctx = devices::ear_context();
                 devices::ask(kind, self.answers.clone());
-                // Words on the device may need their language first; only a tap may fetch it.
-                if self.can_speech.get() == Can::HereAfterFetch {
-                    speech::fetch(self.can_speech.clone(), &self.lang);
+                // Whether words can be made on the device is only asked now, inside the tap.
+                if self.can_speech.get() == Can::Perhaps {
+                    speech::ready(self.can_speech.clone(), &self.lang);
                 }
             }
             Kind::See => devices::ask(kind, self.answers.clone()),
@@ -657,7 +657,7 @@ pub fn start() -> Result<(), JsValue> {
     game.senses.can_hear = devices::possible(Kind::Hear);
     game.senses.can_see = devices::possible(Kind::See);
     let lang = speech::lang();
-    let can_speech = if game.senses.can_hear { speech::probe(&lang) } else { Rc::new(Cell::new(Can::Nothing)) };
+    let can_speech = Rc::new(Cell::new(if game.senses.can_hear { speech::can() } else { Can::Nothing }));
     let feeling = devices::feeling();
     match feeling {
         devices::Feeling::Free => game.senses.feel = senses::Leave::Open,
