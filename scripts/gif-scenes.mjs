@@ -210,4 +210,27 @@ export default {
       await t.wait(3.5);
     },
   },
+  gather: {
+    about: 'poked to pieces; held still on the ground, the pieces come home and it grows back inside them',
+    async play(t) {
+      await t.wait(1);
+      for (let i = 0; i < 12; i++) {
+        await t.tap(0, 0);
+        await t.wait(0.2);
+      }
+      await t.wait(8);
+      t.roll();
+      await t.hold(0, 0.47, 1.6);
+      await t.wait(3.5);
+    },
+  },
+  box: {
+    about: 'a square drawn around it: it takes the corners, and the light under it goes as it does',
+    async play(t) {
+      await t.wait(1.5);
+      t.roll();
+      await t.drag([[-0.417, -0.367], [0.417, -0.367], [0.417, 0.367], [-0.417, 0.367], [-0.417, -0.367]], 1.7);
+      await t.wait(3);
+    },
+  },
 };

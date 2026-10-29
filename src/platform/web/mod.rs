@@ -10,6 +10,7 @@ use crate::platform::devices::{self, Answer, Ears, Eyes};
 use crate::game::Game;
 use crate::input::keys;
 use crate::input::motion::Felt;
+use crate::pace::Pace;
 use crate::progress::{Discovery, Progress};
 use crate::platform::render::Renderer;
 use crate::input::senses::{self, Kind, Senses};
@@ -45,9 +46,8 @@ struct App {
     last_frame: Option<f64>,
     /// When each pointer last moved, so two fingers don't time each other's moves.
     last_move: Vec<(i32, f64)>,
-    /// Fraction of device pixels rendered; lowered automatically on slow devices.
-    quality: f64,
-    slow_time: f64,
+    /// Fraction of device pixels rendered, and how much of the finest light: follows the frame rate.
+    pace: Pace,
     /// Frames since the page opened or the context came back; the loader covers the first ones.
     waiting: u32,
     awake: bool,
@@ -97,25 +97,11 @@ impl App {
             return;
         }
         let raw = self.last_frame.map_or(1.0 / 60.0, |t| (now - t) / 1000.0);
-        let dt = raw.clamp(0.0, 1.0 / 20.0);
         self.last_frame = Some(now);
-
-        // Adaptive resolution: a frame that stalls drops quality at once; sitting
-        // under ~35 fps for a second drops it gradually.
+        // How much of the screen is drawn follows how fast frames come (pace.rs).
         // (The first frames after waking can stall on the driver's last compile step; that says nothing about speed.)
         self.waiting = self.waiting.saturating_add(1);
-        if raw > 0.25 && self.quality > 0.4 && self.waiting > LOADER_FRAMES + 4 {
-            self.quality = (self.quality - 0.25).max(0.4);
-            self.slow_time = 0.0;
-        } else if dt > 1.0 / 35.0 {
-            self.slow_time += dt;
-            if self.slow_time > 1.0 && self.quality > 0.4 {
-                self.quality -= 0.15;
-                self.slow_time = 0.0;
-            }
-        } else {
-            self.slow_time = (self.slow_time - dt).max(0.0);
-        }
+        let dt = self.pace.frame(raw, self.waiting > LOADER_FRAMES + 4);
 
         self.resize();
         self.sense(now);
@@ -193,7 +179,7 @@ impl App {
         self.hud.think(now / 1000.0, thought);
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
-        self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height(), self.quality as f32);
+        self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height(), self.pace.fine);
     }
 
     /// Sound can only start inside a gesture; the first one makes it.
@@ -277,8 +263,7 @@ pub fn start() -> Result<(), JsValue> {
         night_shown: false,
         last_frame: None,
         last_move: Vec::new(),
-        quality: 1.0,
-        slow_time: 0.0,
+        pace: Pace::default(),
         waiting: 0,
         awake: false,
         lost: false,
@@ -410,7 +395,7 @@ pub fn start() -> Result<(), JsValue> {
                     a.renderer = r;
                     a.awake = false;
                     a.waiting = LOADER_FRAMES;
-                    a.quality = (a.quality * 0.6).max(0.4);
+                    a.pace.lost();
                     a.lost = false;
                 }
                 Err(e) => fail(&e),
@@ -500,6 +485,8 @@ pub fn start() -> Result<(), JsValue> {
         listen(doc.as_ref(), "visibilitychange", true, move |_: web_sys::Event| {
             let mut a = app.borrow_mut();
             if d.hidden() {
+                // The frames stop; the first one back starts the clock again.
+                a.last_frame = None;
                 a.close_all();
                 if let Some(audio) = &a.audio {
                     audio.suspend();

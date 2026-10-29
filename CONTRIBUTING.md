@@ -78,6 +78,7 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 118 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
+| `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two; the finest light fades with it. |
 | `src/math.rs` | Small vector math, so the simulation has no dependencies. |
 | `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
 
@@ -165,7 +166,7 @@ On 2026-10-28 the live site crashed a desktop browser. The shader had grown to t
 - **Measure before and after** any shader change: `./build.sh && node scripts/shader-time.mjs` loads the page in headless Chromium at a tiny viewport (48×32), a fresh browser each run, and times how long until it is ready. If it gets noticeably slower, find out why before merging.
 - On-screen effects that don't need the shader belong in the page (CSS, `glyph.js`), not in `shader.frag`.
 
-The page also guards against slow machines: the loader stays up while the shader compiles in the background (`KHR_parallel_shader_compile`), large screens render at most about 1.6 million pixels and scale up, and a lost WebGL context is recovered.
+The page also guards against slow machines: the loader stays up while the shader compiles in the background (`KHR_parallel_shader_compile`), large screens render at most about 1.6 million pixels and scale up, slow frames lower the resolution until they keep up and quick ones raise it again (`pace.rs`), and a lost WebGL context is recovered.
 
 ## Words on screen
 

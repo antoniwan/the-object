@@ -212,7 +212,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hit-stop | 0.12 s | the freeze right after a cut (`meiosis.rs`) |
 | quick change | 0.5 – 1.5 s | a bud growing, ice thawing, the floor taking it in |
 | becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2, coming apart into dust 3.0, heaping into a mound 3.2 |
-| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0, rising out of the mound 2.6 |
+| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8 (the body growing back inside the pieces over its last 0.56), the river draining 2.4, the room folding back up 3.0, rising out of the mound 2.6 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
 | kept together | follow 5 / s, lean 2 / s, turn 0.5 / s; a touch 0.12 s a piece; a breath 3.0 s + 0.35 s a piece | a cut steps each side back, fading `exp(-3 t)`; a drag off the ground faster than 1.5 canvas heights / s cuts instead of looking around (`kin.rs`) |
@@ -225,6 +225,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | agitation | `exp(-dt / 3.0)` | an upset fades over about three seconds |
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
 | after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |
+| the eye | opens and closes at rate 0.8 / s; its cell killed, it shuts at 7 / s, well before the cell is shed | it never blinks out in one frame (`morula.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
 | remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |
@@ -244,6 +245,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
+| resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; the finest light follows at rate 1.2 / s (`pace.rs`) |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
 `prefers-reduced-motion` stops the loader's animation and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.
@@ -403,7 +405,7 @@ A checklist. Most of it is enforced by review, some of it by tests.
 These are in `CONTRIBUTING.md` in full. They are here because they limit what a design may ask for.
 
 - **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
-- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`platform/web/` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
+- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`pace.rs`), the bent light and the focus fade out (`uFine`, eased, never switched); the film and the moment stay. A design may not depend on them being there.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game/` and `sim/` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
 - **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`, and words where the player has tapped `say something.` under the line that says they go to the browser's maker. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.

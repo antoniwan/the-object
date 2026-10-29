@@ -133,13 +133,13 @@ impl Renderer {
         self.gl.uniform4fv_with_f32_array(loc.as_ref(), data);
     }
 
-    /// `quality` is the page's adaptive resolution, 0.4..1; below 0.75 the finest light is left out.
-    pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32, quality: f32) {
+    /// `fine` is how much of the finest light is drawn, 0..1, eased by the page as frames slow (pace.rs).
+    pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32, fine: f32) {
         let gl = &self.gl;
         gl.viewport(0, 0, w as i32, h as i32);
         gl.use_program(Some(&self.program));
 
-        self.upload_view(world, cam, w, h, quality);
+        self.upload_view(world, cam, w, h, fine);
         let body = &world.body;
         let r = body.radius();
         // It swells as the wounds add up, right before it bursts.
@@ -162,7 +162,7 @@ impl Renderer {
     }
 
     /// The canvas, the clock, the camera and its shake.
-    fn upload_view(&self, world: &World, cam: &Camera, w: u32, h: u32, quality: f32) {
+    fn upload_view(&self, world: &World, cam: &Camera, w: u32, h: u32, fine: f32) {
         self.v2("uRes", w as f32, h as f32);
         self.f("uTime", world.time);
         let b = cam.basis();
@@ -173,14 +173,15 @@ impl Renderer {
         self.f("uFocal", FOCAL);
         let (shock, since) = cam.shock();
         self.v2("uShock", shock, since);
-        self.f("uFine", if quality < 0.75 { 0.0 } else { 1.0 });
+        self.f("uFine", fine);
     }
 
     /// The body, its tendrils, its ripples and its drops.
     fn upload_liquid(&self, world: &World, r: f32, swell: f32) {
         let body = &world.body;
         self.v4v("uBody", &[body.pos.x, body.pos.y, body.pos.z, r * swell]);
-        self.v3("uScale", body.scale());
+        // gathering after a burst, it grows back inside the pieces (burst.rs `grown`)
+        self.v3("uScale", body.scale() * world.burst.grown().max(0.02));
         self.v2("uK", K_HANDLE * r, K_DROP * r);
 
         let (mut ha, mut hb, mut bulb) = (Vec::new(), Vec::new(), Vec::new());
@@ -246,13 +247,15 @@ impl Renderer {
         self.v4v("uStone", &[look.stone, look.slab, look.thaw, m.slab_yaw]);
         let c = morula::slab_center(world.body.pos, r);
         self.v4v("uSlab", &[c.x, c.y, c.z, m.join() * r]);
-        // The eye sits on its cell until the cells have become grain, then on the grain body.
+        // The eye sits on its cell until the cells have become grain, then on the grain body,
+        // moving across as the shader blends one into the other.
         let e = m.eye_dir;
-        let ec = match m.eye {
-            Some(i) if look.grain < 0.5 => Some([m.cells[i].off.x * r, m.cells[i].off.y * r, m.cells[i].off.z * r, m.cells[i].r * r]),
-            Some(_) => Some([0.0, 0.0, 0.0, m.grain_radius() * r]),
-            None => None,
-        };
+        let ec = m.eye.map(|i| {
+            let k = crate::math::smoothstep(0.3, 0.7, look.grain);
+            let c = &m.cells[i];
+            let (off, cr) = (c.off * (1.0 - k), c.r + (m.grain_radius() - c.r) * k);
+            [off.x * r, off.y * r, off.z * r, cr * r]
+        });
         self.v4v("uEye", &[e.x, e.y, e.z, if ec.is_some() { m.eye_open } else { 0.0 }]);
         let ec = ec.unwrap_or([0.0, 0.0, 0.0, r]);
         self.v4v("uEyeC", &ec);
@@ -297,14 +300,17 @@ impl Renderer {
     /// Bursting: see burst.rs.
     fn upload_burst(&self, world: &World) {
         let bu = &world.burst;
-        let gone = if bu.body_gone() { 1.0 } else { 0.0 };
-        self.v4("uBurst", gone, bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
+        self.v4("uBurst", 1.0 - bu.grown(), bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
         let (mut ta, mut tb) = (Vec::new(), Vec::new());
         // landscape.rs: planted pieces grow, and the weather rounds every edge
         let round = bu.land.rounding();
+        // gathered home, they are drops inside the body growing back, whatever their size (a drop's
+        // size is the body's); their shadows go as its own comes (`grown`)
+        let shown = 1.0 - bu.grown();
         for (i, s) in bu.shards.iter().enumerate() {
             let (pos, morph) = bu.shard_pose(i);
-            ta.extend([pos.x, pos.y, pos.z, bu.shard_size(i)]);
+            let size = bu.shard_size(i);
+            ta.extend([pos.x, pos.y, pos.z, if morph > 0.0 { size } else { size * shown }]);
             tb.extend([s.yaw, morph, s.wobble, round]);
         }
         self.v4v("uTri", &ta);
