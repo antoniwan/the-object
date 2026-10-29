@@ -220,7 +220,8 @@ fn two_fingers_pinched_together_on_it_and_let_go_leave_a_bud_between_them() {
     let mut g = game();
     two_fingers(&mut g, (420.0, 260.0), (480.0, 260.0), (440.0, 260.0), (460.0, 260.0), 0.0);
     assert!(g.progress.has(Discovery::Pinch));
-    assert!(g.progress.has(Discovery::Squeeze), "a pinch is a squeeze too");
+    assert!(!g.progress.has(Discovery::Squeeze), "a pinch of its skin does not flatten all of it");
+    assert!(g.world.body.squash > 0.85, "{}", g.world.body.squash);
     let buds = &g.world.forms.bloom.buds;
     assert_eq!(buds.len(), 1);
     let b = g.cam.basis();

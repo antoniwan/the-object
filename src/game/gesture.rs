@@ -489,9 +489,9 @@ impl Game {
                 }
             }
             Gesture::Squeezing { start_dist, since, least, on } if self.pointers.len() >= 2 => {
-                let ratio = self.pinch_dist() / start_dist;
-                self.gesture = Gesture::Squeezing { start_dist, since, least: least.min(ratio), on };
-                let s = crate::input::pad::squeeze(ratio);
+                let now = self.pinch_dist();
+                self.gesture = Gesture::Squeezing { start_dist, since, least: least.min(now / start_dist), on };
+                let s = crate::input::pad::fingers(start_dist, now, self.h);
                 self.world.body.squeeze = s;
                 if s.abs() > 0.3 {
                     self.discover(Discovery::Squeeze);

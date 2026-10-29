@@ -19,6 +19,20 @@ pub fn squeeze(ratio: f32) -> f32 {
     ((ratio - 1.0) * 1.6).clamp(-1.0, 1.0)
 }
 
+/// Fingers on a screen are measured by how far they move too, not only by how much closer they
+/// come: fingers that begin close together (a pinch of its skin) halve their distance with a twitch,
+/// and should not flatten all of it. Moving this far (canvas heights) is as far as a ratio of 0.5.
+const FINGERS_HALF: f32 = 0.25;
+
+/// How far two fingers on a screen squeeze it, `start` and `now` apart, on a canvas `h` high:
+/// by how much closer they came, but never further than by how far they moved. Fingers that begin
+/// half the screen apart or more squeeze it by the ratio alone.
+pub fn fingers(start: f32, now: f32, h: f32) -> f32 {
+    let by_ratio = squeeze(now / start.max(1e-3));
+    let by_reach = squeeze(1.0 + (now - start) / h.max(1.0) * 0.5 / FINGERS_HALF);
+    if by_ratio.abs() < by_reach.abs() { by_ratio } else { by_reach }
+}
+
 #[derive(Default)]
 pub struct Pad {
     /// How far apart the fingers are now, as a share of how far apart they began; none between pinches.
@@ -80,6 +94,19 @@ mod tests {
             p.step(0.016);
         }
         assert_eq!(p.step(0.016), None, "stopped, it lets go");
+    }
+
+    #[test]
+    fn fingers_that_begin_close_together_squeeze_it_by_how_far_they_move() {
+        // half the screen apart, closed to half: the ratio alone
+        assert!((fingers(300.0, 150.0, 600.0) - squeeze(0.5)).abs() < 1e-5);
+        assert!((fingers(600.0, 300.0, 600.0) - squeeze(0.5)).abs() < 1e-5);
+        // a pinch of its skin, 60 to 20 pixels: a third of the distance, but only a twitch
+        let s = fingers(60.0, 20.0, 600.0);
+        assert!(s < 0.0 && s > -0.25, "{s}");
+        // spread from close together, the same
+        let s = fingers(60.0, 120.0, 600.0);
+        assert!(s > 0.0 && s < 0.4, "{s}");
     }
 
     #[test]
