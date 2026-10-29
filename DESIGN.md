@@ -179,6 +179,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s (`forms/bloom.rs`) |
+| `FINGERS_CLOSE` / `FINGERS_MAX_SECS` | 0.75 / 0.7 s | two fingers that both began on it, closed to this share of how far apart they began and let go this fast, pinch it between them (`forms/bloom.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
@@ -316,8 +317,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | tap | empty space | call | it reaches toward the place | `sim/` |
 | press and drag | the liquid | stretch | far enough: tear off a drop | `sim/` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
-| short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
-| short tug, let go at once | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
+| short tug, let go at once; or two fingers closed together on it, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
+| short tug, let go at once; or two fingers closed together on it | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
 | tap, again and again | the mound | tend | it takes root by itself; tended, it grows into branches, leaves and blossom; left alone, it draws back | `forms/growth.rs` |
 | drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |

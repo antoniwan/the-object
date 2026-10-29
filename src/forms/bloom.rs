@@ -1,6 +1,7 @@
 //! Pinch it and a bud stays. A pinch is a short, small pull let go of at once,
 //! too small to tear and too quick to be a stretch. A pull of the right length let go
 //! of a little too late leaves only the shadow of a bud, which sinks back at once.
+//! Two fingers on it, pinched together and let go of at once, are a pinch too, between them.
 //! Five buds and it opens:
 //! the body becomes a flower facing up, its petals unfolding from where the
 //! buds were. Tap the flower and it folds back into the body. Pinch the flower
@@ -19,6 +20,10 @@ pub const NEAR_MAX_SECS: f32 = 1.1;
 /// How long the shadow of a bud lasts, and how big it gets beside a real one.
 const NEAR_SECS: f32 = 1.3;
 const NEAR_SIZE: f32 = 0.7;
+/// Two fingers that both began on it, closed to this much of how far apart they began and
+/// let go of within `FINGERS_MAX_SECS`, pinched it.
+pub const FINGERS_CLOSE: f32 = 0.75;
+pub const FINGERS_MAX_SECS: f32 = 0.7;
 /// On the flower, which does not stretch, a pull this short (canvas heights) let go of at once is a pinch.
 pub const TUG_MAX: f32 = 0.12;
 const GROW_SECS: f32 = 0.5;
@@ -92,6 +97,12 @@ impl Bloom {
         }
         self.near = Some(Bud { dir, age: 0.0 });
         true
+    }
+
+    /// Two fingers let go of after `secs`, having closed to `least` of how far apart they began:
+    /// whether that was a pinch, not a squeeze.
+    pub fn fingers_pinched(secs: f32, least: f32) -> bool {
+        secs < FINGERS_MAX_SECS && least <= FINGERS_CLOSE
     }
 
     /// A pinch at `dir`. Returns true if it left a bud.

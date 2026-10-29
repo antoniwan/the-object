@@ -166,6 +166,7 @@ fn a_pinch_that_starts_on_empty_space_is_only_a_squeeze() {
     g.pointer_up(1);
     assert!(!g.progress.has(Discovery::Call), "the first finger was not a tap");
     assert_eq!(g.world.gaze, 0.0);
+    assert!(g.world.forms.bloom.buds.is_empty(), "nor a pinch");
 }
 
 #[test]
@@ -182,6 +183,45 @@ fn a_second_finger_on_a_fresh_stretch_does_not_pinch() {
         g.update(1.0 / 60.0);
     }
     assert!(!g.progress.has(Discovery::Pinch));
+}
+
+/// Two fingers down at `a` and `b`, moved to `a2` and `b2` over six frames, held `hold` seconds, lifted.
+fn two_fingers(g: &mut Game, a: (f32, f32), b: (f32, f32), a2: (f32, f32), b2: (f32, f32), hold: f32) {
+    g.pointer_down(1, a.0, a.1);
+    g.pointer_down(2, b.0, b.1);
+    for k in 1..=6 {
+        let f = k as f32 / 6.0;
+        g.pointer_move(1, a.0 + (a2.0 - a.0) * f, a.1 + (a2.1 - a.1) * f, 1.0 / 60.0);
+        g.pointer_move(2, b.0 + (b2.0 - b.0) * f, b.1 + (b2.1 - b.1) * f, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+    }
+    wait(g, hold);
+    g.pointer_up(1);
+    g.pointer_up(2);
+    wait(g, 0.1);
+}
+
+#[test]
+fn two_fingers_pinched_together_on_it_and_let_go_leave_a_bud_between_them() {
+    let mut g = game();
+    two_fingers(&mut g, (420.0, 260.0), (480.0, 260.0), (440.0, 260.0), (460.0, 260.0), 0.0);
+    assert!(g.progress.has(Discovery::Pinch));
+    assert!(g.progress.has(Discovery::Squeeze), "a pinch is a squeeze too");
+    let buds = &g.world.forms.bloom.buds;
+    assert_eq!(buds.len(), 1);
+    let b = g.cam.basis();
+    assert!(buds[0].dir.dot(b.right) > 0.2 && buds[0].dir.dot(b.up) > 0.1, "it is up and to the right, where the fingers were");
+    assert!(!g.progress.has(Discovery::Poke) && !g.progress.has(Discovery::Stretch));
+
+    // held a while, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (390.0, 340.0), (350.0, 340.0), (370.0, 340.0), 1.0);
+    // spread apart, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (390.0, 340.0), (300.0, 340.0), (420.0, 340.0), 0.0);
+    // barely closed, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (390.0, 340.0), (335.0, 340.0), (385.0, 340.0), 0.0);
+    // one finger off it, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (700.0, 340.0), (450.0, 340.0), (580.0, 340.0), 0.0);
+    assert_eq!(g.world.forms.bloom.buds.len(), 1);
 }
 
 #[test]
@@ -510,6 +550,15 @@ fn flower(g: &mut Game) {
     }
     wait(g, 4.0);
     assert!(g.progress.has(Discovery::Bloom));
+}
+
+#[test]
+fn two_fingers_pinched_together_on_the_flower_bring_it_to_dust() {
+    let mut g = game();
+    flower(&mut g);
+    let (x, y) = g.screen(g.world.body.pos);
+    two_fingers(&mut g, (x - 40.0, y), (x + 40.0, y), (x - 10.0, y), (x + 10.0, y), 0.0);
+    assert!(!g.world.forms.dust.whole(), "it comes apart");
 }
 
 #[test]

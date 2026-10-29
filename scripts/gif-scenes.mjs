@@ -35,7 +35,37 @@ async function sweep(t, strokes, secs) {
 // A slice from above the view to below it, through the middle.
 const cut = (t, x = 0) => t.drag([[x, -0.47], [x, 0.48]], 0.1);
 
+// Two fingers that begin at `a` and `b` and close to `a2` and `b2` over `secs`, then lift.
+async function twoFingers(t, a, b, a2, b2, secs) {
+  await t.down(1, ...a);
+  await t.down(2, ...b);
+  const n = Math.max(1, Math.round(secs / 0.02));
+  for (let k = 1; k <= n; k++) {
+    const f = k / n;
+    await t.move(1, a[0] + (a2[0] - a[0]) * f, a[1] + (a2[1] - a[1]) * f);
+    await t.move(2, b[0] + (b2[0] - b[0]) * f, b[1] + (b2[1] - b[1]) * f);
+    await t.wait(0.02);
+  }
+  await t.up(1, ...a2);
+  await t.up(2, ...b2);
+}
+
 export default {
+  fingers: {
+    about: 'on a phone, two fingers pinched together on it and let go leave a bud between them',
+    size: [320, 520],
+    async play(t) {
+      await t.wait(1);
+      t.roll();
+      await t.wait(0.4);
+      await twoFingers(t, [0.02, -0.09], [0.14, -0.09], [0.07, -0.09], [0.09, -0.09], 0.16);
+      await t.wait(0.9);
+      await twoFingers(t, [-0.15, 0.03], [-0.07, 0.11], [-0.12, 0.06], [-0.1, 0.08], 0.16);
+      await t.wait(0.6);
+      await t.snap('buds');
+      await t.wait(1.2);
+    },
+  },
   almost: {
     about: 'a pinch let go of too late nearly leaves a bud, which sinks back; let go at once, it stays',
     async play(t) {
