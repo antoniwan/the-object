@@ -36,7 +36,7 @@ uniform float uNight;  // 0..1 day to night
 uniform vec4 uGaze;    // xyz direction it reaches toward, w amount
 // Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
 uniform vec4 uCut;     // xyz normal of the (newest) cut, w split: 0 one body, 1 two cells
-uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
+uniform vec4 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material, w the light under it left past two
 uniform vec2 uNerve;   // after a cut (nerve.rs): x how afraid, y how sure it is still alive
 // Past two (morula.rs): up to sixteen cells, then grain, then stone.
 uniform vec4 uCells[16]; // xyz offset from the body center, w radius
@@ -1562,7 +1562,7 @@ vec3 dispersed(vec3 rd, vec3 n) {
 // Light focused through the body onto the floor at p: a hot point inside its shadow
 // with a ring of split color around it, wavering with the surface.
 vec3 caustic(vec3 p) {
-  if (uFine <= 0.0 || uBurst.x > 0.999 || uNC > 0 || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
+  if (uFine <= 0.0 || uBurst.x > 0.999 || (uNC > 0 && uDiv.w <= 0.0) || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
   float h = max(uBody.y - FLOOR_Y, 0.0);
   vec2 o = (p.xz - uBody.xz) / (uBody.w * (0.8 + 0.25 * h));
   o += 0.06 * vec2(sin(o.y * 5.0 + uTime * 1.3), sin(o.x * 4.0 - uTime * 1.1));
@@ -1574,6 +1574,8 @@ vec3 caustic(vec3 p) {
   float clear = (1.0 - uCoat.y) * (1.0 - uCosmos.x) * (1.0 - uNight) * exp(-h * 0.35);
   // gone before the box or the dust is halfway, where they leave it out altogether
   clear *= (1.0 - smoothstep(0.15, 0.5, uBox.x)) * (1.0 - smoothstep(0.15, 0.5, uDust.y));
+  // and from two cells to many, over a moment after the cut
+  if (uNC > 0) clear *= uDiv.w;
   return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit) * uFine * (1.0 - uBurst.x);
 }
 

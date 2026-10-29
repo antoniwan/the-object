@@ -33,6 +33,8 @@ pub const THAW_HOLD_SECS: f32 = 2.2;
 /// Pokes on one cell that kill it.
 pub const WOUNDS_TO_DIE: u32 = 3;
 const DIE_SECS: f32 = 2.6;
+/// How long the light under the two cells takes to go once they are many.
+const FIRST_LIGHT_SECS: f32 = 0.8;
 /// How fast the eye shuts when its cell is killed (per second).
 const EYE_SHUT: f32 = 7.0;
 /// The eye appears once there are this many living cells.
@@ -189,6 +191,17 @@ impl Morula {
 
     pub fn is_stone(&self) -> bool {
         matches!(self.stage, Stage::Stone | Stage::Thawing { .. } | Stage::Compacting { .. })
+    }
+
+    /// How much of the light focused under the two cells is still there, 0..1: it goes over the
+    /// first moments after they become many, instead of in the frame they do. Cut again in that
+    /// time, it is gone under the cut's flash.
+    pub fn first_light(&self) -> f32 {
+        if self.cuts == 1 {
+            1.0 - smoothstep(0.0, FIRST_LIGHT_SECS, self.since_cut)
+        } else {
+            0.0
+        }
     }
 
     pub fn look(&self) -> Look {
@@ -569,6 +582,23 @@ mod tests {
             last = m.eye_open;
         }
         assert!(m.eye_open < 0.05, "still open {} half a second later", m.eye_open);
+    }
+
+    #[test]
+    fn the_light_under_two_goes_over_a_moment_once_they_are_many() {
+        let mut m = Morula::from_two(v3(1.0, 0.0, 0.0), 0.95, v3(0.0, 1.0, 0.0));
+        let mut last = m.first_light();
+        assert_eq!(last, 1.0);
+        for _ in 0..120 {
+            m.step(1.0 / 120.0, 0.0, v3(0.0, 0.0, 1.0));
+            let l = m.first_light();
+            assert!(last - l < 0.05 && l <= last, "{last} to {l} in one frame");
+            last = l;
+        }
+        assert_eq!(last, 0.0);
+        settle(&mut m, 3.0);
+        m.cleave(v3(0.0, 0.0, 1.0));
+        assert_eq!(m.first_light(), 0.0, "only the first time they become many");
     }
 
     #[test]

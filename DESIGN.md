@@ -229,6 +229,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | agitation | `exp(-dt / 3.0)` | an upset fades over about three seconds |
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
 | after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |
+| light under two | goes over 0.8 s once two cells become many | the light focused under it never goes out in one frame (`morula.rs` `first_light`) |
 | the eye | opens and closes at rate 0.8 / s; its cell killed, it shuts at 7 / s, well before the cell is shed | it never blinks out in one frame (`morula.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
@@ -251,7 +252,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
-| resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; the finest light follows at rate 1.2 / s (`pace.rs`) |
+| resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; frames steady at 30 fps (within 2.5 ms, changing under 1.5 ms frame to frame: a screen saving power) are let be; the canvas follows in steps of 0.025, down at 0.4 / s and up at 0.15 / s; the finest light follows at rate 1.2 / s (`pace.rs`) |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
 `prefers-reduced-motion` stops the loader's animation and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.

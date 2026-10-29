@@ -224,7 +224,9 @@ impl Renderer {
         let axis = div.morula.as_ref().map_or(div.axis, |m| m.axis);
         self.v4("uCut", axis.x, axis.y, axis.z, bl.split);
         let flash = div.morula.as_ref().map_or(bl.flash, |m| m.look().flash);
-        self.v3("uDiv", crate::math::v3(flash, bl.furrow, bl.cell));
+        // w: what is left of the light under it once two cells become many (morula.rs)
+        let light = div.morula.as_ref().map_or(1.0, |m| m.first_light());
+        self.v4("uDiv", flash, bl.furrow, bl.cell, light);
         self.v2("uNerve", div.nerve.fear, div.nerve.power);
         self.upload_morula(world, r);
     }
