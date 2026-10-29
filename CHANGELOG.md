@@ -12,6 +12,12 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.4] - 2026-10-29
+
+### Changed
+- The script that sends the answer to its question is its own file now, so the copy on itch.io leaves it out by name. The page is otherwise the same. (#64)
+- Every change is now checked for warnings and timed the same way, and builds reuse what they built before. (#64)
+
 ## [1.16.3] - 2026-10-29
 
 ### Changed
@@ -324,7 +330,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.3...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.4...HEAD
+[1.16.4]: https://github.com/antoniwan/the-object/compare/v1.16.3...v1.16.4
 [1.16.3]: https://github.com/antoniwan/the-object/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/antoniwan/the-object/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/antoniwan/the-object/compare/v1.16.0...v1.16.1

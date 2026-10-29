@@ -182,7 +182,7 @@ impl App {
             }
         }
         self.show_marks();
-        let thought = self.game.thoughts.out.drain(..).last();
+        let thought = self.game.thoughts.out.drain(..).next_back();
         self.hud.think(now / 1000.0, thought);
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
@@ -212,6 +212,9 @@ impl App {
         }
     }
 }
+
+/// The frame loop's callback, kept alive by the loop itself.
+type Frame = Closure<dyn FnMut(f64)>;
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
@@ -401,9 +404,10 @@ pub fn start() -> Result<(), JsValue> {
                 a.take_offer(e.time_stamp());
                 return;
             }
-            if !e.repeat() && keys::down(&mut a.game, &e.code()) {
-                e.prevent_default();
-            } else if e.repeat() && (e.code() == "Space" || e.code().starts_with("Arrow")) {
+            // A first press the keyboard took, or a held key that would scroll the page.
+            if (!e.repeat() && keys::down(&mut a.game, &e.code()))
+                || (e.repeat() && (e.code() == "Space" || e.code().starts_with("Arrow")))
+            {
                 e.prevent_default();
             }
         })?;
@@ -463,7 +467,7 @@ pub fn start() -> Result<(), JsValue> {
     }
 
     // requestAnimationFrame loop.
-    let tick: Rc<RefCell<Option<Closure<dyn FnMut(f64)>>>> = Rc::new(RefCell::new(None));
+    let tick: Rc<RefCell<Option<Frame>>> = Rc::new(RefCell::new(None));
     let tick2 = tick.clone();
     let w = window.clone();
     *tick2.borrow_mut() = Some(Closure::new(move |now: f64| {

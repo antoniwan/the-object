@@ -20,6 +20,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          components: clippy
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen-cli@0.2.100
@@ -35,6 +36,10 @@ jobs:
             exit 1
           fi
       - run: cargo test
+      - name: No lint warnings, native and wasm
+        run: |
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
       - name: The simulation ends where it did
         run: cargo run --release --example frame_bench -- --check
       - uses: actions/setup-node@v4

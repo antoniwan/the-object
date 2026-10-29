@@ -169,7 +169,7 @@ pub fn listen_to_feel(felt: Rc<RefCell<Felt>>) {
         let (s, c) = turn(&win).to_radians().sin_cos();
         let p = v3(x * c - y * s, x * s + y * c, z);
         let mut f = felt.borrow_mut();
-        if f.push.map_or(true, |q| p.len() > q.len()) {
+        if f.push.is_none_or(|q| p.len() > q.len()) {
             f.push = Some(p);
         }
     });
