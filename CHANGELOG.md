@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.8.4] - 2026-10-29
+
+### Fixed
+- It is there again on iPhone. Since 1.8.3, Safari on a phone drew the room, the floor and the light under it, but not the thing that casts it.
+
 ## [1.8.3] - 2026-10-28
 
 ### Changed
@@ -230,7 +235,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.3...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.4...HEAD
+[1.8.4]: https://github.com/antoniwan/the-object/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/antoniwan/the-object/compare/v1.8.2...v1.8.3
 [1.8.2]: https://github.com/antoniwan/the-object/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/antoniwan/the-object/compare/v1.8.0...v1.8.1
