@@ -55,6 +55,8 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game.rs` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
+| dust | `#ccc7d4`, grainy, a few grains still glinting in the film's colors | the flower let go of; drifts on the floor, and the cloud they fall from | `shader.frag` `DUST`, `dustFloor()` |
+| mound | `#b3abb3`, faint layers, the film back at its grazing edges; lit from inside while pressed | the dust heaped and settled; the only thing it is that stands on the ground | `MOUND`, `shadeHeap()` |
 | fold | `#080412` the dark between, then a cosine run through `#e50839` `#6b00db` `#0091e0` `#6b9f3e` (`foldPal()`), squared, so mostly the violet and blue of the galaxy's arms come through, on an orbit-trap fractal | the galaxy's own colors let out into the room; each copy of it takes a different turn of the run | `shader.frag` fold block |
 | fold seams | `#f2d9ff`, flaring on a new mirror | where the mirrors meet | `foldSky()` |
 | backward | the fold's colors rotated a channel (`col.zxy`), cooler | its time running the other way | `foldSky()` `uFold.w` |
@@ -62,6 +64,10 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | the other, struck | `#bdd1ff` | it rings; brightest at its edges | `shadeOther()` `uOther2.w` |
 | the other, kept | the first's color at the time it was given back, 60% each time, glowing faintly at its grazing faces | what it took from inside the first | `other.rs` `kept` |
 | cold | `#9ea3f5` | the first cools toward this while it holds the other inside | `other.rs` `COLD` |
+| scar | `#5c3338`, a thin seam | where it was hurt most, kept between visits; fainter (35%) once healed, never gone | `shader.frag` `scarAt()`, `wound.rs` |
+| wound | `#6b0d0d` raw (the river's `BLOOD`), filling toward what was given it | the scar opened | `sceneColor()` `uWoundCol` |
+| its pieces | the whole hue wheel, soft (`hue()`: 75% color over 20% white), once round every 10 s, each from its own place | small spiked pieces of it on the floor around an open wound | `wound.rs` `hue()` |
+| green | hue one third, ±0.07 | the one color the wound takes back. Green is chosen on purpose, against the rule of earned color: people already read it as safe and well (a traffic light, a leaf), so it needs no words (the user's call, 2026-10-29) | `wound.rs` `GREEN` |
 
 ### The moment
 
@@ -73,6 +79,7 @@ Every shock (whatever shakes the room: a cut, a slam, the burst, the lid, the sl
 | a cut | the seam's pink | `#ff4d9e` |
 | the lid | the box's light | `#ffd173` |
 | the river's beat | blood | `#bf0a17` |
+| coming apart into dust | the dust | `#ccc7d4` |
 | the burst | every color at once, around it | spectrum by angle |
 | upset or wounded (no shock needed) | the edges bruise toward `#473859`, then `#8c1429` | at most 60%, less at night |
 
@@ -113,7 +120,7 @@ Three free fonts from Fontsource, self-hosted in `web/fonts/` with their license
 | whisper | Cormorant Garamond italic 400 | 16px / 1.4 | 0.08em | lowercase | loader lines |
 | thought | Cormorant Garamond italic 400 | 15px / 1.4 | 0.1em | lowercase | what it is thinking (`thoughts.rs`) |
 | count | JetBrains Mono 400 | 10px / 1 | 0.3em | lowercase roman numerals | how many it has shown you (`aura.rs` `roman()`) |
-| system | JetBrains Mono 400 | 10px / 1.4 | normal | as is | errors only |
+| system | JetBrains Mono 400 | 10px / 1.4 | normal | as is | errors, and the one line under `say something.` that says where words go |
 | alien | Noto Sans Math, subset ("Glyphs") | inherits | 0.4em | n/a | its reply at contact, the kept-steps answer |
 
 Everything is lowercase. Numbers are spelled out or roman, never digits, except the slab's `1 : 4 : 9`, which is a ratio and looks like one.
@@ -142,13 +149,17 @@ There is one screen, full bleed, no scroll, no chrome.
 | `edge-v` | `9vh` | the hint sits 9vh from the bottom; the toast 9vh from the top |
 | `thought` | `15vh` from the bottom, under the object's screen position (`--ox`, kept between 28% and 72%) | a thought; it drifts with the object over 3 s |
 | `edge-corner` | `16px` right, `14px` bottom | the count |
-| `edge-corner-left` | `16px` left, `14px` bottom | the marks while it hears or sees: `◍` hearing, `◉` seeing, in its tint at 70%, breathing |
+| `edge-corner-left` | `16px` left, `14px` bottom | the marks while it hears or sees: `◍` hearing, `◉` seeing, in its tint at 70%, breathing; a mark it asked for and was not given stays at 28%, still |
+| `safe-area` | `env(safe-area-inset-*)` added to both corners | so a phone's rounded edge and home bar never sit on the marks or the count |
+| `reach` | `14px 22px` around its word, `12px` around the marks | how far past what is drawn a tap still lands; the look does not move |
 | `toast-name-gap` | `6px` | between the name and its line |
 | `seed` | `18px` | the loader's pearl, centered |
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
 | `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
 
-The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped.
+The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped. Once it has asked to hear or see you in a visit and was not given it (the word went by, or it was stopped since), that mark stays in the corner, faint and still, until the visit ends; tapped, it is the same as tapping the word. It never appears before it has asked, and never after a no.
+
+**Touch and access.** Nothing on the page can be selected, long-pressed or flashed by a tap, and the page does not pull or bounce. Whatever is tappable reaches further than it is drawn. While its word is up, Enter takes it. The toast and the thought are hidden from screen readers, which decode them as noise; a hidden `#said` line reads them out in plain letters instead (its signs are left unread), and adds, for its word only, that Enter allows it. The canvas is described as the README describes it.
 
 ## 5. Motion and time
 
@@ -165,9 +176,15 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
+| `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
+| `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
+| `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
+| `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
 | `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
 | `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
+| `GAP` (words) | 0.14 s | between one spoken verb and the next; at most eight wait (`words.rs`) |
+| `GREET_GAP` | 6 s | a greeting is answered at most this often |
 | `HELD_SECS` / `HUM_SECS` | 0.8 s / 2.4 s | a note held this steady comes back, for this long |
 | `FOLD_TURNS` / `UNFOLD_TURNS` | 3 / 2 turns | stirred on past the universe this far, the room folds; this far the other way, it folds back up (`forms/fold.rs`) |
 | `BACKWARD_SECS` | 0.6 s | held still this long in the fold, its time turns round |
@@ -186,10 +203,11 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- | --- |
 | hit-stop | 0.12 s | the freeze right after a cut (`meiosis.rs`) |
 | quick change | 0.5 – 1.5 s | a bud growing, ice thawing, the floor taking it in |
-| becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2 |
-| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0 |
+| becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2, coming apart into dust 3.0, heaping into a mound 3.2 |
+| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0, rising out of the mound 2.6 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
+| kept together | follow 5 / s, lean 2 / s, turn 0.5 / s; a touch 0.12 s a piece; a breath 3.0 s + 0.35 s a piece | a cut steps each side back, fading `exp(-3 t)`; a drag off the ground faster than 1.5 canvas heights / s cuts instead of looking around (`kin.rs`) |
 | slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
 
 ### Decay and recovery
@@ -200,6 +218,11 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
+| remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |
+| remembered hurt | half-life 2 days | being upset or broken; it forgives faster than it forgets kindness |
+| scar | hurt 8 times ever (a break counts twice) | it scars where it is struck most (`wound.rs`) |
+| wound | opens 1.2 s, closes 3 s, then rests 20 s | a scar hurt again opens; three green pieces fill it |
+| spat out | 4.5 out, 2.7 up, falling at 16, bouncing at 45%, 2.2 s | a piece of the wrong color, thrown back down to the floor |
 | shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
 
 ### The page
@@ -223,6 +246,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Envelope.** One shape for everything: an 8 ms attack, an exponential slide from one pitch to another over half the decay, an exponential fade. Chords are plucks staggered by 0.03 – 0.75 s.
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
+- **Away.** Left for another tab, it goes silent at once (the audio context is suspended), and comes back as it was when the page is looked at again.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
@@ -243,7 +267,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 - Let it feel slightly off: a fact that should not be true, said calmly.
 - Keep it under about 60 characters. The longest one today is 61.
 - Address the player as "you" sparingly, and only when it is about what they did.
-- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `hold the room.`, `speak.` and `show yourself.` when it asks to feel the phone, to hear and to see). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
+- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `hold the room.`, `speak.`, `show yourself.` and `say something.` when it asks to feel the phone, to hear, to see and to take words). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
 
 **Examples from the game**
 
@@ -286,6 +310,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | press and drag | the liquid | stretch | far enough: tear off a drop | `sim.rs` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
+| short tug, let go at once | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
+| drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
 | keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |
 | draw a square | around it | (corners) | a box; knock three times | `forms/pandora.rs` |
@@ -294,9 +320,12 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
 | pinch or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim.rs` |
+| set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
+| hurt it, scarred | the liquid | (wound) | the scar opens and four spiked pieces fall around it, each turning through every color | `wound.rs` |
+| carry a piece into the wound | a piece | tend | green, it is taken and the wound fills a third; any other color, it is spat back out onto the floor; three and it closes over | `wound.rs` |
 | tap | the other one, after contact | ring | it rings; the first shivers on the side facing it | `other.rs` |
 | drag | the other one | carry | brought near, the first reaches a tendril toward it | `other.rs` |
 | flick it at the first | the other one | clash | both recoil and the first is upset; neither gives | `other.rs` |
@@ -311,7 +340,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | tip the phone | (phone) | lean | the same as the arrows, by as much as the phone is tipped; level is however it was held | `motion.rs` |
 | shake the phone | (phone) | shaken | it sloshes against the far wall from each jolt, and is upset; keep on and drops come loose, flung the way it was thrown, until the room goes dark | `motion.rs` |
 
-**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once.
+**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once. A word that went by untaken, or a sense stopped, leaves its mark faint in the corner for the rest of the visit (section 4); a tap there lets the browser ask, as the word would have.
 
 | What the player does | Verb | What it does | Module |
 | --- | --- | --- | --- |
@@ -324,6 +353,11 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | move in front of it | seen | turns toward where you moved | `senses.rs` |
 | cover the camera | blind | the room goes dark until you uncover it | `senses.rs`, `sim.rs` `dim` |
 | be watched by the eye at eight cells | watched | the eye follows you | `senses.rs`, `morula.rs` |
+| say a verb (poke, cut, squeeze, hold, pull, tear, pinch, throw, come; English or Spanish) | word | the same hand the pointer is does it, once for each time it is said | `words.rs` |
+| greet it, in any language, having been gentle | greeting | turns to you, two rising notes, and answers in signs: the same signs for the same greeting | `words.rs` |
+| greet it, having hurt it lately | unanswered | draws back and says nothing; not sure of you yet, it only turns to listen | `words.rs` |
+
+**Words** come out of hearing and need nothing more where the browser can make them on the device: then they simply work once it hears you, and nothing leaves the page. Where the browser can only make words by sending the voice to its maker (Safari on the iPhone, some others), it asks for that separately, once it already hears you, with `say something.` and one plain line under it saying where the voice goes; only a tap on that allows it, and while it lasts the marks say so too. A no is answered (`it will listen to the sound of you instead.`) and kept. The text that comes back is read for its verbs and greetings and dropped. Whether it answers a greeting is decided by what it remembers (`remembrance.rs`), and being greeted is remembered as a small kindness.
 
 **A phone in the hand** is the room. Tipping it tips the room and shaking it shakes the room; the object is what stays behind. Most phones let the page feel this without asking, and then it simply works; where the browser must ask first (iOS), it asks once a visit from regard on, before anything else, in its voice: `hold the room.` A no is answered (`it will stay where it is put.`) and kept, like the others. Two angles and one push a frame, used and dropped. On a desk nothing arrives and it never asks.
 
@@ -336,6 +370,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 - Every form has a way back, and the way back is the verb's opposite or a gentle version of it (stir back, hold to wind, tap to fold, squeeze to rejoin, hold to thaw).
 - Forms start only from the ordinary liquid: gate the gesture on `World::ordinary()`. One form at a time.
 - The contact arc (`contact.rs`) watches all of this and unlocks by count: regard at 6 discoveries, echo at 14, its turn at 24, contact at 36. It acts only while the world is ordinary.
+- Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, greeted, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player. Hurt it enough, ever, and it scars where it is struck most (`wound.rs`); time alone never takes a scar away, only tending its wound fades it, and never all the way.
 
 ## 9. Adding a new form
 
@@ -360,5 +395,5 @@ These are in `CONTRIBUTING.md` in full. They are here because they limit what a 
 - **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`web.rs` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game.rs` and `sim.rs` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
-- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
+- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`, and words where the player has tapped `say something.` under the line that says they go to the browser's maker. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
 - **The site is the build.** `web/` is everything that is served; build output is never committed.

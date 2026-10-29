@@ -160,6 +160,8 @@ pub struct World {
     /// Something else in the room, late on (see other.rs). Not part of the body: it never
     /// changes whether the body is ordinary.
     pub other: Other,
+    /// An old hurt, a scar and what opens out of it (see wound.rs).
+    pub wound: crate::wound::Wound,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -208,6 +210,7 @@ impl World {
             burst: Burst::default(),
             forms: Forms::default(),
             other: Other::default(),
+            wound: Default::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -380,6 +383,11 @@ impl World {
         self.fusion.step(dt);
         self.burst.step(dt);
         self.forms.step(dt);
+        // gone to dust, it is in the mound, and comes back up out of it (forms/dust.rs)
+        if let Some(at) = self.forms.dust.body_at(home) {
+            self.body.pos = at;
+            self.body.vel = V3::ZERO;
+        }
         self.step_handles(dt);
 
         for r in &mut self.ripples {
@@ -519,7 +527,9 @@ impl World {
                 let close = (a.pos - b.pos).len() < (a.r + b.r) * 0.8;
                 // Free drops keep their distance; one has to be carried into another.
                 let carried = a.target.is_some() || b.target.is_some();
-                if close && carried && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
+                // The wound's pieces hold their places, and never run together (wound.rs).
+                let pieces = self.wound.is_caltrop(a.id) && self.wound.is_caltrop(b.id);
+                if close && carried && !pieces && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
                     let keep_a = a.target.is_some() || (b.target.is_none() && a.r >= b.r);
                     let (ki, gi) = if keep_a { (i, j) } else { (j, i) };
                     let gone = self.drops.remove(gi);
@@ -595,8 +605,8 @@ impl World {
         let b = &self.body;
         let r = b.radius();
         let s = b.scale();
-        // Once it has burst, there is no body to touch.
-        let mut d = if self.burst.body_gone() { 1e3 } else { self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s)) };
+        // Once it has burst, or gone to dust, there is no body to touch.
+        let mut d = if self.burst.body_gone() || self.forms.dust.body_gone() { 1e3 } else { self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s)) };
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }

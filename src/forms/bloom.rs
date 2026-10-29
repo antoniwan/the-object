@@ -1,7 +1,8 @@
 //! Pinch it and a bud stays. A pinch is a short, small pull let go of at once,
 //! too small to tear and too quick to be a stretch. Five buds and it opens:
 //! the body becomes a flower facing up, its petals unfolding from where the
-//! buds were. Tap the flower and it folds back into the body.
+//! buds were. Tap the flower and it folds back into the body. Pinch the flower
+//! and it comes apart instead (dust.rs).
 
 use super::Event;
 use crate::math::*;
@@ -11,6 +12,8 @@ pub const PETALS: usize = 5;
 pub const PINCH_MAX_SECS: f32 = 0.4;
 pub const PINCH_MIN: f32 = 0.12;
 pub const PINCH_MAX: f32 = 0.75;
+/// On the flower, which does not stretch, a pull this short (canvas heights) let go of at once is a pinch.
+pub const TUG_MAX: f32 = 0.12;
 const GROW_SECS: f32 = 0.5;
 /// Buds left alone this long sink back in.
 const BUD_LIFE_SECS: f32 = 45.0;
@@ -96,6 +99,12 @@ impl Bloom {
         }
         self.phase = Phase::Folding { t: 0.0 };
         true
+    }
+
+    /// Gone to dust (dust.rs): there is no flower left to fold, and no buds.
+    pub fn scatter(&mut self) {
+        self.buds.clear();
+        self.phase = Phase::Buds;
     }
 
     pub fn step(&mut self, dt: f32) {

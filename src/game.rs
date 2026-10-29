@@ -26,6 +26,8 @@
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
 //! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
+//! - pinch the flower: it comes apart into dust on the floor; drag through the dust to sweep it,
+//!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
 //! - stir the universe on, the same way: the room folds and it is everywhere; poke to add a
@@ -34,12 +36,15 @@
 //! - in the landscape: drag a piece to carry it, hold one still to plant it,
 //!   carry them all to the middle to mend it (see landscape.rs); crowd them all together
 //!   anywhere else and they run as a river: tap it and a column stands up, drag along it
-//!   for a row, and fill the view with them (see river.rs)
+//!   for a row, and fill the view with them (see river.rs); set some close together and they
+//!   keep together, as many groups as you like: carry one and its group follows, yank it
+//!   and it comes loose, cut fast across the ground between them and they part (see kin.rs)
 //!
 //! - and from the keyboard: type, hold a letter, breathe with space, tip the room with
 //!   the arrows (see keys.rs)
 //! - once it asks and is let (see senses.rs): speak, hum, whisper or blow at it; move, move
 //!   fast, or cover the camera
+//! - and, once it hears you, in words: say a verb and it is done; greet it (see words.rs)
 //! - and with a phone in the hand (see motion.rs): tip it to tip the room; shake it
 //!
 //! - late, once it has reached back (see other.rs), something else is in the room: tap it, carry
@@ -48,6 +53,9 @@
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
+//! It also remembers how it was treated (see remembrance.rs): come back, and the first time
+//! a hand comes near it leans toward it, or away. Hurt it enough and it scars; hurt a scar and
+//! it opens, and what falls out can close it again (see wound.rs).
 //!
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
@@ -119,12 +127,19 @@ enum Gesture {
     Lake { start: (f32, f32), at: (f32, f32), since: f32, moved: bool },
     /// Pressing the empty ground of the landscape; held still long enough, it gathers.
     Ground { start: (f32, f32), since: f32 },
+    /// Swept fast off the empty ground of the landscape: it cuts, and does not look around.
+    Cutting { last: (f32, f32) },
     /// Pressing one of the twelve: a tap pokes it, a drag carries it, holding still plants it.
     Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
     /// Touching the river: every column under the pointer stands up.
     River,
     /// Pressing the other one (other.rs): a tap strikes it, a drag carries it.
     Other { start: (f32, f32), plane: V3, offset: V3, carried: bool },
+    /// A short pull on the flower, which would not stretch: let go at once, it is a pinch.
+    Tug { start: (f32, f32), since: f32 },
+    /// On the floor while it is dust (forms/dust.rs): dragging sweeps it from `last`;
+    /// pressing the mound and holding still brings it back up.
+    Dust { start: (f32, f32), last: (f32, f32), since: f32, mound: bool, moved: bool },
 }
 
 /// Distance between two points on the canvas.
@@ -173,7 +188,7 @@ pub struct Game {
     /// Seconds since the pointer last did anything at all, pressed or not.
     still: f32,
     /// Where the pointer last pointed, on the plane through the body.
-    pointer_at: Option<V3>,
+    pub(crate) pointer_at: Option<V3>,
     /// Whether it may hear and see the player, and what it does with it (senses.rs).
     pub senses: Senses,
     /// After the river: the beat it kept. Seconds per beat, seconds into this one, beats left.
@@ -184,6 +199,10 @@ pub struct Game {
     pub keys: crate::keys::Keys,
     /// What a phone in the hand is doing to the room (see motion.rs).
     pub motion: crate::motion::Motion,
+    /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
+    pub remembrance: crate::remembrance::Remembrance,
+    /// Words it hears, and how it has been treated (see words.rs).
+    pub words: crate::words::Words,
 }
 
 impl Game {
@@ -218,6 +237,8 @@ impl Game {
             thoughts: Thoughts::default(),
             keys: Default::default(),
             motion: Default::default(),
+            remembrance: Default::default(),
+            words: Default::default(),
         }
     }
 
@@ -244,6 +265,19 @@ impl Game {
         let n = self.cam.basis().fwd;
         let t = (through - ro).dot(n) / rd.dot(n);
         ro + rd * t
+    }
+
+    /// A finger or a button is down somewhere.
+    pub fn held(&self) -> bool {
+        !self.pointers.is_empty()
+    }
+
+    /// The drop in the player's hand, if one is.
+    pub fn carried_drop(&self) -> Option<u32> {
+        match self.gesture {
+            Gesture::Dragging { drop, .. } => Some(drop),
+            _ => None,
+        }
     }
 
     pub fn hovering_liquid(&self, x: f32, y: f32) -> bool {
@@ -349,8 +383,20 @@ impl Game {
                 let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
                 self.world.other.release((b.right * vx - b.up * vy) * 3.0);
             }
-            Gesture::Ground { .. } | Gesture::River | Gesture::Idle => {}
+            Gesture::Tug { since, .. } => {
+                if self.clock - since < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
+                    self.world.add_ripple(V3::UP, 0.5);
+                }
+            }
+            Gesture::Dust { mound: true, moved: false, .. } => {
+                if self.world.forms.dust.tap() {
+                    self.sounds.push(Sound::Poke { pitch: 0.0, size: 1.6 });
+                }
+            }
+            Gesture::Dust { .. } => {}
+            Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Idle => {}
         }
+        self.world.forms.dust.press = 0.0;
     }
 
     /// A tap on a body that has become something else. Returns true if that form answered it.
@@ -358,6 +404,16 @@ impl Game {
         let pos = self.world.body.pos;
         let f = &mut self.world.forms;
         f.filament.pluck(hit.pos, pos).is_some() || f.bloom.fold() || f.pandora.knock() || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
+    }
+
+    /// How many hands are on the canvas now.
+    pub(crate) fn hands(&self) -> usize {
+        self.pointers.len()
+    }
+
+    /// Where a point in the world lands on the canvas, in pixels.
+    pub(crate) fn screen_of(&self, p: V3) -> (f32, f32) {
+        self.screen(p)
     }
 
     /// Where a point in the world lands on the canvas, in pixels.
@@ -448,6 +504,20 @@ impl Game {
             };
             return;
         }
+        if !self.world.forms.dust.whole() {
+            // It is dust on the floor now; the floor is what there is to touch.
+            self.gesture = match self.floor_point(x, y) {
+                Some(at) => Gesture::Dust {
+                    start: (x, y),
+                    last: (at.x, at.z),
+                    since: self.clock,
+                    mound: self.world.forms.dust.on_mound(at.x, at.z),
+                    moved: false,
+                },
+                None => Gesture::Orbiting { start: (x, y), last: (x, y) },
+            };
+            return;
+        }
         if !self.world.fusion.whole() {
             // It is in the floor now; the floor is what there is to touch.
             let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
@@ -501,16 +571,18 @@ impl Game {
         p.1 = x;
         p.2 = y;
         match self.gesture {
-            Gesture::Pending { start, hit, .. } | Gesture::Warming { start, hit, .. } => {
+            Gesture::Pending { start, hit, since } | Gesture::Warming { start, hit, since } => {
                 let moved = dist(start, (x, y)) / self.h;
                 if moved > TAP_SLOP {
                     self.world.warming = false;
                     // Cells (and flowers, threads, boxes) don't stretch into tendrils; dragging them just looks around.
                     let f = &self.world.forms;
                     let stretchy = self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
+                    let flower = f.bloom.phase == bloom::Phase::Flower;
                     let stretch = if stretchy { self.world.begin_stretch(hit.pos) } else { None };
                     self.gesture = match stretch {
                         Some(handle) => Gesture::Stretching { handle, plane: hit.pos, since: self.clock, reach: 0.0, taut: 0.0, angle: None },
+                        None if flower => Gesture::Tug { start, since: self.clock - (self.world.time - since) },
                         None => Gesture::Orbiting { start, last: (x, y) },
                     };
                     self.pointer_move(id, x, y, dt);
@@ -569,12 +641,38 @@ impl Game {
             Gesture::River => {
                 self.raise_column(x, y, false);
             }
-            Gesture::Ground { start, .. } => {
-                let moved = dist(start, (x, y)) / self.h;
-                if moved > TAP_SLOP {
+            Gesture::Tug { start, .. } => {
+                // pulled further, it was never a pinch: look around
+                if dist(start, (x, y)) / self.h > bloom::TUG_MAX {
                     self.gesture = Gesture::Orbiting { start, last: start };
                     self.pointer_move(id, x, y, dt);
                 }
+            }
+            Gesture::Dust { start, last, since, mound, moved } => {
+                let moved = moved || dist(start, (x, y)) / self.h > TAP_SLOP;
+                let mut to = last;
+                if moved {
+                    if let Some(at) = self.floor_point(x, y) {
+                        to = (at.x, at.z);
+                        if self.world.forms.dust.sweep(last, to) {
+                            self.discover(Discovery::Sweep);
+                        }
+                    }
+                }
+                self.gesture = Gesture::Dust { start, last: to, since, mound, moved };
+            }
+            Gesture::Ground { start, .. } => {
+                let moved = dist(start, (x, y)) / self.h;
+                if moved > TAP_SLOP {
+                    // off fast where pieces hold on to each other, it cuts between them; otherwise it looks around
+                    let fast = dt > 0.0 && moved / dt > crate::kin::CUT_SPEED && !self.world.burst.kin.groups().is_empty();
+                    self.gesture = if fast { Gesture::Cutting { last: start } } else { Gesture::Orbiting { start, last: start } };
+                    self.pointer_move(id, x, y, dt);
+                }
+            }
+            Gesture::Cutting { last } => {
+                self.cut_kin(last, (x, y));
+                self.gesture = Gesture::Cutting { last: (x, y) };
             }
             Gesture::Shard { i, start, since, carried } => {
                 let moved = dist(start, (x, y)) / self.h;
@@ -655,6 +753,29 @@ impl Game {
                 return;
             }
         }
+    }
+
+    /// A fast drag over the landscape cuts between pieces that hold on to each other.
+    fn cut_kin(&mut self, from: (f32, f32), to: (f32, f32)) {
+        let bu = &self.world.burst;
+        if bu.phase != burst::Phase::Landscape || bu.river.active {
+            return;
+        }
+        let at: Vec<(f32, f32)> = (0..burst::SHARDS).map(|i| self.screen(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3))).collect();
+        let cuts: Vec<(usize, usize)> = (0..burst::SHARDS)
+            .flat_map(|a| (a + 1..burst::SHARDS).map(move |b| (a, b)))
+            .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::kin::crosses(from, to, at[a], at[b]))
+            .collect();
+        if cuts.is_empty() {
+            return;
+        }
+        let homes = bu.shards.map(|s| s.home);
+        for (a, b) in cuts {
+            self.world.burst.kin.cut(a, b, &homes);
+        }
+        self.world.burst.land.touch();
+        self.sounds.push(Sound::Tear);
+        self.discover(Discovery::Part);
     }
 
     /// Cut across a screen-space swipe; the halves part perpendicular to it.
@@ -761,6 +882,22 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.7);
                     self.discover(Discovery::Crease);
                 }
+                F::Crumbled => {
+                    self.sounds.push(Sound::Become);
+                    self.cam.shake = 0.05;
+                    self.discover(Discovery::Dust);
+                }
+                F::Swept => {}
+                F::Heaped => self.sounds.push(Sound::Become),
+                F::Grounded => {
+                    self.cam.shake = 0.03;
+                    self.discover(Discovery::Mound);
+                }
+                F::Unearthed => {
+                    self.world.add_ripple(V3::UP, 0.8);
+                    self.world.add_ripple(-V3::UP, 0.8);
+                    self.discover(Discovery::Unearth);
+                }
             }
         }
         // Everything it was keeping gets out at once.
@@ -791,8 +928,8 @@ impl Game {
             self.cam.yaw += (self.look_from.0 - self.cam.yaw) * k;
             self.cam.pitch += (self.look_from.1 - self.cam.pitch) * k;
         }
-        // The camera rises to look into the flower.
-        let open = self.world.forms.bloom.open();
+        // The camera rises to look into the flower, and stays up to look down on the dust.
+        let open = self.world.forms.bloom.open().max(self.world.forms.dust.view());
         if open > 0.0 && !orbiting {
             self.cam.pitch += (0.78 - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * open;
         }
@@ -813,6 +950,23 @@ impl Game {
                 self.discover(Discovery::Mend);
                 self.gesture = Gesture::Idle;
             }
+        }
+    }
+
+    fn on_kin(&mut self, e: crate::kin::Event) {
+        use crate::kin::Event as K;
+        match e {
+            K::Joined => {
+                self.sounds.push(Sound::Merge);
+                self.discover(Discovery::Kin);
+            }
+            K::Loosed => {
+                self.sounds.push(Sound::Tear);
+                self.discover(Discovery::Loose);
+            }
+            K::Passed => self.discover(Discovery::Pass),
+            K::Felt { i } => self.sounds.push(Sound::Shard { i }),
+            K::Many => self.discover(Discovery::Many),
         }
     }
 
@@ -1068,6 +1222,7 @@ impl Game {
         }
         crate::motion::step(self, dt);
         crate::keys::step(self, dt);
+        crate::words::step(self, dt);
 
         let sub = 3;
         for _ in 0..sub {
@@ -1079,7 +1234,8 @@ impl Game {
         let spread = self.world.burst.spread();
         self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread
             + 1.8 * self.world.forms.filament.morph()
-            + 1.4 * self.world.forms.fold.amount();
+            + 1.4 * self.world.forms.fold.amount()
+            + 3.6 * self.world.forms.dust.view();
         // Step back and level the eye to take in the slab.
         let slab = self.world.division.morula.as_ref().map_or(0.0, |m| {
             let l = m.look();
@@ -1117,6 +1273,14 @@ impl Game {
             felt: self.motion.alive && self.senses.is_open(senses::Kind::Feel),
         };
         self.thoughts.step(dt, self.idle, &mind);
+        if let Gesture::Dust { since, mound: true, moved: false, .. } = self.gesture {
+            let held = (self.clock - since) / forms::dust::RISE_HOLD_SECS;
+            self.world.forms.dust.press = held.min(1.0);
+            if held >= 1.0 && self.world.forms.dust.rise() {
+                self.sounds.push(Sound::Become);
+                self.gesture = Gesture::Idle;
+            }
+        }
         if let Gesture::Ground { since, .. } = self.gesture {
             if self.clock - since > burst::GATHER_HOLD_SECS && self.world.burst.gather() {
                 self.discover(Discovery::Gather);
@@ -1147,6 +1311,7 @@ impl Game {
                 }
                 burst::Event::Land(e) => self.on_land(e),
                 burst::Event::River(e) => self.on_river(e),
+                burst::Event::Kin(e) => self.on_kin(e),
             }
         }
         // Pull back and up so the whole landscape can be seen.
@@ -1254,6 +1419,7 @@ impl Game {
                 Event::Closed => self.discover(Discovery::Close),
             }
         }
+        crate::remembrance::step(self, dt);
     }
 }
 
@@ -1717,6 +1883,85 @@ mod tests {
         assert!(g.world.ordinary());
     }
 
+    fn flower(g: &mut Game) {
+        for i in 0..5 {
+            let a = i as f32 * std::f32::consts::TAU / 5.0;
+            let (dx, dy) = (a.cos(), a.sin());
+            let (x0, y0) = (400.0 + dx * 50.0, 300.0 + dy * 50.0);
+            g.pointer_down(1, x0, y0);
+            for k in 1..=3 {
+                g.pointer_move(1, x0 + dx * 14.0 * k as f32, y0 + dy * 14.0 * k as f32, 1.0 / 60.0);
+                g.update(1.0 / 60.0);
+            }
+            g.pointer_up(1);
+            wait(g, 0.6);
+        }
+        wait(g, 4.0);
+        assert!(g.progress.has(Discovery::Bloom));
+    }
+
+    #[test]
+    fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
+        let mut g = game();
+        flower(&mut g);
+        // pulled a long way, the flower only looks around
+        g.pointer_down(1, 400.0, 300.0);
+        g.pointer_move(1, 400.0, 420.0, 1.0 / 60.0);
+        g.pointer_up(1);
+        wait(&mut g, 0.5);
+        assert!(g.world.forms.dust.whole());
+        // a short pull let go of at once: it comes apart
+        g.pointer_down(1, 400.0, 300.0);
+        g.update(1.0 / 60.0);
+        g.pointer_move(1, 400.0, 325.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+        g.pointer_up(1);
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Dust));
+        assert!(g.world.forms.bloom.whole() && !g.world.ordinary());
+        assert!(g.world.raycast(g.cam.basis().pos, (g.world.body.pos - g.cam.basis().pos).norm()).is_none(), "nothing left to touch");
+        // sweep each drift into the fullest one, with strokes across the floor
+        let floor = |x: f32, z: f32| v3(x, crate::fusion::FLOOR_Y, z);
+        for _ in 0..12 {
+            if g.world.forms.dust.phase != forms::dust::Phase::Dust {
+                break;
+            }
+            let k = g.world.forms.dust.biggest();
+            let to = g.world.forms.dust.clumps[k];
+            for i in 0..forms::dust::CLUMPS {
+                let c = g.world.forms.dust.clumps[i];
+                if i == k || c.amount <= 0.0 {
+                    continue;
+                }
+                let (ox, oz) = (c.x - to.x, c.z - to.z);
+                let from = project(&g, floor(c.x + ox * 0.15, c.z + oz * 0.15));
+                let end = project(&g, floor(to.x, to.z));
+                g.pointer_down(3, from.0, from.1);
+                for s in 1..=8 {
+                    let f = s as f32 / 8.0;
+                    g.pointer_move(3, from.0 + (end.0 - from.0) * f, from.1 + (end.1 - from.1) * f, 1.0 / 60.0);
+                }
+                g.pointer_up(3);
+            }
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Sweep));
+        wait(&mut g, 4.0);
+        assert!(g.progress.has(Discovery::Mound), "{:?}", g.world.forms.dust.clumps);
+        let (hx, hz, _, h) = g.world.forms.dust.heap();
+        let on = project(&g, floor(hx, hz) + V3::UP * (h * 0.5));
+        g.pointer_down(4, on.0, on.1);
+        g.pointer_up(4);
+        assert!(g.world.forms.dust.thud > 0.5, "it answers a tap");
+        g.pointer_down(5, on.0, on.1);
+        wait(&mut g, 1.5);
+        g.pointer_up(5);
+        wait(&mut g, 3.0);
+        assert!(g.progress.has(Discovery::Unearth));
+        assert!(g.world.ordinary());
+        assert!(g.world.body.pos.len() < 0.3, "it floats where it did");
+    }
+
     #[test]
     fn held_taut_it_becomes_a_thread_that_plucks_and_winds_back() {
         let mut g = game();
@@ -1932,6 +2177,101 @@ mod tests {
         assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
         assert!(g.world.burst.whole());
         assert!(g.world.body.color != crate::sim::PEARL);
+    }
+
+    /// Drag piece `i` slowly over the ground to `to`, and let go.
+    fn carry_to(g: &mut Game, id: i32, i: usize, to: V3) {
+        let (x0, y0) = shard_at(g, i);
+        let (x1, y1) = project(g, to);
+        g.pointer_down(id, x0, y0);
+        for k in 1..=60 {
+            let f = k as f32 / 60.0;
+            g.pointer_move(id, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(id);
+        for _ in 0..30 {
+            g.update(1.0 / 60.0);
+        }
+    }
+
+    #[test]
+    fn set_down_together_they_keep_together_in_as_many_groups_as_you_like_and_a_cut_parts_them() {
+        let mut g = game();
+        burst_it(&mut g);
+        // three pairs, each in its own place
+        for (n, (a, b)) in [(0usize, 1usize), (2, 3), (4, 5)].into_iter().enumerate() {
+            let turn = n as f32 * 2.1 + 0.4;
+            let at = v3(turn.cos() * 22.0, fusion::FLOOR_Y, turn.sin() * 22.0);
+            let side = v3(-at.z, 0.0, at.x).norm();
+            carry_to(&mut g, 70 + 2 * n as i32, a, at);
+            carry_to(&mut g, 71 + 2 * n as i32, b, at + side * 3.6);
+            assert_eq!(g.world.burst.kin.group(a), (1 << a) | (1 << b), "{a} and {b} hold on, only to each other: {:?} {:?} {:?}", g.world.burst.shards[a].home, g.world.burst.shards[b].home, g.cam.basis().pos);
+        }
+        assert!(g.progress.has(Discovery::Kin));
+        assert!(g.progress.has(Discovery::Many));
+        assert!(!g.world.burst.river.active, "small groups do not run");
+
+        // touch one and the other feels it after
+        let (x, y) = shard_at(&g, 0);
+        g.pointer_down(80, x, y);
+        g.pointer_up(80);
+        g.sounds.clear();
+        for _ in 0..30 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Pass));
+        assert!(g.sounds.iter().any(|s| matches!(s, Sound::Shard { i: 0 | 1 })), "the other one of the pair answers after");
+
+        // a fast cut across the ground between them, and they part
+        let (pa, pb) = (shard_at(&g, 4), shard_at(&g, 5));
+        let mid = ((pa.0 + pb.0) * 0.5, (pa.1 + pb.1) * 0.5);
+        let (dx, dy) = (pb.0 - pa.0, pb.1 - pa.1);
+        let l = (dx * dx + dy * dy).sqrt();
+        let across = (-dy / l, dx / l);
+        let from = (mid.0 - across.0 * 80.0, mid.1 - across.1 * 80.0);
+        g.pointer_down(81, from.0, from.1);
+        assert!(matches!(g.gesture, Gesture::Ground { .. }), "the cut starts on the ground");
+        for k in 1..=4 {
+            let f = k as f32 * 40.0;
+            g.pointer_move(81, from.0 + across.0 * f, from.1 + across.1 * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(81);
+        assert!(g.progress.has(Discovery::Part));
+        assert!(!g.world.burst.kin.bonded(4, 5));
+        assert!(g.world.burst.kin.bonded(0, 1) && g.world.burst.kin.bonded(2, 3), "the other groups were not touched");
+        // and each side steps back from the cut
+        let gap = (g.world.burst.shards[4].home - g.world.burst.shards[5].home).len();
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        assert!((g.world.burst.shards[4].home - g.world.burst.shards[5].home).len() > gap + 1.0);
+    }
+
+    #[test]
+    fn a_group_carried_to_the_middle_goes_home_together() {
+        let mut g = game();
+        burst_it(&mut g);
+        let home = g.world.burst.shards[0].home;
+        let side = v3(-home.z, 0.0, home.x).norm();
+        carry_to(&mut g, 90, 1, home + side * 3.6);
+        let group = g.world.burst.kin.group(0);
+        assert!(group & 0b10 != 0, "they hold on");
+        // slowly, so the others keep up
+        let (x0, y0) = shard_at(&g, 0);
+        let (x1, y1) = project(&g, v3(0.0, fusion::FLOOR_Y, 0.6));
+        g.pointer_down(91, x0, y0);
+        for k in 1..=400 {
+            let f = k as f32 / 400.0;
+            g.pointer_move(91, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.burst.kin.group(0), group, "they kept up");
+        g.pointer_up(91);
+        for i in 0..burst::SHARDS {
+            assert_eq!(g.world.burst.land.returned(i), group & (1 << i) != 0, "piece {i}");
+        }
     }
 
     #[test]

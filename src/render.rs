@@ -311,6 +311,14 @@ impl Renderer {
         self.v4v("uFold2", &[fd.mirrors_was as f32, fd.mirrors as f32, crate::math::smoothstep(0.0, 1.0, fd.mirror_t), 0.0]);
         let pa = &fo.pandora;
         self.v4v("uBox", &[pa.boxness(), pa.lid(), pa.rattle, pa.yaw]);
+        let du = &fo.dust;
+        let (cloud, fall) = du.cloud();
+        self.v4v("uDust", &[du.settle(), du.crumble_amount(), cloud, fall]);
+        let clumps: Vec<f32> = du.clumps.iter().flat_map(|c| [c.x, c.z, c.radius(), c.amount]).collect();
+        self.v4v("uClump", &clumps);
+        let (hx, hz, hr, hh) = du.heap();
+        self.v4v("uHeap", &[hx, hz, hr, hh]);
+        self.v4v("uHeapB", &[du.firm(), du.thud, du.press, 0.0]);
 
         // The other one: see other.rs.
         let ot = &world.other;
@@ -318,6 +326,20 @@ impl Renderer {
         self.v4v("uOther2", &[ot.yaw, ot.tilt, ot.edge, ot.ring]);
         self.v4v("uOther3", &[ot.kept.x, ot.kept.y, ot.kept.z, ot.fire]);
         self.f("uOtherIn", ot.inside());
+
+        // An old hurt: see wound.rs.
+        let wo = &world.wound;
+        let shown = wo.shown;
+        self.v4v("uScar", &[wo.dir.x, wo.dir.y, wo.dir.z, wo.scar * shown]);
+        self.v4v("uWound", &[wo.open() * shown, wo.fill, wo.drip, 0.0]);
+        self.v3("uWoundCol", wo.color);
+        let mut spiked = 0usize;
+        for (i, d) in world.drops.iter().take(MAX_DROPS).enumerate() {
+            if wo.is_caltrop(d.id) {
+                spiked |= 1 << i;
+            }
+        }
+        self.i("uCaltrop", spiked);
 
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }

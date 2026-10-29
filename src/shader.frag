@@ -85,6 +85,10 @@ uniform vec4 uFil2;      // x its thickness, y sphere→thread 0..1, z ringing n
 uniform vec3 uFilSwing;  // which way it swings when plucked
 uniform vec4 uCosmos;    // x liquid→universe 0..1, y how far the galaxy has turned, z a star igniting, w which way it turns
 uniform vec4 uBox;       // x round→box 0..1, y the lid open 0..1, z rattle of a knock, w which way it faces
+uniform vec4 uDust;      // x the dust down on the floor 0..1, y the body come apart 0..1, z the cloud in the air, w how far it has fallen
+uniform vec4 uClump[8];  // each drift of dust: x, z, how wide, its share of the dust
+uniform vec4 uHeap;      // the mound: x, z, how wide, how high (0: none)
+uniform vec4 uHeapB;     // x grains→settled 0..1, y answering a tap, z pressed 0..1
 uniform vec2 uShock;     // x how hard the last shock was 0..1, y seconds since it (camera.rs)
 uniform float uFine;     // 1 while frames keep up; 0 leaves out the light bent through it and focused under it
 
@@ -93,7 +97,17 @@ uniform vec4 uOther;     // xyz where it is, w its size (0: not in the room)
 uniform vec4 uOther2;    // x how far it has turned, y how far it leans, z how sharp it has become, w ringing
 uniform vec4 uOther3;    // rgb the color it kept from inside the first, a fire in its edges
 uniform float uOtherIn;  // 0..1 how far inside the first it is
+
+// ---- an old hurt (wound.rs) ------------------------------------------------------
+uniform vec4 uScar;      // xyz which way the seam faces from the middle, w how plain the scar is (0: none)
+uniform vec4 uWound;     // x how open 0..1, y how full 0..1, z a drip going in 1..0
+uniform vec3 uWoundCol;  // what it is filling with
+uniform int uCaltrop;    // which drops are its spiked pieces, one bit each
 const int OTHER = 40;
+const int HEAP = 41;
+// pearl ground to powder (forms/dust.rs), and the mound it settles into
+const vec3 DUST = vec3(0.80, 0.78, 0.83);
+const vec3 MOUND = vec3(0.70, 0.67, 0.70);
 
 // Turns that depend only on uniforms, worked out once per pixel by sceneSetup() so that
 // scene() and the shading need not work them out again at every step.
@@ -101,8 +115,12 @@ vec4 gOtherTurn; // cos and sin of the other one's turn, then of its lean
 vec2 gRiverDir;  // which way the river runs
 vec4 gBoxTurn;   // cos and sin of the way the box faces, then of how far its lid is open
 float gBoxShiver;
+vec3 gScarS, gScarW; // along the seam, and across it
 
 void sceneSetup() {
+  vec3 ref = abs(uScar.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+  gScarS = normalize(cross(uScar.xyz, ref));
+  gScarW = cross(uScar.xyz, gScarS);
   gOtherTurn = vec4(cos(uOther2.x), sin(uOther2.x), cos(uOther2.y), sin(uOther2.y));
   gRiverDir = vec2(cos(uRiver.z), sin(uRiver.z));
   float lid = max(uBox.y, 0.0) * 1.9;
@@ -257,6 +275,14 @@ float sdTaper(vec3 p, vec3 a, vec3 b, float ra, float rb) {
   return length(pa - ba * h) - mix(ra, rb, h);
 }
 
+// The scar at a surface direction n: x on the seam itself, y in the open wound, both 0..1.
+vec2 scarAt(vec3 n) {
+  if (uScar.w <= 0.0) return vec2(0.0);
+  float along = dot(n, gScarS), across = dot(n, gScarW);
+  float m = exp(-along * along * 14.0) * step(0.0, dot(n, uScar.xyz));
+  return vec2(uScar.w * exp(-across * across * 300.0), uWound.x * exp(-across * across * 110.0)) * m;
+}
+
 // Ripples and wobble for a surface direction n, in body radii.
 float surfaceDisp(vec3 n) {
   float disp = 0.012 * sin(n.x * 3.0 + uTime * 1.3) * sin(n.y * 4.0 - uTime * 1.1) * sin(n.z * 3.0 + uTime * 0.9);
@@ -292,6 +318,9 @@ float surfaceDisp(vec3 n) {
   // Cut, it trembles; sure of itself again, it swells slowly, like a held breath.
   disp += uDiv.z * (uNerve.x * 0.010 * sin(n.x * 23.0 + t * 41.0) * sin(n.y * 19.0 - t * 37.0)
                     + uNerve.y * 0.014 * (0.5 + 0.5 * sin(t * 1.9)));
+  // The scar is raised a little; the wound is a gash, shallower as it fills.
+  vec2 sc = scarAt(n);
+  disp += 0.03 * sc.x - sc.y * (0.11 * (1.0 - 0.85 * uWound.y) + 0.02 * uWound.z * sin(uTime * 9.0));
   return disp;
 }
 
@@ -612,14 +641,41 @@ float pillars(vec3 p, out int pid) {
   return max(d * 0.6, max(p.y - FLOOR_Y - uRiver2.w - 0.1, FLOOR_Y - p.y));
 }
 
+// The mound (forms/dust.rs): a cone of loose grains that rounds into a dome as it settles,
+// standing on the floor; settled, it breathes, and a tap shakes it down a little.
+float heapSdf(vec3 p) {
+  float h = max(uHeap.w * (1.0 + 0.025 * uHeapB.x * sin(uTime * 1.3) - 0.07 * uHeapB.y), 1e-3);
+  vec3 q = p - vec3(uHeap.x, FLOOR_Y, uHeap.y);
+  float w = length(q.xz);
+  float cone = (w * h + (q.y - h) * uHeap.z) * inversesqrt(h * h + uHeap.z * uHeap.z);
+  // the dome: the cap of a sphere through the rim and the top
+  float rs = (uHeap.z * uHeap.z + h * h) / (2.0 * h);
+  float dome = length(vec2(w, q.y - h + rs)) - rs;
+  return max(mix(cone, dome, 0.25 + 0.4 * uHeapB.x), -q.y);
+}
+
 // Also hands back the body alone, and the nearest piece and its distance, so
 // shade() can use them without compiling bodySurface() and shards() again.
+// One of the wound's pieces (wound.rs): a small core with four spikes, turning slowly, so
+// that however it lies one points up. Not an exact distance, so it is taken at half.
+float caltrop(vec3 q, float r, float seed) {
+  float a = uTime * 0.4 + seed * 1.7;
+  q.xz = mat2(cos(a), sin(a), -sin(a), cos(a)) * q.xz;
+  vec3 n = q / max(length(q), 1e-5);
+  float m = max(max(dot(n, vec3(0.577, 0.577, 0.577)), dot(n, vec3(-0.577, -0.577, 0.577))),
+                max(dot(n, vec3(-0.577, 0.577, -0.577)), dot(n, vec3(0.577, -0.577, -0.577))));
+  float m2 = m * m, m4 = m2 * m2, m8 = m4 * m4;
+  return (length(q) - r * (0.6 + 1.0 * m8 * m8 * m2)) * 0.5;
+}
+
 float scene(vec3 p, out float body, out float piece, out int id) {
   // the fold repeats the body through mirrored space (forms/fold.rs)
   vec3 fsg, fk;
   float fang, fs;
   vec3 bp = foldSpace(p, fsg, fang, fk, fs);
-  body = uBurst.x > 0.5 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? foldStep(p) : 1.0);
+  body = uBurst.x > 0.5 || uDust.y > 0.999 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? foldStep(p) : 1.0);
+  // coming apart into dust: it pits, then shrinks to nothing
+  if (uDust.y > 0.0) body += uDust.y * uBody.w * (1.25 + 0.3 * sin(bp.x * 13.0) * sin(bp.y * 11.0 + 1.3) * sin(bp.z * 12.0 + 2.1));
   float d = body;
   piece = 1e3;
   id = -1;
@@ -632,6 +688,11 @@ float scene(vec3 p, out float body, out float piece, out int id) {
       if (pd < piece) { piece = pd; id = pid; }
     }
     d = min(d, piece);
+  }
+  if (uHeap.w > 0.02) {
+    float hd = heapSdf(p);
+    if (hd < piece) { piece = hd; id = HEAP; }
+    d = min(d, hd);
   }
   if (uLake.z > 0.0) {
     // the body melts into the floor through a smooth join
@@ -653,7 +714,10 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   }
   for (int i = ZERO; i < 12; i++) {
     if (i >= uND) break;
-    d = smin(d, length(p - uDrop[i].xyz) - uDrop[i].w, uK.y);
+    vec3 q = p - uDrop[i].xyz;
+    float dd = length(q) - uDrop[i].w;
+    if (((uCaltrop >> i) & 1) != 0) dd = caltrop(q, uDrop[i].w, float(i));
+    d = smin(d, dd, uK.y);
   }
   // the other one, joined last and never smoothly: the two never melt into each other
   if (uOther.w > 0.0) {
@@ -695,7 +759,7 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
   float grow = 0.05 + 0.25 * (uK.x * float(uNH) + uK.y * float(uND)) + 0.12 * r * lake;
   vec2 s = vec2(1e9, -1e9);
   // the furthest the ripples, the gaze, the boiling, the buds and the furrow push the body out
-  float disp = 0.012 + 0.31 * abs(uGaze.w) + 0.045 * abs(uAgit) + 0.32 * abs(uDiv.y);
+  float disp = 0.012 + 0.31 * abs(uGaze.w) + 0.045 * abs(uAgit) + 0.32 * abs(uDiv.y) + 0.03 * abs(uScar.w) + 0.02 * abs(uWound.z);
   // the highest the lake's waves reach, and the highest piece
   float wave = 0.12;
   float top = -1e9;
@@ -705,7 +769,8 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
     disp += below(fi, float(uNR)) * 0.26 * abs(uRip[min(i, 7)].w);
     disp += below(fi, float(uNB)) * 0.3 * abs(uBud[min(i, 4)].w);
     wave += below(fi, float(uNLR)) * 0.06 * abs(uLakeRip[min(i, 5)].w);
-    s = spanSphere(ro, rd, uDrop[i].xyz, pick(-1.0, uDrop[i].w + grow, below(fi, float(uND))), s);
+    float spikes = 1.0 + 0.6 * float((uCaltrop >> i) & 1);
+    s = spanSphere(ro, rd, uDrop[i].xyz, pick(-1.0, uDrop[i].w * spikes + grow, below(fi, float(uND))), s);
     int h = min(i, 3);
     vec3 a = uHA[h].xyz, b = uHB[h].xyz;
     float rt = 0.5 * length(b - a) + max(max(uHA[h].w, uHB[h].w), uHBulb[h]) + 0.03 * r + grow;
@@ -726,6 +791,7 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
   float jet = step(-0.3, uJet.w) * (max(uJet.z, uJet.w + 0.3) + 0.3);
   top = max(top, pick(-1e9, FLOOR_Y + max(wave, jet) + grow / 0.8, lake));
   top = max(top, pick(-1e9, FLOOR_Y + uRiver2.w + 0.1 + grow / 0.6, step(1e-9, uBurst.w) * step(1e-9, uRiver2.w)));
+  top = max(top, pick(-1e9, FLOOR_Y + uHeap.w * 1.12 + 0.05 + grow, step(0.02, uHeap.w)));
   // the layer under that height: where the ray crosses it, and whether it comes down through it
   float down = step(rd.y, 0.0);
   float cross = (top - ro.y) / (abs(rd.y) < 1e-6 ? 1e-6 : rd.y);
@@ -739,6 +805,10 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
 // `d` is bodySurface(p), which the caller already has.
 vec3 sceneColor(vec3 p, float d) {
   vec3 col = uBodyCol;
+  // the seam a shade darker than the rest of it; the wound raw, then what it was given
+  vec2 sc = scarAt(normalize(p - uBody.xyz + 1e-5));
+  col = mix(col, vec3(0.36, 0.2, 0.22), 0.9 * sc.x * (1.0 - uWound.x));
+  col = mix(col, mix(BLOOD, uWoundCol, uWound.y), clamp(sc.y * 1.4, 0.0, 1.0));
   for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
     float stem = sdTaper(p, uHA[i].xyz, uHB[i].xyz, uHA[i].w, uHB[i].w);
@@ -817,7 +887,7 @@ float sphOcc(vec3 pos, vec4 sph) {
 float floorShadow(vec3 p) {
   vec3 off = cellOffset();
   float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
-  float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y)))
+  float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y) * (1.0 - uDust.y)))
                             : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
   if (uFil2.y > 0.0) {
     // the thread's shadow: a line of soft beads along it
@@ -839,6 +909,7 @@ float floorShadow(vec3 p) {
     occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
   }
   if (uBurst.x > 0.5) occ = 0.0;
+  if (uHeap.w > 0.02) occ += sphOcc(p, vec4(uHeap.x, FLOOR_Y + uHeap.w * 0.35, uHeap.y, uHeap.z * 0.75));
   if (uOther.w > 0.0) occ += sphOcc(p, vec4(uOther.xyz, uOther.w * 1.3));
   float fade = exp(-0.05 * dot(p.xz, p.xz));
   // the pieces cast their own shadows wherever they stand
@@ -856,6 +927,33 @@ vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db, vec3 er);
 vec3 galaxy(vec3 p, vec3 rd);
 vec3 caustic(vec3 p);
 vec3 drama(vec3 col, vec2 uv, vec2 c, vec3 w);
+vec3 filmColor(float d, float c);
+vec3 shadeHeap(vec3 p, vec3 rd, vec3 n, float ao);
+
+// The dust on the floor at p (forms/dust.rs): soft drifts, grainy at their edges, with a
+// little relief toward the light; here and there a grain still catches it the way its skin did.
+vec3 dustFloor(vec3 p, vec3 bg) {
+  float dd = 0.0;
+  vec2 grad = vec2(0.0);
+  for (int i = ZERO; i < 8; i++) {
+    vec4 c = uClump[i];
+    if (c.w <= 0.0) continue;
+    vec2 o = p.xz - c.xy;
+    float a = 3.0 * c.w * exp(-dot(o, o) / (c.z * c.z));
+    dd += a;
+    grad -= 2.0 * o / (c.z * c.z) * a;
+  }
+  dd *= uDust.x;
+  if (dd < 0.01) return bg;
+  float g = hash(floor(vec3(p.xz * 60.0, 1.0)));
+  float cover = smoothstep(0.04, 0.45, dd + (g - 0.5) * 0.3);
+  vec3 n = normalize(vec3(-grad.x * 0.06, 1.0, -grad.y * 0.06));
+  vec3 col = DUST * (0.8 + 0.25 * clamp(dot(n, KEY) / KEY.y, 0.0, 1.2)) * (1.0 - 0.14 * g);
+  // the floor's own light and shadow still fall on it
+  col *= bg / vec3(0.972, 0.970, 0.962);
+  col += filmColor(0.3 + 0.4 * g, 0.6) * step(0.993, hash(floor(vec3(p.xz * 90.0, 7.0)))) * 0.5;
+  return mix(bg, col, cover * smoothstep(30.0, 16.0, length(p - uCamPos)));
+}
 
 // Dark and wet, lit by the room; brighter on each heartbeat.
 vec3 shadeBlood(vec3 rd, vec3 n, float depth) {
@@ -944,6 +1042,7 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
     bg *= shadow;
     bg += caustic(p) * bg;
     if (uRiver.w > 0.0) bg = riverFloor(p, rd, bg);
+    if (uDust.x > 0.0) bg = dustFloor(p, bg);
     // past the marcher's reach the liquid floor still shows, flat
     if (uLake.z > 0.0) bg = mix(bg, lakeFade(lake, p, bg), lakeMask(p.xz));
   }
@@ -1187,6 +1286,10 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
   // the room in its skin, looked up once for whichever material it turns out to be
   vec3 er = env(reflect(rd, n));
   if (!far && id == OTHER && ds < db && ds < 0.01) return shadeOther(p, rd, n, ao, er);
+  // the mound, and the body while it is the dust's color: one call site, so it compiles once
+  bool heap = !far && id == HEAP && ds < db && ds < 0.01;
+  vec3 dust = heap || uDust.y > 0.0 ? shadeHeap(p, rd, n, ao) : vec3(0.0);
+  if (heap) return dust;
   int shard = -1;
   if (uBurst.w > 0.0 && !far && id >= 0 && id != OTHER && ds < db) shard = id;
   if (shard >= 16) return shadePillar(p, rd, shard - 16, n, ao, er);
@@ -1199,6 +1302,8 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
   }
   // a body that has been hurt flushes
   col *= mix(vec3(1.0), vec3(1.0, 0.72, 0.78), uBurst.z * 0.9);
+  // coming apart, or coming back up out of the mound, it is the color of the dust
+  if (uDust.y > 0.0) col = mix(col, dust, smoothstep(0.0, 0.6, uDust.y));
   if (uLake.z > 0.0) {
     // where the floor is hit but hasn't turned liquid yet, it is still the white floor
     float floorness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * (1.0 - lakeMask(p.xz));
@@ -1363,6 +1468,26 @@ float filmThickness(vec3 n) {
          + 0.05 * sin(dot(n, vec3(-5.3, 4.1, 2.9)) - uTime * 0.13) - 0.12 * uGaze.w;
 }
 
+// The mound and the dust it is made of: matte grains lit from the key light, a few still
+// glinting; settled, it darkens a little and the film it had comes back faintly at its
+// edges; pressed, light comes up through it from inside.
+vec3 shadeHeap(vec3 p, vec3 rd, vec3 n, float ao) {
+  float ndv = max(dot(n, -rd), 0.0);
+  float firm = uHeapB.x;
+  float g = hash(floor(p * 70.0));
+  // loose grains break up the light; settled, it keeps faint layers, the way ground does
+  float diff = clamp((dot(n, KEY) + 0.3) / 1.3 + (g - 0.5) * 0.5 * (1.0 - 0.6 * firm), 0.0, 1.0);
+  float y = p.y - FLOOR_Y;
+  vec3 col = mix(DUST, MOUND, firm) * (0.55 + 0.5 * diff) * (0.65 + 0.35 * ao)
+           * (1.0 - 0.045 * firm * smoothstep(0.6, 1.0, sin(y * 26.0 + 0.6 * sin(p.x * 3.0 + p.z * 2.0))));
+  // a few grains still glint in its film's colors; settled, the film comes back at its edges
+  float glint = step(0.985, fract(g * 61.7)) * (1.0 - 0.6 * firm);
+  vec3 fc = filmColor(0.3 + 0.4 * g + 0.2 * (1.0 - ndv), ndv);
+  col += (fc + 0.5) * glint * 0.45 + fc * 0.3 * firm * pow4(1.0 - ndv);
+  col += vec3(0.98, 0.97, 1.0) * uHeapB.z * uHeapB.z * (0.08 + 0.22 * clamp(y / max(uHeap.w, 0.1), 0.0, 1.0));
+  return col;
+}
+
 // The room seen through the body, each color bent its own amount.
 vec3 dispersed(vec3 rd, vec3 n) {
   // one copy of the room, looked up once for each color
@@ -1377,7 +1502,7 @@ vec3 dispersed(vec3 rd, vec3 n) {
 // Light focused through the body onto the floor at p: a hot point inside its shadow
 // with a ring of split color around it, wavering with the surface.
 vec3 caustic(vec3 p) {
-  if (uFine < 0.5 || uBurst.x > 0.5 || uNC > 0 || uBox.x > 0.5) return vec3(0.0);
+  if (uFine < 0.5 || uBurst.x > 0.5 || uNC > 0 || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
   float h = max(uBody.y - FLOOR_Y, 0.0);
   vec2 o = (p.xz - uBody.xz) / (uBody.w * (0.8 + 0.25 * h));
   o += 0.06 * vec2(sin(o.y * 5.0 + uTime * 1.3), sin(o.x * 4.0 - uTime * 1.1));
@@ -1402,6 +1527,7 @@ vec3 washColor(vec2 uv, vec2 c) {
   w = mix(w, vec3(1.0, 0.30, 0.62), clamp(uDiv.x * 3.0, 0.0, 1.0));          // the seam's pink
   w = mix(w, vec3(1.0, 0.82, 0.45), step(0.001, uBox.y));                     // the box's light
   w = mix(w, vec3(0.75, 0.04, 0.09), step(0.001, uRiver2.x));                 // the river's red
+  w = mix(w, DUST, step(0.001, uDust.y));                                      // the dust's grey
   float a = atan(uv.y - c.y, uv.x - c.x) / (2.0 * PI);
   vec3 spectrum = 0.55 + 0.45 * cos(2.0 * PI * (a + uTime * 0.05 + vec3(0.0, 0.33, 0.67)));
   return mix(w, spectrum, step(0.5, uBurst.x));                               // the twelve: every color at once
@@ -1579,6 +1705,19 @@ void main() {
       float off = length(at.xz - uBody.xz) / uBody.w;
       float above = smoothstep(top, top + 0.3, at.y) * exp(-(at.y - top) * 0.35);
       col += vec3(1.0, 0.93, 0.75) * uBox.y * above * exp(-off * off * 3.0) * 0.5;
+    }
+  }
+  if (uDust.z > 0.0) {
+    // the cloud it came apart into, spreading as it comes down; its grains fall through it
+    vec3 cc = mix(uBody.xyz, vec3(uBody.x, FLOOR_Y + 0.4, uBody.z), uDust.w);
+    float cr = uBody.w * (1.3 + 2.6 * uDust.w);
+    float s = max(dot(cc - ro, rd), 0.0);
+    vec3 at = ro + rd * s;
+    if (!hit || s < t + cr) {
+      float miss = length(at - cc) / cr;
+      float grain = hash(floor(at * 24.0 + vec3(0.0, uDust.w * 30.0, 0.0)));
+      float dens = exp(-miss * miss * 2.5) * uDust.z;
+      col = mix(col, DUST * (0.75 + 0.3 * grain), clamp(dens * (0.15 + 0.9 * step(0.6, grain)), 0.0, 0.9));
     }
   }
   vec2 bc = bodyOnScreen();

@@ -47,7 +47,7 @@ pub fn possible(kind: Kind) -> bool {
     match kind {
         Kind::Hear => allowed(&w, &["microphone"]),
         Kind::See => allowed(&w, &["camera"]),
-        Kind::Feel => false,
+        Kind::Feel | Kind::Words => false,
     }
 }
 
@@ -193,7 +193,7 @@ pub fn ask(kind: Kind, answers: Rc<RefCell<Vec<Answer>>>) {
             ]));
             c.set_video(&false.into());
         }
-        Kind::Feel => {
+        Kind::Feel | Kind::Words => {
             answers.borrow_mut().push((kind, Err(false)));
             return;
         }

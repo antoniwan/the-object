@@ -12,6 +12,59 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-29
+
+### Added
+- When it asks to hear or to see you and the moment goes by, the asking does not go with it: a faint mark waits in the corner for the rest of the visit, and taking it is the same as taking the word. Stopped, it waits there again. (#57)
+
+### Changed
+- Its word, when it asks, reaches further than it looks, so a thumb finds it; on a keyboard, Enter takes it. (#57)
+- On a phone nothing under a finger is selected, flashed or called out, the page no longer pulls or bounces, and the corners keep clear of rounded screens and the home bar. (#57)
+- Left in another tab, it falls silent, and its sound comes back with you. (#57)
+- A hand closed on it shows as closed until it opens. (#57)
+- A screen reader hears what it finds, thinks and asks, in plain letters, instead of the signs they pass through. (#57)
+
+## [1.13.1] - 2026-10-29
+
+### Fixed
+- Since 1.11.0 the page could fall over as it opened, in browsers built on Chrome's engine that are not Chrome itself. It no longer asks anything about words until it has been let hear you, and then asks Chrome alone whether they can be made on the device. (#58)
+
+## [1.13.0] - 2026-10-29
+
+### Added
+- Hurt enough, over time, it scars where it is struck most, and the scar stays between visits. Hurt again, the scar opens, and small spiked pieces of it fall onto the floor around it, each slowly turning through every color. Some of what is carried back in is kept, and fills the wound; the rest is thrown back out. Filled, it closes over, and the scar is fainter. It never goes. Four discoveries come with it. (#56)
+
+## [1.12.0] - 2026-10-29
+
+### Added
+- Pinched once it has flowered, it does not close: it comes apart into a cloud of grain that settles over the floor in drifts. (#55)
+- A finger drawn through the dust sweeps it along, and drifts pushed together become one. Gathered nearly all in one place, it heaps itself into a mound that settles, stands on the ground and breathes there. Left alone long enough, the dust drifts together on its own. (#55)
+- Tapped, the mound answers low; held, light comes up through it and it rises back out of itself, floating again, and leaves nothing behind. Four new discoveries. (#55)
+
+## [1.11.0] - 2026-10-29
+
+### Added
+- Once it hears you, some words do what a hand would, as many times as they are said, in English or Spanish.
+- A greeting, in almost any language, is answered in its own signs, the same signs for the same greeting; but only if it remembers being treated gently. Hurt lately, it draws back. Not sure of you yet, it only listens. Being greeted is remembered too.
+- Three new things to find.
+
+### Changed
+- Words are made on the device where the browser can, so nothing leaves the page. Where the browser cannot, it asks for that separately, and says under its word where the voice would go.
+
+## [1.10.0] - 2026-10-29
+
+### Added
+- It remembers what was done to it, between visits: being held, sung to, hummed to, answered and returned to, and being hurt or broken. Hurt fades sooner than care. Once it has begun to regard you, the first time a hand comes near on a visit, it leans toward a hand that was kind to it and pulls away from one that was not. Two discoveries come with it. (#53)
+
+## [1.9.0] - 2026-10-29
+
+### Added
+- After it bursts, the twelve need not stay twelve, or one. Set close together they keep together, in as many groups as there are places to leave them. A group comes along when one of it is carried, unless it is pulled away faster than the rest can follow; a quick cut across the ground between them parts a group, each side stepping back. Touch one of a group and the rest feel it after, one by one. Each group breathes in its own time and slowly turns its faces inward. (#52)
+- Five more things to find. (#52)
+
+### Changed
+- Carried to the middle together, a group goes home together. Only all twelve crowded into one still run as a river. (#52)
+
 ## [1.8.5] - 2026-10-29
 
 ### Added
@@ -240,7 +293,14 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.5...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.1...v1.14.0
+[1.13.1]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.13.1
+[1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
+[1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
+[1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/antoniwan/the-object/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/antoniwan/the-object/compare/v1.8.5...v1.9.0
 [1.8.5]: https://github.com/antoniwan/the-object/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/antoniwan/the-object/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/antoniwan/the-object/compare/v1.8.2...v1.8.3
