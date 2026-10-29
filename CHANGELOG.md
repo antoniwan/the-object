@@ -15,7 +15,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.13.0] - 2026-10-29
 
 ### Added
-- Hurt enough, over time, it scars where it is struck most, and the scar stays between visits. Hurt again, the scar opens, and small spiked pieces of it fall onto the floor around it, each slowly turning through every color. Some of what is carried back in is kept, and fills the wound; the rest is thrown back out. Filled, it closes over, and the scar is fainter. It never goes. Four discoveries come with it.
+- Hurt enough, over time, it scars where it is struck most, and the scar stays between visits. Hurt again, the scar opens, and small spiked pieces of it fall onto the floor around it, each slowly turning through every color. Some of what is carried back in is kept, and fills the wound; the rest is thrown back out. Filled, it closes over, and the scar is fainter. It never goes. Four discoveries come with it. (#56)
 
 ## [1.12.0] - 2026-10-29
 
