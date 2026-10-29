@@ -107,12 +107,15 @@ fn fingerprint(g: &Game) -> u64 {
     h
 }
 
+/// A scene's name, and what is done to the object to reach it.
+type Scene = (&'static str, fn(&mut Game));
+
 /// The committed fingerprints, one `name hex` per line.
 const EXPECTED: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/fingerprints.txt");
 
 fn main() {
     let mut prints: Vec<(&str, u64)> = Vec::new();
-    let scenes: [(&str, fn(&mut Game)); 6] = [
+    let scenes: [Scene; 6] = [
         ("still", |_| {}),
         ("torn", torn),
         ("stirred", |g| {
@@ -193,7 +196,7 @@ fn senses_scene() -> (u64, u64) {
     let mut frame = |g: &mut Game, k: usize, mix: &mut dyn FnMut(f32)| {
         let t = k as f32 / 60.0;
         let f = 180.0 + 60.0 * (t * 0.7).sin();
-        let amp = if (k / 90) % 2 == 0 { 0.3 } else { 0.005 };
+        let amp = if (k / 90).is_multiple_of(2) { 0.3 } else { 0.005 };
         let samples: Vec<f32> = (0..2048).map(|i| (i as f32 / 48000.0 * f * TAU).sin() * amp).collect();
         let heard = senses::hear(&samples, 48000.0);
         for (i, p) in px.chunks_exact_mut(4).enumerate() {

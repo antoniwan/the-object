@@ -33,8 +33,7 @@ impl Game {
                 }
                 C::Answered => {
                     self.sounds.push(Sound::Merge);
-                    self.world.add_ripple(V3::UP, 0.6);
-                    self.world.add_ripple(-V3::UP, 0.6);
+                    self.world.ripple_both(0.6);
                     self.discover(Discovery::Answer);
                 }
                 C::Reaching => self.sounds.push(Sound::Become),

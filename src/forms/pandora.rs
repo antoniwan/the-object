@@ -13,7 +13,7 @@ const ROUNDING: f32 = 0.06;
 const FORM_SECS: f32 = 2.0;
 const OPEN_SECS: f32 = 1.8;
 const ROUND_SECS: f32 = 2.6;
-pub const KNOCKS: u32 = 3;
+const KNOCKS: u32 = 3;
 /// How long the lid stays open, at least, before it can round off again.
 const OPEN_AT_LEAST_SECS: f32 = 4.0;
 

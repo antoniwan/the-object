@@ -400,8 +400,7 @@ impl Game {
                     self.gesture = Gesture::Idle;
                 }
                 burst::Event::Gathered => {
-                    self.world.add_ripple(V3::UP, 0.9);
-                    self.world.add_ripple(-V3::UP, 0.9);
+                    self.world.ripple_both(0.9);
                 }
                 burst::Event::Land(e) => self.on_land(e),
                 burst::Event::River(e) => self.on_river(e),
@@ -430,8 +429,7 @@ impl Game {
                     self.world.add_ripple(-V3::UP, (speed * 0.12).min(0.9));
                 }
                 fusion::Event::Rose => {
-                    self.world.add_ripple(V3::UP, 0.8);
-                    self.world.add_ripple(-V3::UP, 0.8);
+                    self.world.ripple_both(0.8);
                 }
             }
         }
@@ -465,8 +463,7 @@ impl Game {
             match e {
                 meiosis::Event::Rejoined => {
                     self.discover(Discovery::Rejoin);
-                    self.world.add_ripple(V3::UP, 0.7);
-                    self.world.add_ripple(-V3::UP, 0.7);
+                    self.world.ripple_both(0.7);
                 }
                 meiosis::Event::Many(e) => self.morula_event(e),
                 meiosis::Event::Divided => {}

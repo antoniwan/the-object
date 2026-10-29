@@ -25,7 +25,7 @@ const SINK_SECS: f32 = 1.4;
 const GROW_SECS: f32 = 24.0;
 /// How deep a planted piece goes, as a fraction of its height, and how much larger it comes back.
 const SINK_DEPTH: f32 = 0.72;
-pub const GROWTH: f32 = 0.6;
+const GROWTH: f32 = 0.6;
 /// Untouched this long, the weather starts; this long more and it is finished.
 const CALM_SECS: f32 = 3.0;
 const WEATHER_SECS: f32 = 50.0;
@@ -34,7 +34,7 @@ const MAX_ROUND: f32 = 0.22;
 /// Three different pieces within this many seconds ring together.
 const CHORD_SECS: f32 = 1.6;
 /// Dropped this close to the middle, a piece goes back.
-pub const MEND_RADIUS: f32 = 2.4;
+const MEND_RADIUS: f32 = 2.4;
 const MELT_SECS: f32 = 0.9;
 /// Pieces can be carried at most this far out.
 const REACH: f32 = 26.0;
@@ -88,10 +88,6 @@ pub struct Land {
     events: Vec<Event>,
 }
 
-fn ease(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
 
 /// Where each bead settles: the corners of an icosahedron, a small cluster
 /// where the body was. `blob` is a bead's radius; positions are its base.
@@ -172,7 +168,7 @@ impl Land {
             return (home, 0.0);
         }
         // up over a small arc and down into its bead
-        let e = ease(r.melt);
+        let e = smooth01(r.melt);
         let p = r.from.lerp(home, e);
         (p + V3::UP * ((e * std::f32::consts::PI).sin() * 1.2), e)
     }
@@ -180,12 +176,12 @@ impl Land {
     /// How far below the ground its base is, as a fraction of height, and how much larger it is.
     pub fn depth_and_scale(&self, i: usize) -> (f32, f32) {
         let r = self.roots[i];
-        let g = ease(r.grow);
-        (ease(r.sink) * SINK_DEPTH * (1.0 - g), 1.0 + GROWTH * g)
+        let g = smooth01(r.grow);
+        (smooth01(r.sink) * SINK_DEPTH * (1.0 - g), 1.0 + GROWTH * g)
     }
 
     pub fn rounding(&self) -> f32 {
-        ease(self.weather) * MAX_ROUND
+        smooth01(self.weather) * MAX_ROUND
     }
 
     pub fn step(&mut self, dt: f32) {

@@ -13,7 +13,7 @@ use crate::floor::mere::Mere;
 /// Height of the floor plane. The shader uses the same value.
 pub const FLOOR_Y: f32 = -1.45;
 /// Landing faster than this (world units per second) fuses instead of bouncing.
-pub const SLAM_SPEED: f32 = 6.0;
+const SLAM_SPEED: f32 = 6.0;
 /// How far the liquid spreads, in world units, once it has fully spread.
 pub const LAKE_RADIUS: f32 = 40.0;
 pub const MAX_LAKE_RIPPLES: usize = 6;

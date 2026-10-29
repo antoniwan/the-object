@@ -32,6 +32,11 @@ pub(super) enum Gesture {
 }
 
 impl Game {
+    /// Whether the pointer has gone far enough from `start` to stop being a tap.
+    fn past_slop(&self, start: (f32, f32), x: f32, y: f32) -> bool {
+        dist(start, (x, y)) / self.h > TAP_SLOP
+    }
+
     pub(super) fn end_gesture(&mut self) {
         match std::mem::replace(&mut self.gesture, Gesture::Idle) {
             Gesture::Pending { hit, .. } => {
@@ -336,7 +341,7 @@ impl Game {
                 self.world.grab_drop(drop, to);
             }
             Gesture::Other { start, plane, offset, carried } => {
-                if carried || dist(start, (x, y)) / self.h > TAP_SLOP {
+                if carried || self.past_slop(start, x, y) {
                     let to = self.plane_point(x, y, plane) + offset;
                     self.world.other.carry(to);
                     self.gesture = Gesture::Other { start, plane, offset, carried: true };
@@ -371,7 +376,7 @@ impl Game {
                 }
             }
             Gesture::Dust { start, last, since, mound, moved } => {
-                let moved = moved || dist(start, (x, y)) / self.h > TAP_SLOP;
+                let moved = moved || self.past_slop(start, x, y);
                 let mut to = last;
                 if moved {
                     if let Some(at) = self.floor_point(x, y) {
@@ -397,8 +402,7 @@ impl Game {
                 self.gesture = Gesture::Cutting { last: (x, y) };
             }
             Gesture::Shard { i, start, since, carried } => {
-                let moved = dist(start, (x, y)) / self.h;
-                if carried || moved > TAP_SLOP {
+                if carried || self.past_slop(start, x, y) {
                     let to = self.floor_point(x, y);
                     if to.is_some_and(|to| self.world.burst.carry(i, to)) {
                         self.world.burst.land.touch();
@@ -412,7 +416,7 @@ impl Game {
                 }
             }
             Gesture::Lake { start, at, since, .. } => {
-                let moved = dist(start, (x, y)) / self.h > TAP_SLOP;
+                let moved = self.past_slop(start, x, y);
                 self.gesture = Gesture::Lake { start, at, since, moved };
                 let up = (start.1 - y) / self.h;
                 if up > 0.12 {

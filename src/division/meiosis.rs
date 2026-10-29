@@ -19,9 +19,9 @@ pub const SEP: f32 = 0.95;
 /// Smoothing radius of the join while it is still one body, in body radii.
 pub const K_JOIN: f32 = 0.9;
 /// Seconds from the cut until the cells have settled.
-pub const DIVIDE_SECS: f32 = 3.0;
+const DIVIDE_SECS: f32 = 3.0;
 /// Seconds for two cells to flow back into one.
-pub const REJOIN_SECS: f32 = 2.2;
+const REJOIN_SECS: f32 = 2.2;
 /// How long the time-freeze lasts right after the cut, in real seconds.
 pub const HIT_STOP_SECS: f32 = 0.12;
 /// A swipe must cross the body this fast to count as a slice.
@@ -141,11 +141,6 @@ impl Division {
             self.nerve.cut();
         }
         cut
-    }
-
-    /// Past two, still alive, and not stone.
-    pub fn living_many(&self) -> bool {
-        self.morula.as_ref().is_some_and(|m| !m.is_stone())
     }
 
     /// Stone doesn't move.

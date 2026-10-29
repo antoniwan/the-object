@@ -162,8 +162,7 @@ fn a_refusal_is_kept_and_never_asked_again() {
     run(&mut next, &mut w, &look(Stage::Echo, 30.0), 200.0, |_| {});
     assert!(next.drain_events().is_empty());
     // A missing microphone is not a no.
-    let mut s = Senses::default();
-    s.hear = Leave::Opening;
+    let mut s = Senses { hear: Leave::Opening, ..Default::default() };
     s.refused(Kind::Hear, false);
     assert_eq!((s.hear, s.save().as_str()), (Leave::Closed, "hear=;see=;feel=;words="));
 }

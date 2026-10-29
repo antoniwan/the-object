@@ -43,7 +43,7 @@ const STEP_DECAY: f32 = 3.0;
 /// A drag over the ground faster than this, in canvas heights a second, cuts.
 pub const CUT_SPEED: f32 = 1.5;
 /// Groups at once that count as many.
-pub const MANY: usize = 3;
+const MANY: usize = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Event {
@@ -278,13 +278,13 @@ impl Kin {
         }
 
         // stepping back from a cut
-        for j in 0..SHARDS {
+        for (j, home) in homes.iter_mut().enumerate() {
             if self.step[j].len() < 1e-4 || fixed(j) {
                 self.step[j] = V3::ZERO;
                 continue;
             }
-            homes[j] += self.step[j] * dt;
-            self.step[j] = self.step[j] * (-STEP_DECAY * dt).exp();
+            *home += self.step[j] * dt;
+            self.step[j] *= (-STEP_DECAY * dt).exp();
         }
 
         // stretched too far, they let go

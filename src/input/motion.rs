@@ -75,7 +75,7 @@ impl Motion {
             self.felt.held = f.held;
         }
         if let Some(p) = f.push {
-            if self.felt.push.map_or(true, |q| p.len() > q.len()) {
+            if self.felt.push.is_none_or(|q| p.len() > q.len()) {
                 self.felt.push = Some(p);
             }
         }
@@ -208,7 +208,7 @@ mod tests {
 
     /// A phone shaken left and right, about five times a second.
     fn shaken(g: &mut Game, i: usize) {
-        let x = if (i / 6) % 2 == 0 { 22.0 } else { -22.0 };
+        let x = if (i / 6).is_multiple_of(2) { 22.0 } else { -22.0 };
         g.motion.feel(Felt { held: None, push: Some(v3(x, 0.0, 0.0)) });
     }
 

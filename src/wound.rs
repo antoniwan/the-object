@@ -21,15 +21,15 @@ use crate::mind::remembrance::Deed;
 use crate::sim::World;
 
 /// How many pieces fall out of an open wound.
-pub const CALTROPS: usize = 4;
+const CALTROPS: usize = 4;
 /// How many green ones fill it.
-pub const TO_HEAL: u32 = 3;
+const TO_HEAL: u32 = 3;
 const RADIUS: f32 = 0.13;
 /// Seconds for a piece to turn through every color once.
-pub const CYCLE_SECS: f32 = 10.0;
+const CYCLE_SECS: f32 = 10.0;
 /// Hue where it is green, and how far either side still counts, as fractions of the wheel.
 pub const GREEN: f32 = 1.0 / 3.0;
-pub const GREEN_BY: f32 = 0.07;
+const GREEN_BY: f32 = 0.07;
 /// How far from the middle of the body, across the floor, the pieces lie.
 const RING: f32 = 2.2;
 /// Let go of, a piece is free this long before it is held in its place again.
@@ -47,7 +47,7 @@ const SPIT: f32 = 4.5;
 const FALL: f32 = 16.0;
 const FLUNG_SECS: f32 = 2.2;
 /// What a healed scar fades to.
-pub const FAINT: f32 = 0.35;
+const FAINT: f32 = 0.35;
 /// Inside, before anything has gone in.
 const RAW: V3 = v3(0.42, 0.02, 0.05);
 
@@ -62,7 +62,7 @@ pub fn hue(t: f32) -> V3 {
     rgb * 0.75 + v3(0.2, 0.2, 0.2)
 }
 
-pub fn is_green(h: f32) -> bool {
+fn is_green(h: f32) -> bool {
     let d = (h.rem_euclid(1.0) - GREEN).abs();
     d <= GREEN_BY
 }
@@ -121,7 +121,7 @@ impl Wound {
             Phase::Open => 1.0,
             Phase::Closing { t } => 1.0 - t / CLOSE_SECS,
         };
-        smooth(k.clamp(0.0, 1.0))
+        smooth01(k)
     }
 
     pub fn is_open(&self) -> bool {
@@ -169,10 +169,6 @@ impl Wound {
     }
 }
 
-fn smooth(x: f32) -> f32 {
-    x * x * (3.0 - 2.0 * x)
-}
-
 /// What came of a piece this frame.
 enum Went {
     Healed,
@@ -189,7 +185,7 @@ pub fn step(g: &mut Game, dt: f32) {
     wound.time += dt;
     wound.drip = (wound.drip - dt * 1.5).max(0.0);
     let goal = if ordinary { 1.0 } else { 0.0 };
-    wound.shown += (goal - wound.shown) * (1.0 - (-4.0 * dt).exp());
+    wound.shown = ease(wound.shown, goal, -4.0 * dt);
     wound.phase = match wound.phase {
         Phase::Closed { rest } => Phase::Closed { rest: (rest - dt).max(0.0) },
         Phase::Opening { t } if t + dt >= OPEN_SECS => Phase::Open,

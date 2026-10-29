@@ -170,6 +170,12 @@ impl World {
         self.ripples.push(Ripple { dir, amp, age: 0.0 });
     }
 
+    /// A ripple from the top and one from the bottom, the same size.
+    pub fn ripple_both(&mut self, amp: f32) {
+        self.add_ripple(V3::UP, amp);
+        self.add_ripple(-V3::UP, amp);
+    }
+
     // ---- simulation --------------------------------------------------------
 
     pub fn step(&mut self, dt: f32) {
