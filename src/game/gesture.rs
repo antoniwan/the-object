@@ -7,8 +7,9 @@ pub(super) enum Gesture {
     Pending { start: (f32, f32), hit: Hit, since: f32 },
     Warming { start: (f32, f32), hit: Hit, since: f32 },
     /// `since` when it started (real time), `reach` the furthest pull so far in body radii,
-    /// `taut` seconds held nearly tearing, `angle` where it was last around the body, for stirring.
-    Stretching { handle: u32, plane: V3, since: f32, reach: f32, taut: f32, angle: Option<f32> },
+    /// `taut` seconds held nearly tearing, `angle` where it was last around the body, for stirring;
+    /// `hit` where and `pressed` when (real time) it was first touched, for a tap that slid a little.
+    Stretching { handle: u32, plane: V3, since: f32, reach: f32, taut: f32, angle: Option<f32>, hit: Hit, pressed: f32 },
     Dragging { drop: u32, plane: V3, offset: V3 },
     Orbiting { start: (f32, f32), last: (f32, f32) },
     /// Two fingers: `since` they began (real time), `least` the closest they have come, as a share of
@@ -41,32 +42,9 @@ impl Game {
 
     pub(super) fn end_gesture(&mut self) {
         match std::mem::replace(&mut self.gesture, Gesture::Idle) {
-            Gesture::Pending { hit, .. } => {
-                if hit.target == Target::Body && self.tap_form(hit) {
-                    return;
-                }
-                self.world.poke(hit, 1.0);
-                let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
-                self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
-                self.contact.poked((hit.pos - self.world.body.pos).norm(), pitch);
-                self.world.other.hurt();
-                self.discover(Discovery::Poke);
-                if self.world.division.phase == meiosis::Phase::Two {
-                    self.discover(Discovery::Twin);
-                }
-                let r = self.world.body.radius();
-                let at = (hit.pos - self.world.body.pos) * (1.0 / r);
-                if let Some(m) = &mut self.world.division.morula {
-                    m.wound(at);
-                }
-                if self.world.ordinary() {
-                    self.world.burst.wound();
-                }
-                self.world.forms.cosmos.ignite();
-                self.world.forms.fold.facet();
-            }
+            Gesture::Pending { hit, .. } => self.poke(hit),
             Gesture::Warming { .. } => self.world.warming = false,
-            Gesture::Stretching { handle, since, reach, .. } => {
+            Gesture::Stretching { handle, since, reach, hit, pressed, .. } => {
                 let stage = self.stage();
                 let dir = self.world.handles.iter().find(|h| h.id == handle).map(|h| h.dir);
                 self.world.release_handle(handle);
@@ -76,6 +54,8 @@ impl Game {
                 let quick = secs < bloom::PINCH_MAX_SECS && short && self.world.ordinary();
                 let thrown = !quick && self.throw();
                 match dir {
+                    // Too little and too quick to be a pull at all: a tap the finger slid on.
+                    _ if reach < bloom::PINCH_MIN && self.clock - pressed < SLID_TAP_SECS && !thrown => self.poke(hit),
                     Some(dir) if quick => {
                         if self.world.forms.bloom.pinch(dir) {
                             self.world.add_ripple(dir, 0.35);
@@ -172,6 +152,32 @@ impl Game {
             Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Idle => {}
         }
         self.world.forms.dust.press = 0.0;
+    }
+
+    /// A tap on the liquid, or on whatever it has become.
+    fn poke(&mut self, hit: Hit) {
+        if hit.target == Target::Body && self.tap_form(hit) {
+            return;
+        }
+        self.world.poke(hit, 1.0);
+        let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
+        self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
+        self.contact.poked((hit.pos - self.world.body.pos).norm(), pitch);
+        self.world.other.hurt();
+        self.discover(Discovery::Poke);
+        if self.world.division.phase == meiosis::Phase::Two {
+            self.discover(Discovery::Twin);
+        }
+        let r = self.world.body.radius();
+        let at = (hit.pos - self.world.body.pos) * (1.0 / r);
+        if let Some(m) = &mut self.world.division.morula {
+            m.wound(at);
+        }
+        if self.world.ordinary() {
+            self.world.burst.wound();
+        }
+        self.world.forms.cosmos.ignite();
+        self.world.forms.fold.facet();
     }
 
     /// A tap on a body that has become something else. Returns true if that form answered it.
@@ -344,15 +350,16 @@ impl Game {
                     let stretchy = self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
                     let flower = f.bloom.phase == bloom::Phase::Flower;
                     let stretch = if stretchy { self.world.begin_stretch(hit.pos) } else { None };
+                    let pressed = self.clock - (self.world.time - since);
                     self.gesture = match stretch {
-                        Some(handle) => Gesture::Stretching { handle, plane: hit.pos, since: self.clock, reach: 0.0, taut: 0.0, angle: None },
-                        None if flower => Gesture::Tug { start, since: self.clock - (self.world.time - since) },
+                        Some(handle) => Gesture::Stretching { handle, plane: hit.pos, since: self.clock, reach: 0.0, taut: 0.0, angle: None, hit, pressed },
+                        None if flower => Gesture::Tug { start, since: pressed },
                         None => Gesture::Orbiting { start, last: (x, y) },
                     };
                     self.pointer_move(id, x, y, dt);
                 }
             }
-            Gesture::Stretching { handle, plane, since, reach, taut, angle } => {
+            Gesture::Stretching { handle, plane, since, reach, taut, angle, hit, pressed } => {
                 let to = self.plane_point(x, y, plane);
                 self.world.pull_handle(handle, to);
                 let r = self.world.body.radius();
@@ -371,7 +378,7 @@ impl Game {
                     self.world.forms.stir(turn / (2.0 * pi));
                 }
                 let reach = reach.max((to - plane).len() / r);
-                self.gesture = Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now) };
+                self.gesture = Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now), hit, pressed };
             }
             Gesture::Dragging { drop, plane, offset } => {
                 let to = self.plane_point(x, y, plane) + offset;

@@ -173,6 +173,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | Token | Value | Meaning |
 | --- | --- | --- |
 | `TAP_SLOP` | 0.012 canvas heights | moved less than this, it was a tap |
+| `SLID_TAP_SECS` | 0.3 s | a press that slid past `TAP_SLOP` but pulled less than a pinch, let go this soon, is still a tap |
 | `HOLD` | 0.55 s | held still this long, it becomes warming |
 | `IDLE_WATCH` | 12 s | left alone this long, it starts watching the pointer |
 | `THROW_SPEED` | 2.2 canvas heights / s | a flick faster than this throws it |

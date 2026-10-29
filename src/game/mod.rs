@@ -2,7 +2,7 @@
 //! pixels and has no browser types, so new gestures can be added and tested natively.
 //!
 //! Gestures today:
-//! - tap the liquid: poke
+//! - tap the liquid: poke (a quick tap the finger slid on a little is still one)
 //! - press and drag the liquid: stretch (pull far enough and it tears)
 //! - drag a drop: carry it; let go fast to fling it
 //! - drag empty space: look around
@@ -90,6 +90,8 @@ pub use sound::Sound;
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
+/// A press let go of this soon (seconds), having pulled less than a pinch, was a tap the finger slid on.
+const SLID_TAP_SECS: f32 = 0.3;
 /// Holding a press this long (seconds) without moving turns it into warming.
 const HOLD: f32 = 0.55;
 /// Nobody touching it for this long (seconds) and it starts watching.

@@ -19,6 +19,20 @@ fn tap_on_center_pokes() {
 }
 
 #[test]
+fn a_tap_the_finger_slid_on_a_little_still_pokes() {
+    let mut g = game();
+    // a finger lands and slides a few pixels before it lifts: past the slop, far short of a pinch
+    tug(&mut g, (400.0, 300.0), (0.6, 0.8), 6.0, 2, 1.0 / 60.0, 0.0);
+    assert!(g.progress.has(Discovery::Poke));
+    assert!(g.sounds.iter().any(|s| matches!(s, Sound::Poke { .. })));
+    assert!(!g.progress.has(Discovery::Pinch) && g.world.forms.bloom.near.is_none());
+    // the same slide held a while is not a tap
+    let mut g = game();
+    tug(&mut g, (400.0, 300.0), (0.6, 0.8), 6.0, 2, 1.0 / 60.0, 0.5);
+    assert!(!g.progress.has(Discovery::Poke));
+}
+
+#[test]
 fn drag_from_center_far_tears_and_keeps_holding_the_drop() {
     let mut g = game();
     g.pointer_down(1, 400.0, 300.0);
