@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>the object</title>
 <meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
 <meta name="author" content="Antonio Rodríguez Martínez">
@@ -91,7 +91,9 @@
   @font-face { font-family: "Glyphs"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/noto-sans-math-glyphs.15edc812.woff2) format("woff2"); }
   /* --tint, --unrest, --ox, --oy come from the object every frame (src/aura.rs). */
   :root { color-scheme: light; --tint: 120 120 132; --words: "Cormorant Garamond", Georgia, serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
-  html, body { margin: 0; height: 100%; background: #f8f7f5; overflow: hidden; }
+  html, body { margin: 0; height: 100%; background: #f8f7f5; overflow: hidden; overscroll-behavior: none; }
+  /* A finger is a hand here, not a pointer: nothing gets selected, flashed or called out under it. */
+  body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   .hud { position: fixed; pointer-events: none; font: italic 400 17px/1.4 var(--words); color: #7d7d86; letter-spacing: .04em; text-transform: lowercase; }
   #hint { left: 0; right: 0; bottom: 9vh; text-align: center; transition: opacity 1.2s; animation: breathe 3.5s ease-in-out infinite; }
@@ -105,14 +107,23 @@
   #thought { left: clamp(28%, var(--ox, 50%), 72%); bottom: 15vh; width: min(84vw, 30em); transform: translate(-50%, 4px); text-align: center; font-size: 15px; letter-spacing: .1em; color: #9a9aa3; opacity: 0; transition: opacity 2.4s ease-in-out, transform 2.4s ease-in-out, left 3s ease-in-out, color 3s; }
   #thought.show { opacity: .8; transform: translate(-50%, 0); }
   /* Its word when it asks to hear or see you (src/senses.rs): the only words that can be tapped. */
+  /* It reaches further than it looks, so a thumb finds it. */
+  #toast .offer { display: inline-block; padding: 14px 22px; margin: -14px -22px; touch-action: manipulation; }
   #toast.show .offer { pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
   /* Under its word for words, where they must leave the page: what the tap allows (src/web.rs AWAY). */
   #toast .away { display: block; max-width: 30em; margin: 10px auto 0; padding: 0 16px; font: 400 10px/1.4 var(--mono); font-style: normal; letter-spacing: normal; text-transform: none; color: #9a9aa3; }
   #toast.show .away { pointer-events: auto; cursor: pointer; }
-  /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. */
-  #senses { left: 16px; bottom: 14px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s; pointer-events: none; }
-  #senses.on { opacity: .7; pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
-  #count { right: 16px; bottom: 14px; font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
+  /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. A mark it asked
+     for and was not given stays faint and still; tapped, the browser asks (src/web.rs show_marks).
+     The padding is only reach: the marks sit 16px in and 14px up, clear of a phone's rounded edge. */
+  #senses { left: calc(4px + env(safe-area-inset-left, 0px)); bottom: calc(2px + env(safe-area-inset-bottom, 0px)); padding: 12px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s; pointer-events: none; touch-action: manipulation; }
+  #senses.on, #senses.wait { opacity: .7; pointer-events: auto; cursor: pointer; }
+  #senses > span:not(.w) { animation: breathe 3.5s ease-in-out infinite; }
+  #senses .w { opacity: .4; transition: opacity 1.2s; }
+  #senses .w:hover { opacity: .8; }
+  #count { right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font: 400 10px/1 var(--mono); letter-spacing: .3em; font-style: normal; }
+  /* Read out, never shown: the toast and the thought in plain letters, for a screen reader. */
+  #said { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   #error { left: 16px; right: 16px; bottom: 14vh; text-align: center; color: #9a9aa2; font: 400 10px/1.4 var(--mono); z-index: 3; }
 
   /* A word in the middle of becoming itself (web/glyph.js). */
@@ -155,24 +166,25 @@
   @media (prefers-reduced-motion: reduce) {
     #seed i { animation: none !important; }
     #whisper > span:first-child { opacity: 1; }
-    #toast .offer, #senses.on { animation: none; }
+    #toast .offer, #senses > span { animation: none !important; }
   }
 </style>
 <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
-<canvas id="stage"></canvas>
+<canvas id="stage" role="img" aria-label="there is an object. you can touch it."></canvas>
 <noscript><p class="hud" style="left:16px;right:16px;top:40vh;text-align:center">there is an object here. it needs javascript and webgl2 to be seen.</p></noscript>
-<div id="veil" aria-label="loading">
+<div id="veil" aria-busy="true">
   <div id="seed"><i class="ring"></i><i class="ring"></i><i class="pearl"></i><i class="film"></i></div>
   <div id="whisper"><span>something is choosing a surface</span><span>it has not yet agreed to a shape</span><span>it is shy of being seen</span><span class="lost" hidden>it stayed on the other side</span></div>
 </div>
 <div id="hint" class="hud" data-glyph>lay a hand on it</div>
-<div id="toast" class="hud" data-glyph></div>
+<div id="toast" class="hud" data-glyph aria-hidden="true"></div>
 <div id="count" class="hud" data-glyph></div>
-<div id="thought" class="hud" data-glyph></div>
+<div id="thought" class="hud" data-glyph aria-hidden="true"></div>
 <div id="senses" class="hud" data-glyph role="button" tabindex="-1"></div>
+<div id="said" role="status" aria-live="polite"></div>
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>
 <script type="module">

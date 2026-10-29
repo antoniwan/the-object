@@ -318,7 +318,7 @@ impl Renderer {
         self.v4v("uClump", &clumps);
         let (hx, hz, hr, hh) = du.heap();
         self.v4v("uHeap", &[hx, hz, hr, hh]);
-        self.v4v("uHeapB", &[du.firm(), du.thud, du.press, 0.0]);
+        self.v4v("uHeapB", &[du.firm(), du.thud, du.press, du.growth.shown]);
 
         // The other one: see other.rs.
         let ot = &world.other;

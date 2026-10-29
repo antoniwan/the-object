@@ -88,7 +88,7 @@ uniform vec4 uBox;       // x round→box 0..1, y the lid open 0..1, z rattle of
 uniform vec4 uDust;      // x the dust down on the floor 0..1, y the body come apart 0..1, z the cloud in the air, w how far it has fallen
 uniform vec4 uClump[8];  // each drift of dust: x, z, how wide, its share of the dust
 uniform vec4 uHeap;      // the mound: x, z, how wide, how high (0: none)
-uniform vec4 uHeapB;     // x grains→settled 0..1, y answering a tap, z pressed 0..1
+uniform vec4 uHeapB;     // x grains→settled 0..1, y answering a tap, z pressed 0..1, w what grows from it 0..4
 uniform vec2 uShock;     // x how hard the last shock was 0..1, y seconds since it (camera.rs)
 uniform float uFine;     // 1 while frames keep up; 0 leaves out the light bent through it and focused under it
 
@@ -108,6 +108,10 @@ const int HEAP = 41;
 // pearl ground to powder (forms/dust.rs), and the mound it settles into
 const vec3 DUST = vec3(0.80, 0.78, 0.83);
 const vec3 MOUND = vec3(0.70, 0.67, 0.70);
+// what grows out of the mound (forms/growth.rs): bark, leaves, and the flower's pink again
+const vec3 BARK = vec3(0.43, 0.40, 0.44);
+const vec3 LEAF = vec3(0.62, 0.78, 0.55);
+const vec3 BLOSSOM = vec3(0.93, 0.42, 0.62);
 
 // Turns that depend only on uniforms, worked out once per pixel by sceneSetup() so that
 // scene() and the shading need not work them out again at every step.
@@ -654,6 +658,36 @@ float heapSdf(vec3 p) {
   return max(mix(cone, dome, 0.25 + 0.4 * uHeapB.x), -q.y);
 }
 
+// What grows out of the mound (forms/growth.rs), uHeapB.w from 0 to 4: a shoot, a trunk,
+// six branches in turn, then leaves at their ends and its crown. It sways a little once it
+// is tall. `leaf` hands back the distance to the leaves alone, for shadeHeap().
+float treeSdf(vec3 p, out float leaf) {
+  float g = uHeapB.w;
+  vec3 b = vec3(uHeap.x, FLOOR_Y + uHeap.w * 0.8, uHeap.y);
+  float sd = fract(sin(dot(uHeap.xy, vec2(12.9898, 78.233))) * 43758.547) * 6.2831;
+  float len = 0.15 + 2.3 * smoothstep(0.0, 2.5, g);
+  float sway = 0.05 * smoothstep(1.5, 4.0, g);
+  vec3 top = b + vec3(0.1 * len * cos(sd) + sway * sin(uTime * 0.7), len, 0.1 * len * sin(sd));
+  float rb = 0.03 + 0.13 * smoothstep(0.0, 3.0, g);
+  float d = sdTaper(p, b - vec3(0.0, 0.25, 0.0), top, rb, rb * 0.35);
+  float lr = 0.46 * smoothstep(2.6, 3.6, g);
+  leaf = length(p - top) - lr * 1.3;
+  for (int i = ZERO; i < 6; i++) {
+    float fi = float(i);
+    float bi = smoothstep(1.0 + 0.25 * fi, 2.0 + 0.25 * fi, g);
+    if (bi <= 0.0) break;
+    vec3 at = mix(b, top, 0.42 + 0.09 * fi);
+    float a = sd + fi * 2.39996;
+    vec3 tip = at + normalize(vec3(cos(a), 0.8 + 0.12 * fi, sin(a))) * (1.15 - 0.1 * fi) * bi
+             + vec3(sway * sin(uTime * 0.9 + fi), 0.0, 0.0);
+    d = smin(d, sdTaper(p, at, tip, rb * 0.45 * bi + 0.008, 0.006 + 0.01 * bi), 0.04);
+    leaf = min(leaf, length(p - tip) - lr * (1.0 - 0.06 * fi));
+  }
+  // the leaves hang in soft, crinkled clusters
+  leaf += 0.05 * sin(p.x * 23.0) * sin(p.y * 19.0 + 1.0) * sin(p.z * 21.0 + 2.0);
+  return lr > 0.001 ? min(d, leaf) : d;
+}
+
 // Also hands back the body alone, and the nearest piece and its distance, so
 // shade() can use them without compiling bodySurface() and shards() again.
 // One of the wound's pieces (wound.rs): a small core with four spikes, turning slowly, so
@@ -691,6 +725,10 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   }
   if (uHeap.w > 0.02) {
     float hd = heapSdf(p);
+    if (uHeapB.w > 0.01) {
+      float lf;
+      hd = min(hd, treeSdf(p, lf));
+    }
     if (hd < piece) { piece = hd; id = HEAP; }
     d = min(d, hd);
   }
@@ -791,7 +829,8 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
   float jet = step(-0.3, uJet.w) * (max(uJet.z, uJet.w + 0.3) + 0.3);
   top = max(top, pick(-1e9, FLOOR_Y + max(wave, jet) + grow / 0.8, lake));
   top = max(top, pick(-1e9, FLOOR_Y + uRiver2.w + 0.1 + grow / 0.6, step(1e-9, uBurst.w) * step(1e-9, uRiver2.w)));
-  top = max(top, pick(-1e9, FLOOR_Y + uHeap.w * 1.12 + 0.05 + grow, step(0.02, uHeap.w)));
+  float tree = step(0.01, uHeapB.w) * (2.8 * smoothstep(0.0, 2.5, uHeapB.w) + 1.2);
+  top = max(top, pick(-1e9, FLOOR_Y + uHeap.w * 1.12 + tree + 0.05 + grow, step(0.02, uHeap.w)));
   // the layer under that height: where the ray crosses it, and whether it comes down through it
   float down = step(rd.y, 0.0);
   float cross = (top - ro.y) / (abs(rd.y) < 1e-6 ? 1e-6 : rd.y);
@@ -1484,6 +1523,18 @@ vec3 shadeHeap(vec3 p, vec3 rd, vec3 n, float ao) {
   float glint = step(0.985, fract(g * 61.7)) * (1.0 - 0.6 * firm);
   vec3 fc = filmColor(0.3 + 0.4 * g + 0.2 * (1.0 - ndv), ndv);
   col += (fc + 0.5) * glint * 0.45 + fc * 0.3 * firm * pow4(1.0 - ndv);
+  if (uHeapB.w > 0.01 && y > uHeap.w * 0.5) {
+    // what grows from it: bark from the mound's own color, pale leaves, and late, blossom
+    float leaf;
+    float td = treeSdf(p, leaf);
+    if (td < 0.03) {
+      float lit = (0.5 + 0.5 * diff) * (0.6 + 0.4 * ao);
+      vec3 tc = BARK * lit * (0.9 + 0.2 * g);
+      float bloom = step(0.78, hash(floor(p * 18.0) + 2.0)) * smoothstep(3.5, 4.0, uHeapB.w);
+      vec3 lc = mix(LEAF * (0.85 + 0.35 * g), BLOSSOM, bloom) * lit + fc * 0.25 * pow4(1.0 - ndv);
+      col = mix(tc, lc, smoothstep(0.02, -0.01, leaf));
+    }
+  }
   col += vec3(0.98, 0.97, 1.0) * uHeapB.z * uHeapB.z * (0.08 + 0.22 * clamp(y / max(uHeap.w, 0.1), 0.0, 1.0));
   return col;
 }
