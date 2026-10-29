@@ -82,4 +82,23 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn daily_posts_show_gifs_that_are_in_the_repository() {
+        const RAW: &str = "https://raw.githubusercontent.com/antoniwan/the-object/main/";
+        for e in std::fs::read_dir(DEVLOG).unwrap().flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if !(name.len() == 13 && name.ends_with(".md") && name.as_bytes()[4] == b'-') {
+                continue;
+            }
+            let post = std::fs::read_to_string(e.path()).unwrap();
+            for line in post.lines() {
+                assert!(!line.starts_with("[gif:"), "devlog/{name}: a picture still to upload by hand: {line}");
+                let Some(url) = line.strip_prefix("![](").and_then(|l| l.strip_suffix(')')) else { continue };
+                let path = url.strip_prefix(RAW).unwrap_or_else(|| panic!("devlog/{name}: a picture not served from main: {url}"));
+                let file = format!("{}/{path}", env!("CARGO_MANIFEST_DIR"));
+                assert!(std::path::Path::new(&file).is_file(), "devlog/{name}: {path} is not in the repository");
+            }
+        }
+    }
 }

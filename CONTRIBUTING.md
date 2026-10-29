@@ -43,7 +43,7 @@ Then write what changed under the new heading. `cargo test` fails if the page, `
 
 After the merge, `.github/workflows/release.yml` tags `v<version>` on main and publishes a GitHub release with the changelog entry as its notes. The itch.io push names the build `<version>+<short commit>`.
 
-The devlog is one post a day, not one a version: `devlog/YYYY-MM-DD.md`, written from that day's changelog entries, with GIFs of what a player can see filmed by `scripts/gif.mjs`, ready to paste into the itch.io devlog by the end of the day. `devlog/README.md` says how they are written and filmed. `cargo test` fails once a day has gone by without its post.
+The devlog is one post a day, not one a version: `devlog/YYYY-MM-DD.md`, written from that day's changelog entries, with GIFs of what a player can see filmed by `scripts/gif.mjs`, committed in `devlog/YYYY-MM-DD/` and shown from GitHub, ready to paste into the itch.io devlog by the end of the day. `devlog/README.md` says how they are written and filmed. `cargo test` fails once a day has gone by without its post.
 
 ## Where it runs
 

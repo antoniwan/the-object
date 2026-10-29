@@ -26,9 +26,9 @@ const flag = (name, fallback) => {
   return i < 0 ? fallback : args.splice(i, 2)[1];
 };
 const out = resolve(flag('out', 'dist/gifs'));
-const width = Number(flag('width', 480));
+const width = Number(flag('width', 400));
 const fps = Number(flag('fps', 12));
-const colors = Number(flag('colors', 128));
+const colors = Number(flag('colors', 112));
 
 if (args.includes('--list') || !args.length) {
   for (const [name, s] of Object.entries(scenes)) console.log(`${name.padEnd(12)} ${s.about}`);
@@ -246,7 +246,7 @@ async function record(name, scene) {
   await rm(frames, { recursive: true });
   const kb = Math.round((await stat(gif)).size / 1024);
   console.log(`${gif}  ${shot} frames, ${(shot / (1000 / (STEP * every))).toFixed(1)} s, ${kb} KB, ${((Date.now() - t0) / 1000).toFixed(0)} s to make`);
-  if (kb > 3000) console.log(`  over 3 MB: try --width 400, --fps 10 or a shorter take`);
+  if (kb > 2000) console.log(`  over 2 MB, and it is committed: try --width 360, --fps 10 or a shorter take`);
 }
 
 try {

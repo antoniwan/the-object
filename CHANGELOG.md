@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.20.2] - 2026-10-29
+
+### Changed
+- The devlog's moving pictures live beside each post and are shown from there, so a post pastes whole, pictures and all. They are filmed smaller. (#77)
+
 ## [1.20.1] - 2026-10-29
 
 ### Fixed
@@ -414,7 +419,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.20.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.20.2...HEAD
+[1.20.2]: https://github.com/antoniwan/the-object/compare/v1.20.1...v1.20.2
 [1.20.1]: https://github.com/antoniwan/the-object/compare/v1.20.0...v1.20.1
 [1.20.0]: https://github.com/antoniwan/the-object/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/antoniwan/the-object/compare/v1.18.1...v1.19.0
