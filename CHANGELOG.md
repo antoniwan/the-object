@@ -24,6 +24,16 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 - A hand closed on it shows as closed until it opens. (#57)
 - A screen reader hears what it finds, thinks and asks, in plain letters, instead of the signs they pass through. (#57)
 
+## [1.13.1] - 2026-10-29
+
+### Fixed
+- Since 1.11.0 the page could fall over as it opened, in browsers built on Chrome's engine that are not Chrome itself. It no longer asks anything about words until it has been let hear you, and then asks Chrome alone whether they can be made on the device. (#58)
+
+## [1.13.0] - 2026-10-29
+
+### Added
+- Hurt enough, over time, it scars where it is struck most, and the scar stays between visits. Hurt again, the scar opens, and small spiked pieces of it fall onto the floor around it, each slowly turning through every color. Some of what is carried back in is kept, and fills the wound; the rest is thrown back out. Filled, it closes over, and the scar is fainter. It never goes. Four discoveries come with it. (#56)
+
 ## [1.12.0] - 2026-10-29
 
 ### Added
@@ -284,7 +294,9 @@ The arc arrives: what it was always about.
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
 [Unreleased]: https://github.com/antoniwan/the-object/compare/v1.14.0...HEAD
-[1.14.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.14.0
+[1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.1...v1.14.0
+[1.13.1]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.13.1
+[1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/antoniwan/the-object/compare/v1.9.0...v1.10.0

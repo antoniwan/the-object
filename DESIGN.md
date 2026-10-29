@@ -64,6 +64,10 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | the other, struck | `#bdd1ff` | it rings; brightest at its edges | `shadeOther()` `uOther2.w` |
 | the other, kept | the first's color at the time it was given back, 60% each time, glowing faintly at its grazing faces | what it took from inside the first | `other.rs` `kept` |
 | cold | `#9ea3f5` | the first cools toward this while it holds the other inside | `other.rs` `COLD` |
+| scar | `#5c3338`, a thin seam | where it was hurt most, kept between visits; fainter (35%) once healed, never gone | `shader.frag` `scarAt()`, `wound.rs` |
+| wound | `#6b0d0d` raw (the river's `BLOOD`), filling toward what was given it | the scar opened | `sceneColor()` `uWoundCol` |
+| its pieces | the whole hue wheel, soft (`hue()`: 75% color over 20% white), once round every 10 s, each from its own place | small spiked pieces of it on the floor around an open wound | `wound.rs` `hue()` |
+| green | hue one third, ±0.07 | the one color the wound takes back. Green is chosen on purpose, against the rule of earned color: people already read it as safe and well (a traffic light, a leaf), so it needs no words (the user's call, 2026-10-29) | `wound.rs` `GREEN` |
 
 ### The moment
 
@@ -216,6 +220,9 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
 | remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |
 | remembered hurt | half-life 2 days | being upset or broken; it forgives faster than it forgets kindness |
+| scar | hurt 8 times ever (a break counts twice) | it scars where it is struck most (`wound.rs`) |
+| wound | opens 1.2 s, closes 3 s, then rests 20 s | a scar hurt again opens; three green pieces fill it |
+| spat out | 4.5 out, 2.7 up, falling at 16, bouncing at 45%, 2.2 s | a piece of the wrong color, thrown back down to the floor |
 | shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
 
 ### The page
@@ -317,6 +324,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
+| hurt it, scarred | the liquid | (wound) | the scar opens and four spiked pieces fall around it, each turning through every color | `wound.rs` |
+| carry a piece into the wound | a piece | tend | green, it is taken and the wound fills a third; any other color, it is spat back out onto the floor; three and it closes over | `wound.rs` |
 | tap | the other one, after contact | ring | it rings; the first shivers on the side facing it | `other.rs` |
 | drag | the other one | carry | brought near, the first reaches a tendril toward it | `other.rs` |
 | flick it at the first | the other one | clash | both recoil and the first is upset; neither gives | `other.rs` |
@@ -361,7 +370,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 - Every form has a way back, and the way back is the verb's opposite or a gentle version of it (stir back, hold to wind, tap to fold, squeeze to rejoin, hold to thaw).
 - Forms start only from the ordinary liquid: gate the gesture on `World::ordinary()`. One form at a time.
 - The contact arc (`contact.rs`) watches all of this and unlocks by count: regard at 6 discoveries, echo at 14, its turn at 24, contact at 36. It acts only while the world is ordinary.
-- Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, greeted, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player.
+- Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, greeted, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player. Hurt it enough, ever, and it scars where it is struck most (`wound.rs`); time alone never takes a scar away, only tending its wound fades it, and never all the way.
 
 ## 9. Adding a new form
 
