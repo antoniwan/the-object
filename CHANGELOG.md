@@ -12,12 +12,26 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-10-29
+## [1.11.0] - 2026-10-29
 
 ### Added
 - Pinched once it has flowered, it does not close: it comes apart into a cloud of grain that settles over the floor in drifts. (#PR)
 - A finger drawn through the dust sweeps it along, and drifts pushed together become one. Gathered nearly all in one place, it heaps itself into a mound that settles, stands on the ground and breathes there. Left alone long enough, the dust drifts together on its own. (#PR)
 - Tapped, the mound answers low; held, light comes up through it and it rises back out of itself, floating again, and leaves nothing behind. Four new discoveries. (#PR)
+
+## [1.10.0] - 2026-10-29
+
+### Added
+- It remembers what was done to it, between visits: being held, sung to, hummed to, answered and returned to, and being hurt or broken. Hurt fades sooner than care. Once it has begun to regard you, the first time a hand comes near on a visit, it leans toward a hand that was kind to it and pulls away from one that was not. Two discoveries come with it. (#53)
+
+## [1.9.0] - 2026-10-29
+
+### Added
+- After it bursts, the twelve need not stay twelve, or one. Set close together they keep together, in as many groups as there are places to leave them. A group comes along when one of it is carried, unless it is pulled away faster than the rest can follow; a quick cut across the ground between them parts a group, each side stepping back. Touch one of a group and the rest feel it after, one by one. Each group breathes in its own time and slowly turns its faces inward. (#52)
+- Five more things to find. (#52)
+
+### Changed
+- Carried to the middle together, a group goes home together. Only all twelve crowded into one still run as a river. (#52)
 
 ## [1.8.5] - 2026-10-29
 
@@ -247,7 +261,9 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
+[1.10.0]: https://github.com/antoniwan/the-object/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/antoniwan/the-object/compare/v1.8.5...v1.9.0
 [1.8.5]: https://github.com/antoniwan/the-object/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/antoniwan/the-object/compare/v1.8.3...v1.8.4

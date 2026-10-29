@@ -36,7 +36,9 @@
 //! - in the landscape: drag a piece to carry it, hold one still to plant it,
 //!   carry them all to the middle to mend it (see landscape.rs); crowd them all together
 //!   anywhere else and they run as a river: tap it and a column stands up, drag along it
-//!   for a row, and fill the view with them (see river.rs)
+//!   for a row, and fill the view with them (see river.rs); set some close together and they
+//!   keep together, as many groups as you like: carry one and its group follows, yank it
+//!   and it comes loose, cut fast across the ground between them and they part (see kin.rs)
 //!
 //! - and from the keyboard: type, hold a letter, breathe with space, tip the room with
 //!   the arrows (see keys.rs)
@@ -50,6 +52,8 @@
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
+//! It also remembers how it was treated (see remembrance.rs): come back, and the first time
+//! a hand comes near it leans toward it, or away.
 //!
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
@@ -121,6 +125,8 @@ enum Gesture {
     Lake { start: (f32, f32), at: (f32, f32), since: f32, moved: bool },
     /// Pressing the empty ground of the landscape; held still long enough, it gathers.
     Ground { start: (f32, f32), since: f32 },
+    /// Swept fast off the empty ground of the landscape: it cuts, and does not look around.
+    Cutting { last: (f32, f32) },
     /// Pressing one of the twelve: a tap pokes it, a drag carries it, holding still plants it.
     Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
     /// Touching the river: every column under the pointer stands up.
@@ -180,7 +186,7 @@ pub struct Game {
     /// Seconds since the pointer last did anything at all, pressed or not.
     still: f32,
     /// Where the pointer last pointed, on the plane through the body.
-    pointer_at: Option<V3>,
+    pub(crate) pointer_at: Option<V3>,
     /// Whether it may hear and see the player, and what it does with it (senses.rs).
     pub senses: Senses,
     /// After the river: the beat it kept. Seconds per beat, seconds into this one, beats left.
@@ -191,6 +197,8 @@ pub struct Game {
     pub keys: crate::keys::Keys,
     /// What a phone in the hand is doing to the room (see motion.rs).
     pub motion: crate::motion::Motion,
+    /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
+    pub remembrance: crate::remembrance::Remembrance,
 }
 
 impl Game {
@@ -225,6 +233,7 @@ impl Game {
             thoughts: Thoughts::default(),
             keys: Default::default(),
             motion: Default::default(),
+            remembrance: Default::default(),
         }
     }
 
@@ -367,7 +376,7 @@ impl Game {
                 }
             }
             Gesture::Dust { .. } => {}
-            Gesture::Ground { .. } | Gesture::River | Gesture::Idle => {}
+            Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Idle => {}
         }
         self.world.forms.dust.press = 0.0;
     }
@@ -627,9 +636,15 @@ impl Game {
             Gesture::Ground { start, .. } => {
                 let moved = dist(start, (x, y)) / self.h;
                 if moved > TAP_SLOP {
-                    self.gesture = Gesture::Orbiting { start, last: start };
+                    // off fast where pieces hold on to each other, it cuts between them; otherwise it looks around
+                    let fast = dt > 0.0 && moved / dt > crate::kin::CUT_SPEED && !self.world.burst.kin.groups().is_empty();
+                    self.gesture = if fast { Gesture::Cutting { last: start } } else { Gesture::Orbiting { start, last: start } };
                     self.pointer_move(id, x, y, dt);
                 }
+            }
+            Gesture::Cutting { last } => {
+                self.cut_kin(last, (x, y));
+                self.gesture = Gesture::Cutting { last: (x, y) };
             }
             Gesture::Shard { i, start, since, carried } => {
                 let moved = dist(start, (x, y)) / self.h;
@@ -710,6 +725,29 @@ impl Game {
                 return;
             }
         }
+    }
+
+    /// A fast drag over the landscape cuts between pieces that hold on to each other.
+    fn cut_kin(&mut self, from: (f32, f32), to: (f32, f32)) {
+        let bu = &self.world.burst;
+        if bu.phase != burst::Phase::Landscape || bu.river.active {
+            return;
+        }
+        let at: Vec<(f32, f32)> = (0..burst::SHARDS).map(|i| self.screen(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3))).collect();
+        let cuts: Vec<(usize, usize)> = (0..burst::SHARDS)
+            .flat_map(|a| (a + 1..burst::SHARDS).map(move |b| (a, b)))
+            .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::kin::crosses(from, to, at[a], at[b]))
+            .collect();
+        if cuts.is_empty() {
+            return;
+        }
+        let homes = bu.shards.map(|s| s.home);
+        for (a, b) in cuts {
+            self.world.burst.kin.cut(a, b, &homes);
+        }
+        self.world.burst.land.touch();
+        self.sounds.push(Sound::Tear);
+        self.discover(Discovery::Part);
     }
 
     /// Cut across a screen-space swipe; the halves part perpendicular to it.
@@ -884,6 +922,23 @@ impl Game {
                 self.discover(Discovery::Mend);
                 self.gesture = Gesture::Idle;
             }
+        }
+    }
+
+    fn on_kin(&mut self, e: crate::kin::Event) {
+        use crate::kin::Event as K;
+        match e {
+            K::Joined => {
+                self.sounds.push(Sound::Merge);
+                self.discover(Discovery::Kin);
+            }
+            K::Loosed => {
+                self.sounds.push(Sound::Tear);
+                self.discover(Discovery::Loose);
+            }
+            K::Passed => self.discover(Discovery::Pass),
+            K::Felt { i } => self.sounds.push(Sound::Shard { i }),
+            K::Many => self.discover(Discovery::Many),
         }
     }
 
@@ -1227,6 +1282,7 @@ impl Game {
                 }
                 burst::Event::Land(e) => self.on_land(e),
                 burst::Event::River(e) => self.on_river(e),
+                burst::Event::Kin(e) => self.on_kin(e),
             }
         }
         // Pull back and up so the whole landscape can be seen.
@@ -1334,6 +1390,7 @@ impl Game {
                 Event::Closed => self.discover(Discovery::Close),
             }
         }
+        crate::remembrance::step(self, dt);
     }
 }
 
@@ -2091,6 +2148,101 @@ mod tests {
         assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
         assert!(g.world.burst.whole());
         assert!(g.world.body.color != crate::sim::PEARL);
+    }
+
+    /// Drag piece `i` slowly over the ground to `to`, and let go.
+    fn carry_to(g: &mut Game, id: i32, i: usize, to: V3) {
+        let (x0, y0) = shard_at(g, i);
+        let (x1, y1) = project(g, to);
+        g.pointer_down(id, x0, y0);
+        for k in 1..=60 {
+            let f = k as f32 / 60.0;
+            g.pointer_move(id, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(id);
+        for _ in 0..30 {
+            g.update(1.0 / 60.0);
+        }
+    }
+
+    #[test]
+    fn set_down_together_they_keep_together_in_as_many_groups_as_you_like_and_a_cut_parts_them() {
+        let mut g = game();
+        burst_it(&mut g);
+        // three pairs, each in its own place
+        for (n, (a, b)) in [(0usize, 1usize), (2, 3), (4, 5)].into_iter().enumerate() {
+            let turn = n as f32 * 2.1 + 0.4;
+            let at = v3(turn.cos() * 22.0, fusion::FLOOR_Y, turn.sin() * 22.0);
+            let side = v3(-at.z, 0.0, at.x).norm();
+            carry_to(&mut g, 70 + 2 * n as i32, a, at);
+            carry_to(&mut g, 71 + 2 * n as i32, b, at + side * 3.6);
+            assert_eq!(g.world.burst.kin.group(a), (1 << a) | (1 << b), "{a} and {b} hold on, only to each other: {:?} {:?} {:?}", g.world.burst.shards[a].home, g.world.burst.shards[b].home, g.cam.basis().pos);
+        }
+        assert!(g.progress.has(Discovery::Kin));
+        assert!(g.progress.has(Discovery::Many));
+        assert!(!g.world.burst.river.active, "small groups do not run");
+
+        // touch one and the other feels it after
+        let (x, y) = shard_at(&g, 0);
+        g.pointer_down(80, x, y);
+        g.pointer_up(80);
+        g.sounds.clear();
+        for _ in 0..30 {
+            g.update(1.0 / 60.0);
+        }
+        assert!(g.progress.has(Discovery::Pass));
+        assert!(g.sounds.iter().any(|s| matches!(s, Sound::Shard { i: 0 | 1 })), "the other one of the pair answers after");
+
+        // a fast cut across the ground between them, and they part
+        let (pa, pb) = (shard_at(&g, 4), shard_at(&g, 5));
+        let mid = ((pa.0 + pb.0) * 0.5, (pa.1 + pb.1) * 0.5);
+        let (dx, dy) = (pb.0 - pa.0, pb.1 - pa.1);
+        let l = (dx * dx + dy * dy).sqrt();
+        let across = (-dy / l, dx / l);
+        let from = (mid.0 - across.0 * 80.0, mid.1 - across.1 * 80.0);
+        g.pointer_down(81, from.0, from.1);
+        assert!(matches!(g.gesture, Gesture::Ground { .. }), "the cut starts on the ground");
+        for k in 1..=4 {
+            let f = k as f32 * 40.0;
+            g.pointer_move(81, from.0 + across.0 * f, from.1 + across.1 * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.pointer_up(81);
+        assert!(g.progress.has(Discovery::Part));
+        assert!(!g.world.burst.kin.bonded(4, 5));
+        assert!(g.world.burst.kin.bonded(0, 1) && g.world.burst.kin.bonded(2, 3), "the other groups were not touched");
+        // and each side steps back from the cut
+        let gap = (g.world.burst.shards[4].home - g.world.burst.shards[5].home).len();
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+        }
+        assert!((g.world.burst.shards[4].home - g.world.burst.shards[5].home).len() > gap + 1.0);
+    }
+
+    #[test]
+    fn a_group_carried_to_the_middle_goes_home_together() {
+        let mut g = game();
+        burst_it(&mut g);
+        let home = g.world.burst.shards[0].home;
+        let side = v3(-home.z, 0.0, home.x).norm();
+        carry_to(&mut g, 90, 1, home + side * 3.6);
+        let group = g.world.burst.kin.group(0);
+        assert!(group & 0b10 != 0, "they hold on");
+        // slowly, so the others keep up
+        let (x0, y0) = shard_at(&g, 0);
+        let (x1, y1) = project(&g, v3(0.0, fusion::FLOOR_Y, 0.6));
+        g.pointer_down(91, x0, y0);
+        for k in 1..=400 {
+            let f = k as f32 / 400.0;
+            g.pointer_move(91, x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.burst.kin.group(0), group, "they kept up");
+        g.pointer_up(91);
+        for i in 0..burst::SHARDS {
+            assert_eq!(g.world.burst.land.returned(i), group & (1 << i) != 0, "piece {i}");
+        }
     }
 
     #[test]
