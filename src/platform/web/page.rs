@@ -9,6 +9,10 @@ use wasm_bindgen::JsCast;
 use web_sys::{AddEventListenerOptions, HtmlElement, Storage};
 
 /// The marks' own words, read aloud and shown on hover (they have no letters of their own).
+/// The room by day and by night (DESIGN.md `room`, `night`), for the page around the canvas.
+const ROOM: [f32; 3] = [248.0, 247.0, 245.0];
+const NIGHT: [f32; 3] = [3.0, 3.0, 8.0];
+
 const STOP: &str = "tap here or press escape to stop.";
 
 pub(super) fn body() -> Option<HtmlElement> {
@@ -78,6 +82,26 @@ impl App {
         }
         if now[5] != was[5] {
             let _ = style.set_property("--oy", &format!("{}%", q(5) * 100.0));
+        }
+    }
+
+    /// The browser's own bars and the page behind the canvas darken with the room, in thirty-seconds
+    /// as it goes, so a phone's status bar never stays white around the night.
+    pub(super) fn show_room(&mut self, dark: f32) {
+        let step = (dark.clamp(0.0, 1.0) * 32.0).round() as i32;
+        if step == self.room_shown {
+            return;
+        }
+        self.room_shown = step;
+        let k = step as f32 / 32.0;
+        let mix = |day: f32, night: f32| (day + (night - day) * k).round() as u8;
+        let (r, g, b) = (mix(ROOM[0], NIGHT[0]), mix(ROOM[1], NIGHT[1]), mix(ROOM[2], NIGHT[2]));
+        if let Some(style) = &self.root_style {
+            let _ = style.set_property("--room", &format!("{r} {g} {b}"));
+        }
+        let meta = self.window.document().and_then(|d| d.query_selector("meta[name=theme-color]").ok().flatten());
+        if let Some(meta) = meta {
+            let _ = meta.set_attribute("content", &format!("#{r:02x}{g:02x}{b:02x}"));
         }
     }
 

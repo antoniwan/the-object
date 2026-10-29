@@ -29,7 +29,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | `room-sky-low` | `#b2b5bd` | lower half of the reflected environment, `env()` |
 | `room-lights` | key `#ffffff` × 1.4, fill `#bfb3a8` × 1 | the two softboxes it reflects, hard-edged, `env()` |
 | `room-gels` | cold `#4d6b9e` low behind it, warm `#8c5c4d` low to its right | the only color the room has, and only in reflections, `env()` |
-| `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars |
+| `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars; the page background and `theme-color` follow the room toward it, in 32 steps, as night or the fold comes (`platform/web/page.rs` `show_room`), so a phone's own bars darken with it |
 
 ### The object (its own palettes)
 
@@ -242,7 +242,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
-`prefers-reduced-motion` stops the loader's animation and shows letters without decoding. Anything new on the page must respect it too.
+`prefers-reduced-motion` stops the loader's animation and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.
 
 ## 6. Sound
 
@@ -251,7 +251,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Envelope.** One shape for everything: an 8 ms attack, an exponential slide from one pitch to another over half the decay, an exponential fade. Chords are plucks staggered by 0.03 – 0.75 s.
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
-- **Away.** Left for another tab, it goes silent at once (the audio context is suspended), and comes back as it was when the page is looked at again.
+- **Away.** Left for another tab, it goes silent at once: the whole mix fades with a 12 ms time constant and the audio context is suspended 90 ms later, so nothing is cut mid-swing and clicks. Looked at again, it fades back in over the same 12 ms, as it was.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.

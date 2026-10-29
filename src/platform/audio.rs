@@ -3,11 +3,21 @@
 use crate::game::Sound;
 use crate::sim::World;
 use std::cell::Cell;
+use std::rc::Rc;
+use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
 
 /// Major pentatonic steps, in semitones, across two octaves.
 const SCALE: [f32; 10] = [0.0, 2.0, 4.0, 7.0, 9.0, 12.0, 14.0, 16.0, 19.0, 21.0];
+
+/// The master level, unmuted.
+const LEVEL: f32 = 0.7;
+/// Leaving or coming back, the whole mix fades this fast (time constant, seconds), so a tone
+/// cut off mid-swing never clicks.
+const FADE: f64 = 0.012;
+/// How long after the fade begins the context is suspended (ms): several time constants.
+const FADE_MS: i32 = 90;
 
 /// A continuous sound's frequency and gain, and where each was last sent.
 struct Voice {
@@ -47,6 +57,8 @@ pub struct Audio {
     /// A note the player held, hummed back (senses.rs).
     echo: Voice,
     pub muted: bool,
+    /// Nobody is looking: faded out, and suspended once the fade is done unless they came back.
+    away: Rc<Cell<bool>>,
 }
 
 impl Audio {
@@ -54,7 +66,7 @@ impl Audio {
     pub fn new() -> Result<Audio, JsValue> {
         let ctx = AudioContext::new()?;
         let master = ctx.create_gain()?;
-        master.gain().set_value(0.7);
+        master.gain().set_value(LEVEL);
         master.connect_with_audio_node(&ctx.destination())?;
 
         let warm = Self::voice(&ctx, &master, OscillatorType::Sine, 196.0)?;
@@ -74,6 +86,7 @@ impl Audio {
             echo: glides(echo),
             ctx,
             muted: false,
+            away: Rc::new(Cell::new(false)),
         })
     }
 
@@ -90,20 +103,52 @@ impl Audio {
         Ok((osc, g))
     }
 
+    fn level(&self) -> f32 {
+        if self.muted {
+            0.0
+        } else {
+            LEVEL
+        }
+    }
+
     /// Touch screens only grant audio on pointerup, so this is retried on every release.
+    /// Back from away, the sound fades in where it stopped instead of starting mid-swing.
     pub fn resume(&self) {
+        if self.away.replace(false) {
+            let g = self.master.gain();
+            let t = self.ctx.current_time();
+            let _ = g.cancel_scheduled_values(t);
+            let _ = g.set_target_at_time(self.level(), t, FADE);
+        }
         let _ = self.ctx.resume();
     }
 
-    /// Nobody is looking at the page: everything it was sounding stops where it is.
+    /// Nobody is looking at the page: everything it was sounding fades in a breath and then
+    /// stops where it is. Cut off at once, a tone would click.
     pub fn suspend(&self) {
-        let _ = self.ctx.suspend();
+        if self.away.replace(true) {
+            return;
+        }
+        let g = self.master.gain();
+        let t = self.ctx.current_time();
+        let _ = g.cancel_scheduled_values(t);
+        let _ = g.set_target_at_time(0.0, t, FADE);
+        let (ctx, away) = (self.ctx.clone(), self.away.clone());
+        let later = Closure::once_into_js(move || {
+            if away.get() {
+                let _ = ctx.suspend();
+            }
+        });
+        let sent = web_sys::window().map(|w| w.set_timeout_with_callback_and_timeout_and_arguments_0(later.unchecked_ref(), FADE_MS));
+        if !matches!(sent, Some(Ok(_))) {
+            let _ = self.ctx.suspend();
+        }
     }
 
     pub fn toggle_mute(&mut self) {
         self.muted = !self.muted;
         let t = self.ctx.current_time();
-        let _ = self.master.gain().set_target_at_time(if self.muted { 0.0 } else { 0.7 }, t, 0.1);
+        let _ = self.master.gain().set_target_at_time(self.level(), t, 0.1);
     }
 
     /// One plucked tone: a quick attack, a slide from `f0` to `f1`, and an exponential fade.
