@@ -108,9 +108,12 @@ pub enum Discovery {
     Many,
     Remembered,
     Wary,
+    Word,
+    Greeting,
+    Unanswered,
 }
 
-pub const ALL: [Discovery; 104] = [
+pub const ALL: [Discovery; 107] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -215,6 +218,9 @@ pub const ALL: [Discovery; 104] = [
     Discovery::Many,
     Discovery::Remembered,
     Discovery::Wary,
+    Discovery::Word,
+    Discovery::Greeting,
+    Discovery::Unanswered,
 ];
 
 impl Discovery {
@@ -324,6 +330,9 @@ impl Discovery {
             Discovery::Many => "many",
             Discovery::Remembered => "remembered",
             Discovery::Wary => "wary",
+            Discovery::Word => "word",
+            Discovery::Greeting => "greeting",
+            Discovery::Unanswered => "unanswered",
         }
     }
 
@@ -433,6 +442,9 @@ impl Discovery {
             Discovery::Many => "not one, not twelve. as many as you leave them.",
             Discovery::Remembered => "it knew your hand before it touched it.",
             Discovery::Wary => "it has not forgotten what your hand did.",
+            Discovery::Word => "a word landed where a hand would have.",
+            Discovery::Greeting => "it answered in the only words it has.",
+            Discovery::Unanswered => "it heard you. it remembers the rest.",
         }
     }
 }
@@ -497,7 +509,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Wary as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Unanswered as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

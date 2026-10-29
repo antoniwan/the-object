@@ -1,7 +1,8 @@
 //! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the lines of text
 //! (hint, toast, count, now and then a thought, and the marks while it hears or sees), what is
 //! saved between visits, the microphone and camera once the player has let it have them
-//! (senses.rs, devices.rs), and how a phone is held and moved (motion.rs).
+//! (senses.rs, devices.rs), words made of what it hears (words.rs, speech.rs), and how a phone
+//! is held and moved (motion.rs).
 
 use crate::audio::Audio;
 use crate::aura::{aura, roman};
@@ -13,6 +14,8 @@ use crate::motion::Felt;
 use crate::progress::{Discovery, Progress};
 use crate::render::Renderer;
 use crate::senses::{self, Kind, Senses};
+use crate::speech::{self, Can, Note, Speech};
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -31,6 +34,11 @@ const KEY_CONTACT: &str = "the-object.contact";
 const KEY_SENSES: &str = "the-object.senses";
 /// What it remembers of what was done to it, and when you were last here (remembrance.rs).
 const KEY_REMEMBRANCE: &str = "the-object.remembrance";
+/// Where the browser can only make words by sending the voice away, it may still ask for that,
+/// in its own word, with the reason under it (`Kind::Words`).
+const WORDS_AWAY: bool = true;
+/// What it says under that word, so the tap is an informed one.
+const AWAY: &str = "to make words of it, this browser sends what you say to its maker. tap to allow.";
 /// The question stays up while the drop is held out.
 const ASK_SECONDS: f64 = 7.0;
 /// Its reply stays up longer than anything else it says.
@@ -81,6 +89,8 @@ enum Line {
     Offer(Kind),
     /// The browser was told no.
     Refused(Kind),
+    /// It answered a greeting, in signs (words.rs).
+    Greeted(String),
 }
 
 struct Hud {
@@ -160,7 +170,12 @@ impl Hud {
                 let kept = "⟡".repeat(n as usize) + &"∴".repeat((KEEP_STEPS - n.min(KEEP_STEPS)) as usize);
                 (if n > 1 { "kept" } else { "let go" }, kept, alien, TOAST_SECONDS)
             }
+            Line::Offer(Kind::Words) => {
+                let line = format!("{}</span><small class=\"away\">{}</small><span>", Kind::Words.word(), AWAY);
+                ("it asks", line, " class=\"offer\"", senses::OFFER_WINDOW as f64)
+            }
             Line::Offer(k) => ("it asks", k.word().to_string(), " class=\"offer\"", senses::OFFER_WINDOW as f64),
+            Line::Greeted(signs) => ("", signs, alien, TOAST_SECONDS),
             Line::Refused(k) => ("no", k.refused().to_string(), "", TOAST_SECONDS),
         };
         self.toast.set_inner_html(&format!("<b>{}</b><span{}>{}</span>", name, class, line));
@@ -214,6 +229,13 @@ struct App {
     feeling: bool,
     /// What the browser answered when asked to let it feel.
     feel_answers: Rc<RefCell<Vec<Result<(), bool>>>>,
+    /// What this browser can do with a voice, the recognizer while it runs, what it said, and
+    /// whether it stopped for good this visit.
+    can_speech: Rc<Cell<Can>>,
+    speech: Option<Speech>,
+    notes: Rc<RefCell<Vec<Note>>>,
+    speech_gone: bool,
+    lang: String,
 }
 
 impl App {
@@ -310,7 +332,15 @@ impl App {
             Kind::Hear => self.ears.take().map(Ears::close),
             Kind::See => self.eyes.take().map(Eyes::close),
             Kind::Feel => None,
+            Kind::Words => self.speech.take().map(Speech::stop),
         };
+        // Words come out of hearing: without it, there are none.
+        if kind == Kind::Hear {
+            self.close(Kind::Words);
+        }
+        if matches!(kind, Kind::Hear | Kind::Words) {
+            self.game.words.close();
+        }
         if self.offer.is_some_and(|o| o.0 == kind) {
             self.offer = None;
         }
@@ -333,6 +363,9 @@ impl App {
             (false, true) => "it is watching. tap here or press escape to stop.",
             _ => "",
         };
+        let away = self.game.senses.words == senses::Leave::Open;
+        let what = if away { format!("{what} what you say goes to this browser's maker to become words.") } else { what.into() };
+        let what = what.as_str();
         let _ = self.hud.marks.set_attribute("aria-label", what);
         let _ = self.hud.marks.set_attribute("title", what);
         let _ = self.hud.marks.class_list().toggle_with_force("on", ear || eye);
@@ -349,8 +382,20 @@ impl App {
             Kind::Hear => {
                 self.ear_ctx = devices::ear_context();
                 devices::ask(kind, self.answers.clone());
+                // Words on the device may need their language first; only a tap may fetch it.
+                if self.can_speech.get() == Can::HereAfterFetch {
+                    speech::fetch(self.can_speech.clone(), &self.lang);
+                }
             }
             Kind::See => devices::ask(kind, self.answers.clone()),
+            Kind::Words => match Speech::start(false, &self.lang, self.notes.clone()) {
+                Some(sp) => {
+                    self.speech = Some(sp);
+                    self.game.senses.opened(Kind::Words);
+                    self.show_marks();
+                }
+                None => self.game.senses.refused(Kind::Words, false),
+            },
         }
         self.hud.toast_until = 0.0;
     }
@@ -370,7 +415,7 @@ impl App {
             let waiting = match kind {
                 Kind::Hear => self.game.senses.hear == senses::Leave::Opening,
                 Kind::See => self.game.senses.see == senses::Leave::Opening,
-                Kind::Feel => false,
+                Kind::Feel | Kind::Words => false,
             };
             match answer {
                 // Stopped while the browser was still asking: let it go unused.
@@ -382,7 +427,7 @@ impl App {
                             None => Err(JsValue::from_str("no audio context")),
                         },
                         Kind::See => Eyes::new(stream.clone()).map(|e| self.eyes = Some(e)),
-                        Kind::Feel => Err(JsValue::from_str("nothing to open")),
+                        Kind::Feel | Kind::Words => Err(JsValue::from_str("nothing to open")),
                     };
                     match opened {
                         Ok(()) => self.game.senses.opened(kind),
@@ -416,6 +461,32 @@ impl App {
         if let Some(seen) = self.eyes.as_mut().and_then(|e| e.look(now)) {
             self.game.senses.seen(seen);
         }
+        self.words();
+    }
+
+    /// Words, while it hears: on the device as soon as it hears, away only once let (`take_offer`).
+    fn words(&mut self) {
+        let can = self.can_speech.get();
+        self.game.senses.can_words = WORDS_AWAY && can == Can::Away && self.game.senses.can_hear;
+        if self.ears.is_some() && self.speech.is_none() && can == Can::Here && !self.speech_gone {
+            self.speech = Speech::start(true, &self.lang, self.notes.clone());
+            self.speech_gone = self.speech.is_none();
+        }
+        let notes = std::mem::take(&mut *self.notes.borrow_mut());
+        for note in notes {
+            match note {
+                Note::Text { session, index, text } => self.game.words.hear(session, index, &text),
+                Note::Refused | Note::Gone => {
+                    self.speech_gone = true;
+                    let away = self.game.senses.words == senses::Leave::Open;
+                    self.close(Kind::Words);
+                    if away && matches!(note, Note::Refused) {
+                        self.game.senses.refused(Kind::Words, true);
+                    }
+                }
+            }
+        }
+        self.game.words.open = self.speech.is_some();
     }
 
     fn frame(&mut self, now: f64) {
@@ -469,6 +540,10 @@ impl App {
             if let Some(s) = storage() {
                 let _ = s.set_item(KEY_REMEMBRANCE, &self.game.remembrance.save());
             }
+        }
+        for signs in self.game.words.said.drain(..) {
+            self.hud.toast_until = 0.0;
+            self.hud.queue.insert(0, Line::Greeted(signs));
         }
         for e in self.game.senses.drain_events() {
             match e {
@@ -581,6 +656,8 @@ pub fn start() -> Result<(), JsValue> {
 
     game.senses.can_hear = devices::possible(Kind::Hear);
     game.senses.can_see = devices::possible(Kind::See);
+    let lang = speech::lang();
+    let can_speech = if game.senses.can_hear { speech::probe(&lang) } else { Rc::new(Cell::new(Can::Nothing)) };
     let feeling = devices::feeling();
     match feeling {
         devices::Feeling::Free => game.senses.feel = senses::Leave::Open,
@@ -615,6 +692,11 @@ pub fn start() -> Result<(), JsValue> {
         felt: Rc::new(RefCell::new(Felt::default())),
         feeling: false,
         feel_answers: Rc::new(RefCell::new(Vec::new())),
+        can_speech,
+        speech: None,
+        notes: Rc::new(RefCell::new(Vec::new())),
+        speech_gone: false,
+        lang,
     }));
     app.borrow_mut().resize();
     if feeling == devices::Feeling::Free {
