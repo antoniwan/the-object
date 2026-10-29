@@ -44,6 +44,9 @@ pub(super) struct Hud {
     pub(super) marks: HtmlElement,
     /// What the marks last showed, so the page is only touched when that changes.
     pub(super) marks_shown: String,
+    /// The microphone in the corner, there until it hears; tapped, the browser asks.
+    pub(super) mic: HtmlElement,
+    pub(super) mic_shown: bool,
     /// Plain words for whoever cannot see the page, read out as they appear (`#said`).
     pub(super) said: HtmlElement,
     pub(super) queue: Vec<Line>,
@@ -66,6 +69,8 @@ impl Hud {
             thought: get("thought")?,
             marks: get("senses")?,
             marks_shown: String::new(),
+            mic: get("mic")?,
+            mic_shown: false,
             said: get("said")?,
             queue: Vec::new(),
             toast_until: 0.0,

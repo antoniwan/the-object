@@ -82,17 +82,26 @@ impl App {
     }
 
     /// One quiet mark for each thing it is let have, in the corner opposite the count, and a
-    /// fainter one for each it asked for this visit and was not given.
+    /// fainter one for each it asked for this visit and was not given. Before it hears, the
+    /// microphone waits in that corner instead, and fades as the mark for hearing comes.
     pub(super) fn show_marks(&mut self) {
         let (ear, eye) = (self.ears.is_some(), self.eyes.is_some());
         let senses = &self.game.senses;
-        let (wait_ear, wait_eye) = (senses.waiting(Kind::Hear) && !ear, senses.waiting(Kind::See) && !eye);
+        let mic = senses.waiting(Kind::Hear) && !ear;
+        if mic != self.hud.mic_shown {
+            self.hud.mic_shown = mic;
+            let _ = self.hud.mic.class_list().toggle_with_force("on", mic);
+            let _ = self.hud.mic.set_attribute("tabindex", if mic { "0" } else { "-1" });
+            let _ = self.hud.mic.set_attribute("aria-hidden", if mic { "false" } else { "true" });
+            let _ = self.hud.marks.class_list().toggle_with_force("beside", mic);
+        }
+        let wait_eye = senses.waiting(Kind::See) && !eye;
         let mark = |on: bool, wait: bool, k: &str, g: &str| match (on, wait) {
             (true, _) => format!("<span>{g}</span>"),
             (false, true) => format!("<span class=\"w\" data-k=\"{k}\">{g}</span>"),
             _ => String::new(),
         };
-        let html = [mark(ear, wait_ear, "hear", "◍"), mark(eye, wait_eye, "see", "◉")]
+        let html = [mark(ear, false, "hear", "◍"), mark(eye, wait_eye, "see", "◉")]
             .into_iter()
             .filter(|m| !m.is_empty())
             .collect::<Vec<_>>()
@@ -111,12 +120,7 @@ impl App {
         } else {
             what
         };
-        let asked = match (wait_ear, wait_eye) {
-            (true, true) => " it asked to hear and to see you. tap a faint mark to let it.",
-            (true, false) => " it asked to hear you. tap the faint mark to let it.",
-            (false, true) => " it asked to see you. tap the faint mark to let it.",
-            _ => "",
-        };
+        let asked = if wait_eye { " it asked to see you. tap the faint mark to let it." } else { "" };
         let what = format!("{what}{asked}");
         let what = what.trim();
         let marks = &self.hud.marks;
@@ -124,7 +128,7 @@ impl App {
         let _ = marks.set_attribute("aria-label", what);
         let _ = marks.set_attribute("title", what);
         let _ = marks.class_list().toggle_with_force("on", ear || eye);
-        let _ = marks.class_list().toggle_with_force("wait", wait_ear || wait_eye);
+        let _ = marks.class_list().toggle_with_force("wait", wait_eye);
         self.hud.marks_shown = html;
     }
 }

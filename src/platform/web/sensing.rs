@@ -39,9 +39,14 @@ impl App {
         self.close(Kind::See);
     }
 
-    /// A faint mark was tapped: the same as tapping the word it asked with.
+    /// A waiting mark (or the microphone) was tapped: the same as tapping the word it asks with.
     pub(super) fn take_waiting(&mut self, kind: Kind) {
         if self.game.senses.accept_waiting(kind) {
+            // Its word may still be up: it has been answered.
+            if self.offer.is_some_and(|o| o.0 == kind) {
+                self.offer = None;
+                self.hud.toast_until = 0.0;
+            }
             self.open(kind);
             self.show_marks();
         }

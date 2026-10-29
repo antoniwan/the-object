@@ -81,12 +81,15 @@ fn it_asks_late_once_a_visit_and_only_when_left_alone() {
 fn a_word_that_went_by_waits_as_a_mark() {
     let mut w = World::new();
     let mut s = Senses { can_hear: true, can_see: true, ..Default::default() };
-    assert!(!s.waiting(Kind::Hear), "nothing waits before it has asked");
-    run(&mut s, &mut w, &look(Stage::Echo, 30.0), 21.0, |_| {});
+    assert!(s.waiting(Kind::Hear), "hearing waits from the start");
+    assert!(!s.waiting(Kind::See), "sight waits only once it has asked");
+    run(&mut s, &mut w, &look(Stage::Initiative, 30.0), 21.0, |_| {});
     assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Hear)]);
-    assert!(!s.waiting(Kind::Hear), "not while the word itself is up");
-    run(&mut s, &mut w, &look(Stage::Echo, 30.0), OFFER_WINDOW + 1.0, |_| {});
-    assert!(s.waiting(Kind::Hear) && !s.waiting(Kind::See));
+    assert!(s.waiting(Kind::Hear), "and still while the word itself is up");
+    run(&mut s, &mut w, &look(Stage::Initiative, 30.0), OFFER_GAP, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::See)]);
+    run(&mut s, &mut w, &look(Stage::Initiative, 30.0), OFFER_WINDOW + 1.0, |_| {});
+    assert!(s.waiting(Kind::Hear) && s.waiting(Kind::See));
     assert!(s.accept_waiting(Kind::Hear));
     assert_eq!(s.hear, Leave::Opening);
     s.opened(Kind::Hear);
@@ -96,6 +99,18 @@ fn a_word_that_went_by_waits_as_a_mark() {
     assert!(s.accept_waiting(Kind::Hear));
     s.refused(Kind::Hear, true);
     assert!(!s.waiting(Kind::Hear) && !s.accept_waiting(Kind::Hear), "a no is kept");
+    let s = Senses { can_hear: false, ..Default::default() };
+    assert!(!s.waiting(Kind::Hear), "where it cannot hear, nothing waits");
+}
+
+#[test]
+fn given_hearing_early_it_asks_for_words_early() {
+    let mut w = World::new();
+    let mut s = Senses { can_hear: true, can_words: true, ..Default::default() };
+    assert!(s.accept_waiting(Kind::Hear));
+    s.opened(Kind::Hear);
+    run(&mut s, &mut w, &look(Stage::Matter, 30.0), 21.0, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Words)]);
 }
 
 #[test]
