@@ -28,8 +28,8 @@ mod sensing;
 mod storage;
 
 use hud::{Hud, Line};
-use page::{fail, listen, send_answer, storage};
-use storage::{KEY_CONTACT, KEY_FOUND, KEY_REMEMBRANCE, KEY_SENSES, KEY_VISITS};
+use page::{body, fail, listen, send_answer, storage};
+use storage::{load, save, KEY_CONTACT, KEY_FOUND, KEY_REMEMBRANCE, KEY_SENSES, KEY_VISITS};
 
 /// Frames the loader gets to paint before anything that might block.
 const LOADER_FRAMES: u32 = 2;
@@ -116,37 +116,27 @@ impl App {
         self.sense(now);
         self.game.update(dt as f32);
         if !self.game.announcements.is_empty() {
-            if let Some(s) = storage() {
-                let _ = s.set_item(KEY_FOUND, &self.game.progress.save());
-            }
+            save(KEY_FOUND, || self.game.progress.save());
         }
         if self.game.contact.dirty {
             self.game.contact.dirty = false;
-            if let Some(s) = storage() {
-                let _ = s.set_item(KEY_CONTACT, &self.game.contact.save());
-            }
+            save(KEY_CONTACT, || self.game.contact.save());
         }
         if self.game.senses.dirty {
             self.game.senses.dirty = false;
-            if let Some(s) = storage() {
-                let _ = s.set_item(KEY_SENSES, &self.game.senses.save());
-            }
+            save(KEY_SENSES, || self.game.senses.save());
         }
         if self.game.remembrance.dirty {
             self.game.remembrance.dirty = false;
-            if let Some(s) = storage() {
-                let _ = s.set_item(KEY_REMEMBRANCE, &self.game.remembrance.save());
-            }
+            save(KEY_REMEMBRANCE, || self.game.remembrance.save());
         }
         for signs in self.game.words.said.drain(..) {
-            self.hud.toast_until = 0.0;
-            self.hud.queue.insert(0, Line::Greeted(signs));
+            self.hud.urgent(Line::Greeted(signs));
         }
         for e in self.game.senses.drain_events() {
             match e {
                 senses::Event::Offer(k) => {
-                    self.hud.toast_until = 0.0;
-                    self.hud.queue.insert(0, Line::Offer(k));
+                    self.hud.urgent(Line::Offer(k));
                     self.offer = Some((k, now / 1000.0 + senses::OFFER_WINDOW as f64));
                 }
                 senses::Event::Refused(k) => self.hud.queue.insert(0, Line::Refused(k)),
@@ -158,12 +148,10 @@ impl App {
             match e {
                 contact::Event::Asked => {
                     // Whatever else it was saying can wait; this is asked now.
-                    self.hud.toast_until = 0.0;
-                    self.hud.queue.insert(0, Line::Asked);
+                    self.hud.urgent(Line::Asked);
                 }
                 contact::Event::Answer(n) => {
-                    self.hud.toast_until = 0.0;
-                    self.hud.queue.insert(0, Line::Answer(n));
+                    self.hud.urgent(Line::Answer(n));
                     send_answer(n);
                 }
                 _ => {}
@@ -189,7 +177,7 @@ impl App {
         let night = self.game.world.night.max(self.game.world.forms.fold.amount()) > 0.5;
         if night != self.night_shown {
             self.night_shown = night;
-            if let Some(body) = web_sys::window().and_then(|w| w.document()).and_then(|d| d.body()) {
+            if let Some(body) = body() {
                 let _ = body.class_list().toggle_with_force("night", night);
             }
         }
@@ -199,6 +187,29 @@ impl App {
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height(), self.quality as f32);
+    }
+
+    /// Sound can only start inside a gesture; the first one makes it.
+    fn start_audio(&mut self) {
+        if self.audio.is_none() {
+            self.audio = Audio::new().ok();
+        }
+    }
+
+    /// Inside a gesture: sound starts, or carries on if the browser held it.
+    fn wake_audio(&mut self) {
+        if let Some(audio) = &self.audio {
+            audio.resume();
+        } else {
+            self.start_audio();
+        }
+    }
+
+    fn set_cursor(&mut self, cursor: &'static str) {
+        if cursor != self.cursor {
+            self.cursor = cursor;
+            let _ = self.canvas.style().set_property("cursor", cursor);
+        }
     }
 }
 
@@ -218,18 +229,15 @@ pub fn start() -> Result<(), JsValue> {
     // Without storage every visit is a first one.
     game.thoughts.first_visit = true;
     let hud = Hud::new(&doc)?;
-    if let Some(s) = storage() {
-        let found = s.get_item(KEY_FOUND).ok().flatten().unwrap_or_default();
-        let visits = s.get_item(KEY_VISITS).ok().flatten().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0) + 1;
-        let _ = s.set_item(KEY_VISITS, &visits.to_string());
+    if storage().is_some() {
+        let found = load(KEY_FOUND);
+        let visits = load(KEY_VISITS).parse::<u32>().unwrap_or(0) + 1;
+        save(KEY_VISITS, || visits.to_string());
         game.thoughts.first_visit = visits == 1;
         game.progress = Progress::load(&found);
-        game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
-        game.senses = Senses::load(&s.get_item(KEY_SENSES).ok().flatten().unwrap_or_default());
-        game.remembrance = crate::mind::remembrance::Remembrance::load(
-            &s.get_item(KEY_REMEMBRANCE).ok().flatten().unwrap_or_default(),
-            js_sys::Date::now() / 1000.0,
-        );
+        game.contact = Contact::load(&load(KEY_CONTACT));
+        game.senses = Senses::load(&load(KEY_SENSES));
+        game.remembrance = crate::mind::remembrance::Remembrance::load(&load(KEY_REMEMBRANCE), js_sys::Date::now() / 1000.0);
         hud.show_count(game.progress.count());
         if visits > 1 && game.progress.count() > 0 {
             game.discover(Discovery::Return);
@@ -294,22 +302,18 @@ pub fn start() -> Result<(), JsValue> {
             e.prevent_default();
             let _ = c.set_pointer_capture(e.pointer_id());
             let mut a = app.borrow_mut();
-            if a.audio.is_none() {
-                a.audio = Audio::new().ok();
-            }
+            a.start_audio();
             let (x, y) = a.pos(&e);
             a.moved(e.pointer_id(), e.time_stamp());
             let grab = a.game.hovering_liquid(x, y);
             a.game.pointer_down(e.pointer_id(), x, y);
-            if grab && a.cursor != "grabbing" {
-                a.cursor = "grabbing";
-                let _ = c.style().set_property("cursor", "grabbing");
+            if grab {
+                a.set_cursor("grabbing");
             }
         })?;
     }
     {
         let app = app.clone();
-        let c = canvas.clone();
         listen(target, "pointermove", true, move |e: PointerEvent| {
             let mut a = app.borrow_mut();
             let (x, y) = a.pos(&e);
@@ -320,30 +324,22 @@ pub fn start() -> Result<(), JsValue> {
                 return;
             }
             let cursor = if a.game.hovering_liquid(x, y) { "grab" } else { "default" };
-            if cursor != a.cursor {
-                a.cursor = cursor;
-                let _ = c.style().set_property("cursor", cursor);
-            }
+            a.set_cursor(cursor);
         })?;
     }
     for name in ["pointerup", "pointercancel"] {
         let app = app.clone();
-        let c = canvas.clone();
         listen(target, name, true, move |e: PointerEvent| {
             let mut a = app.borrow_mut();
             a.game.pointer_up(e.pointer_id());
             if a.cursor == "grabbing" && !a.game.held() {
-                a.cursor = "grab";
-                let _ = c.style().set_property("cursor", "grab");
+                a.set_cursor("grab");
             }
             // A mouse keeps hovering after it lets go; a finger is gone.
             if e.pointer_type() != "mouse" {
                 a.last_move.retain(|p| p.0 != e.pointer_id());
             }
-            match &a.audio {
-                Some(audio) => audio.resume(),
-                None => a.audio = Audio::new().ok(),
-            }
+            a.wake_audio();
             if let Some(ears) = &a.ears {
                 ears.resume();
             }
@@ -390,11 +386,7 @@ pub fn start() -> Result<(), JsValue> {
                 return;
             }
             let mut a = app.borrow_mut();
-            if a.audio.is_none() {
-                a.audio = Audio::new().ok();
-            } else if let Some(audio) = &a.audio {
-                audio.resume();
-            }
+            a.wake_audio();
             if e.key() == "m" {
                 if let Some(audio) = &mut a.audio {
                     audio.toggle_mute();
