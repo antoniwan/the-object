@@ -251,7 +251,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
-| resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; the finest light follows at rate 1.2 / s (`pace.rs`) |
+| resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; frames steady at 30 fps (within 2.5 ms, changing under 1.5 ms frame to frame: a screen saving power) are let be; the canvas follows in steps of 0.025, down at 0.4 / s and up at 0.15 / s; the finest light follows at rate 1.2 / s (`pace.rs`) |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
 `prefers-reduced-motion` stops the loader's animation and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.

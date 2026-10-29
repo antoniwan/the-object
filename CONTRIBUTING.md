@@ -78,7 +78,7 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 118 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
-| `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two; the finest light fades with it. |
+| `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two, and left alone at a screen's steady thirty a second; the canvas follows in small steps, and the finest light fades with it. |
 | `src/math.rs` | Small vector math, so the simulation has no dependencies. |
 | `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
 

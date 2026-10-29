@@ -31,7 +31,7 @@ impl App {
         let (cwi, chi) = (cw.max(1) as f64, ch.max(1) as f64);
         let (cw, ch) = (cw as f64, ch as f64);
         let mut dpr = self.window.device_pixel_ratio().min(1.5);
-        dpr = dpr.min((MAX_PIXELS / (cw * ch).max(1.0)).sqrt()) * self.pace.quality;
+        dpr = dpr.min((MAX_PIXELS / (cw * ch).max(1.0)).sqrt()) * self.pace.scale();
         let w = (cw * dpr).max(1.0) as u32;
         let h = (ch * dpr).max(1.0) as u32;
         if self.canvas.width() != w || self.canvas.height() != h {
