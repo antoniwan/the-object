@@ -12,6 +12,14 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-10-29
+
+### Fixed
+- Coming back to the tab no longer leaves it drawn coarser; after a slow moment it sharpens again, and the light under it fades rather than switching off. (#72)
+- Gathered, it grows back among its pieces instead of appearing all at once. (#72)
+- The eye closes instead of vanishing, and moves with the cells as they turn to grain. (#72)
+- Becoming a box or dust, the light under it fades away instead of going out. (#72)
+
 ## [1.18.0] - 2026-10-29
 
 ### Added
@@ -378,7 +386,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.18.1...HEAD
+[1.18.1]: https://github.com/antoniwan/the-object/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/antoniwan/the-object/compare/v1.17.2...v1.18.0
 [1.17.2]: https://github.com/antoniwan/the-object/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/antoniwan/the-object/compare/v1.17.0...v1.17.1
