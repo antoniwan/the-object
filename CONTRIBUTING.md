@@ -74,6 +74,7 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
 | `src/meiosis.rs` | Slice it and it divides into two cells; squeeze them back into one. |
+| `src/nerve.rs` | What a cut does to it besides the cut: afraid at once, then, left alone, sure it is still there. Two eased values the shader draws the cells from (`uNerve`). |
 | `src/morula.rs` | Past two: every cell divides, then grain, the eye, cells dying, the stone. |
 | `src/fusion.rs` | Slam it into the floor and the floor turns liquid. |
 | `src/mere.rs` | What the liquid floor can become: mirror, ice, the deep, a fountain. |

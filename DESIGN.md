@@ -45,10 +45,12 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | night lens | the sky seen through it, a rim of its own color | six drops free and the room goes dark | `shadeLiquid()` `uNight` |
 | quicksilver | the environment × `#dbe0eb` | pulled out of a mirror | `uCoat.x` |
 | ink | `#050508` plus a little of its tint | pulled out of the deep | `uCoat.y` |
-| cell | `#fbecf1` body, `#b24580` rim, `#6b3d99` nucleus, `#52246b` nucleolus | divided; alive in a more familiar way | `shadeCell()` |
+| cell | ground `#f4f3f1`, lines `#212129` where a slow wave over each part is still; no center, nothing round drawn on it | divided; each part drawn, not filled | `shadeCell()`, `cellLines()` |
+| afraid | ground `#d4dbf2`, lines `#1a214d`, fine, close, trembling; the surface shivers | just cut | `uNerve.x`, `nerve.rs` |
+| sure | ground deepened 85% toward `#292630`, lines `#ffdb9e` × 1.4, burning `#ffb86b` in time with a slow swell (1.9 rad/s) | it has understood it is still there | `uNerve.y`, `nerve.rs` |
 | seam | `#ff59a6` | the glow of the newest cut, fades in a fraction of a second | `shadeCell()` `uDiv.x` |
-| wounded / dying cell | `#ffb2c2` multiplier / `#99999e` | hurt, then emptied to grey | `shadeCell()` `fate` |
-| eye | `#1a0824` pupil to `#9442a8` iris | one cell stops agreeing and looks | `shadeCell()` |
+| wounded / dying cell | lines `#ff294d` / ground `#99999e`, lines fading | hurt, then emptied to grey | `shadeCell()` `fate` |
+| eye | the cell's own lines, all running to the point it looks from, which stays open | one cell stops agreeing and looks | `shadeCell()` |
 | stone | `#040405`, reflection only | every seam closed; the 1 : 4 : 9 slab | `shadeStone()` |
 | mere | mirror `#edf0f5`, ice `#c7dbed` to `#f7fcff`, cracks `#526680`, deep ink `#04050a` | the liquid floor's states | `mereSurface()`, `mere.rs` |
 | blood | `#6b050d` river, `#9e0d17` at its banks, `#360306` in its depths, sheen `#ffdbdb` | the twelve, crowded together anywhere but the middle, melt and run as a river; brighter (×1.9) on each heartbeat | `river.rs` `BLOOD`, `shadeBlood()` |
@@ -216,6 +218,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- | --- |
 | agitation | `exp(-dt / 3.0)` | an upset fades over about three seconds |
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
+| after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
 | remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |
