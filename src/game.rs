@@ -55,7 +55,8 @@
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
 //! It also remembers how it was treated (see remembrance.rs): come back, and the first time
-//! a hand comes near it leans toward it, or away.
+//! a hand comes near it leans toward it, or away. Hurt it enough and it scars; hurt a scar and
+//! it opens, and what falls out can close it again (see wound.rs).
 //!
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
@@ -265,6 +266,14 @@ impl Game {
         let n = self.cam.basis().fwd;
         let t = (through - ro).dot(n) / rd.dot(n);
         ro + rd * t
+    }
+
+    /// The drop in the player's hand, if one is.
+    pub fn carried_drop(&self) -> Option<u32> {
+        match self.gesture {
+            Gesture::Dragging { drop, .. } => Some(drop),
+            _ => None,
+        }
     }
 
     pub fn hovering_liquid(&self, x: f32, y: f32) -> bool {

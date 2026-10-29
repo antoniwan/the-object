@@ -325,6 +325,20 @@ impl Renderer {
         self.v4v("uOther3", &[ot.kept.x, ot.kept.y, ot.kept.z, ot.fire]);
         self.f("uOtherIn", ot.inside());
 
+        // An old hurt: see wound.rs.
+        let wo = &world.wound;
+        let shown = wo.shown;
+        self.v4v("uScar", &[wo.dir.x, wo.dir.y, wo.dir.z, wo.scar * shown]);
+        self.v4v("uWound", &[wo.open() * shown, wo.fill, wo.drip, 0.0]);
+        self.v3("uWoundCol", wo.color);
+        let mut spiked = 0usize;
+        for (i, d) in world.drops.iter().take(MAX_DROPS).enumerate() {
+            if wo.is_caltrop(d.id) {
+                spiked |= 1 << i;
+            }
+        }
+        self.i("uCaltrop", spiked);
+
         gl.draw_arrays(GL::TRIANGLES, 0, 3);
     }
 }

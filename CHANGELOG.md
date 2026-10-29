@@ -12,11 +12,16 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
-## [1.13.0] - 2026-10-29
+## [1.14.0] - 2026-10-29
 
 ### Added
 - Once the mound has settled, something takes root in it. Tended, it grows: a shoot, a trunk, branches one after another, pale leaves, and at last the flower's pink again, in blossom along them. It sways a little once it is tall. (#59)
 - Left untended, it slowly draws back down to a shoot. Held, the mound takes it back in as the liquid rises out. Three new discoveries. (#59)
+
+## [1.13.0] - 2026-10-29
+
+### Added
+- Hurt enough, over time, it scars where it is struck most, and the scar stays between visits. Hurt again, the scar opens, and small spiked pieces of it fall onto the floor around it, each slowly turning through every color. Some of what is carried back in is kept, and fills the wound; the rest is thrown back out. Filled, it closes over, and the scar is fainter. It never goes. Four discoveries come with it. (#56)
 
 ## [1.12.0] - 2026-10-29
 
@@ -277,7 +282,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
