@@ -1,6 +1,6 @@
 # it grows if you let it
 
-*version 1.14.0 · 29 october 2026*
+*version 1.15.0 · 29 october 2026*
 
 The mound is not the end of it either.
 

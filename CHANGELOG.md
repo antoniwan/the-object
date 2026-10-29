@@ -12,7 +12,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
-## [1.14.0] - 2026-10-29
+## [1.15.0] - 2026-10-29
 
 ### Added
 - Once the mound has settled, something takes root in it. Tended, it grows: a shoot, a trunk, branches one after another, pale leaves, and at last the flower's pink again, in blossom along them. It sways a little once it is tall. (#59)
@@ -282,8 +282,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.14.0...HEAD
-[1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.14.0
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.15.0
 [1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
