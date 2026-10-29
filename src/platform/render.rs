@@ -180,7 +180,8 @@ impl Renderer {
     fn upload_liquid(&self, world: &World, r: f32, swell: f32) {
         let body = &world.body;
         self.v4v("uBody", &[body.pos.x, body.pos.y, body.pos.z, r * swell]);
-        self.v3("uScale", body.scale());
+        // gathering after a burst, it grows back inside the pieces (burst.rs `grown`)
+        self.v3("uScale", body.scale() * world.burst.grown().max(0.02));
         self.v2("uK", K_HANDLE * r, K_DROP * r);
 
         let (mut ha, mut hb, mut bulb) = (Vec::new(), Vec::new(), Vec::new());
@@ -297,14 +298,17 @@ impl Renderer {
     /// Bursting: see burst.rs.
     fn upload_burst(&self, world: &World) {
         let bu = &world.burst;
-        let gone = if bu.body_gone() { 1.0 } else { 0.0 };
-        self.v4("uBurst", gone, bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
+        self.v4("uBurst", 1.0 - bu.grown(), bu.flash(), bu.wounds / crate::burst::FATAL_WOUNDS, bu.spread());
         let (mut ta, mut tb) = (Vec::new(), Vec::new());
         // landscape.rs: planted pieces grow, and the weather rounds every edge
         let round = bu.land.rounding();
+        // gathered home, they are drops inside the body growing back, whatever their size (a drop's
+        // size is the body's); their shadows go as its own comes (`grown`)
+        let shown = 1.0 - bu.grown();
         for (i, s) in bu.shards.iter().enumerate() {
             let (pos, morph) = bu.shard_pose(i);
-            ta.extend([pos.x, pos.y, pos.z, bu.shard_size(i)]);
+            let size = bu.shard_size(i);
+            ta.extend([pos.x, pos.y, pos.z, if morph > 0.0 { size } else { size * shown }]);
             tb.extend([s.yaw, morph, s.wobble, round]);
         }
         self.v4v("uTri", &ta);

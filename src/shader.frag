@@ -62,7 +62,7 @@ uniform vec4 uJet;       // xy where the fountain stands (x, z), z column height
 uniform vec2 uCoat;      // what it rose as: x quicksilver, y ink
 
 // Bursting (burst.rs): twelve pieces that become twelve triangles.
-uniform vec4 uBurst;     // x body gone, y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
+uniform vec4 uBurst;     // x how far the body is gone (1 gone, easing to 0 as it grows back), y flash of the pop, z wounds 0..1, w spread of the pieces 0..1
 uniform vec4 uTri[12];   // xyz where the piece is (on the floor once landed), w height
 uniform vec4 uTriB[12];  // x yaw, y blob→triangle morph, z wobble from a poke, w weathering (extra rounding)
 // The river they run as when crowded together (river.rs), and the columns that stand out of it.
@@ -707,7 +707,7 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   vec3 fsg, fk;
   float fang, fs;
   vec3 bp = foldSpace(p, fsg, fang, fk, fs);
-  body = uBurst.x > 0.5 || uDust.y > 0.999 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? foldStep(p) : 1.0);
+  body = uBurst.x > 0.999 || uDust.y > 0.999 ? 1e3 : bodySurface(bp) * fs * (uFold.x > 0.0 ? foldStep(p) : 1.0);
   // coming apart into dust: it pits, then shrinks to nothing
   if (uDust.y > 0.0) body += uDust.y * uBody.w * (1.25 + 0.3 * sin(bp.x * 13.0) * sin(bp.y * 11.0 + 1.3) * sin(bp.z * 12.0 + 2.1));
   float d = body;
@@ -823,7 +823,7 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
   rb = max(rb, step(1e-9, uFil2.y) * (uFil.w + uFil2.x + length(uFilSwing) * (abs(uFil2.z) + 0.02) + grow));
   // the slab it stands up into
   rb = max(rb, cluster * step(1e-9, uStone.y) * (length(uSlab.xyz - uBody.xyz) + 2.6 * r + grow));
-  s = spanSphere(ro, rd, uBody.xyz, pick(-1.0, rb, step(uBurst.x, 0.5)), s);
+  s = spanSphere(ro, rd, uBody.xyz, pick(-1.0, rb, step(uBurst.x, 0.999)), s);
   s = spanSphere(ro, rd, uOther.xyz, pick(-1.0, uOther.w * max(1.0, 1.6 + 0.6 * uOther2.z) * 1.02 + 0.02, step(1e-9, uOther.w)), s);
   // the lake, with the fountain's column and the drop it lets go of, and the columns
   float jet = step(-0.3, uJet.w) * (max(uJet.z, uJet.w + 0.3) + 0.3);
@@ -947,7 +947,7 @@ float floorShadow(vec3 p) {
     if (i >= uNH) break;
     occ += sphOcc(p, vec4(uHB[i].xyz, uHBulb[i]));
   }
-  if (uBurst.x > 0.5) occ = 0.0;
+  occ *= 1.0 - uBurst.x;
   if (uHeap.w > 0.02) occ += sphOcc(p, vec4(uHeap.x, FLOOR_Y + uHeap.w * 0.35, uHeap.y, uHeap.z * 0.75));
   if (uOther.w > 0.0) occ += sphOcc(p, vec4(uOther.xyz, uOther.w * 1.3));
   float fade = exp(-0.05 * dot(p.xz, p.xz));
@@ -1553,7 +1553,7 @@ vec3 dispersed(vec3 rd, vec3 n) {
 // Light focused through the body onto the floor at p: a hot point inside its shadow
 // with a ring of split color around it, wavering with the surface.
 vec3 caustic(vec3 p) {
-  if (uFine <= 0.0 || uBurst.x > 0.5 || uNC > 0 || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
+  if (uFine <= 0.0 || uBurst.x > 0.999 || uNC > 0 || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
   float h = max(uBody.y - FLOOR_Y, 0.0);
   vec2 o = (p.xz - uBody.xz) / (uBody.w * (0.8 + 0.25 * h));
   o += 0.06 * vec2(sin(o.y * 5.0 + uTime * 1.3), sin(o.x * 4.0 - uTime * 1.1));
@@ -1563,7 +1563,7 @@ vec3 caustic(vec3 p) {
   float core = exp(-r * r * 7.0);
   vec3 light = normalize(uBodyCol + 0.05) * 1.73;
   float clear = (1.0 - uCoat.y) * (1.0 - uCosmos.x) * (1.0 - uNight) * exp(-h * 0.35);
-  return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit) * uFine;
+  return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit) * uFine * (1.0 - uBurst.x);
 }
 
 // Where the body is on screen, in the same units as uv.

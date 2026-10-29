@@ -160,6 +160,16 @@ impl Burst {
         }
     }
 
+    /// How much of the body is drawn, 0..1: none while it is gone; while the pieces gather it
+    /// grows back from nothing inside them, rather than appearing whole the moment it is back.
+    pub fn grown(&self) -> f32 {
+        match self.phase {
+            Phase::Gathering { t } => smoothstep(GATHER_SECS * 0.8, GATHER_SECS, t),
+            _ if self.body_gone() => 0.0,
+            _ => 1.0,
+        }
+    }
+
     /// The white flash of the pop.
     pub fn flash(&self) -> f32 {
         match self.phase {
@@ -438,6 +448,28 @@ mod tests {
         run(&mut b, 3.0);
         assert!(b.whole() && !b.body_gone());
         assert!(b.drain_events().contains(&Event::Gathered));
+    }
+
+    #[test]
+    fn gathered_it_grows_back_inside_the_pieces_rather_than_appearing_whole() {
+        let mut b = Burst::default();
+        for _ in 0..12 {
+            b.wound();
+        }
+        run(&mut b, 3.0);
+        assert_eq!(b.grown(), 0.0);
+        assert!(b.gather());
+        let (mut last, mut most) = (b.grown(), 0.0f32);
+        for _ in 0..240 {
+            b.step(1.0 / 60.0);
+            let g = b.grown();
+            most = most.max(g - last);
+            last = g;
+            // it only begins once the pieces are nearly home
+            assert!(g == 0.0 || b.spread() < 0.15, "it shows before the pieces arrive");
+        }
+        assert!(b.whole() && last == 1.0);
+        assert!(most < 0.06, "it grew {most} in one frame");
     }
 
     /// Carry every piece to a spot near `c`, one by one, as a player would.
