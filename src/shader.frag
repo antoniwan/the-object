@@ -96,6 +96,12 @@ uniform vec4 uOther;     // xyz where it is, w its size (0: not in the room)
 uniform vec4 uOther2;    // x how far it has turned, y how far it leans, z how sharp it has become, w ringing
 uniform vec4 uOther3;    // rgb the color it kept from inside the first, a fire in its edges
 uniform float uOtherIn;  // 0..1 how far inside the first it is
+
+// ---- an old hurt (wound.rs) ------------------------------------------------------
+uniform vec4 uScar;      // xyz which way the seam faces from the middle, w how plain the scar is (0: none)
+uniform vec4 uWound;     // x how open 0..1, y how full 0..1, z a drip going in 1..0
+uniform vec3 uWoundCol;  // what it is filling with
+uniform int uCaltrop;    // which drops are its spiked pieces, one bit each
 const int OTHER = 40;
 const int HEAP = 41;
 // pearl ground to powder (forms/dust.rs), and the mound it settles into
@@ -108,8 +114,12 @@ vec4 gOtherTurn; // cos and sin of the other one's turn, then of its lean
 vec2 gRiverDir;  // which way the river runs
 vec4 gBoxTurn;   // cos and sin of the way the box faces, then of how far its lid is open
 float gBoxShiver;
+vec3 gScarS, gScarW; // along the seam, and across it
 
 void sceneSetup() {
+  vec3 ref = abs(uScar.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+  gScarS = normalize(cross(uScar.xyz, ref));
+  gScarW = cross(uScar.xyz, gScarS);
   gOtherTurn = vec4(cos(uOther2.x), sin(uOther2.x), cos(uOther2.y), sin(uOther2.y));
   gRiverDir = vec2(cos(uRiver.z), sin(uRiver.z));
   float lid = max(uBox.y, 0.0) * 1.9;
@@ -264,6 +274,14 @@ float sdTaper(vec3 p, vec3 a, vec3 b, float ra, float rb) {
   return length(pa - ba * h) - mix(ra, rb, h);
 }
 
+// The scar at a surface direction n: x on the seam itself, y in the open wound, both 0..1.
+vec2 scarAt(vec3 n) {
+  if (uScar.w <= 0.0) return vec2(0.0);
+  float along = dot(n, gScarS), across = dot(n, gScarW);
+  float m = exp(-along * along * 14.0) * step(0.0, dot(n, uScar.xyz));
+  return vec2(uScar.w * exp(-across * across * 300.0), uWound.x * exp(-across * across * 110.0)) * m;
+}
+
 // Ripples and wobble for a surface direction n, in body radii.
 float surfaceDisp(vec3 n) {
   float disp = 0.012 * sin(n.x * 3.0 + uTime * 1.3) * sin(n.y * 4.0 - uTime * 1.1) * sin(n.z * 3.0 + uTime * 0.9);
@@ -296,6 +314,9 @@ float surfaceDisp(vec3 n) {
   // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
   float c = dot(n, uCut.xyz);
   disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
+  // The scar is raised a little; the wound is a gash, shallower as it fills.
+  vec2 sc = scarAt(n);
+  disp += 0.03 * sc.x - sc.y * (0.11 * (1.0 - 0.85 * uWound.y) + 0.02 * uWound.z * sin(uTime * 9.0));
   return disp;
 }
 
@@ -630,6 +651,18 @@ float heapSdf(vec3 p) {
 
 // Also hands back the body alone, and the nearest piece and its distance, so
 // shade() can use them without compiling bodySurface() and shards() again.
+// One of the wound's pieces (wound.rs): a small core with four spikes, turning slowly, so
+// that however it lies one points up. Not an exact distance, so it is taken at half.
+float caltrop(vec3 q, float r, float seed) {
+  float a = uTime * 0.4 + seed * 1.7;
+  q.xz = mat2(cos(a), sin(a), -sin(a), cos(a)) * q.xz;
+  vec3 n = q / max(length(q), 1e-5);
+  float m = max(max(dot(n, vec3(0.577, 0.577, 0.577)), dot(n, vec3(-0.577, -0.577, 0.577))),
+                max(dot(n, vec3(-0.577, 0.577, -0.577)), dot(n, vec3(0.577, -0.577, -0.577))));
+  float m2 = m * m, m4 = m2 * m2, m8 = m4 * m4;
+  return (length(q) - r * (0.6 + 1.0 * m8 * m8 * m2)) * 0.5;
+}
+
 float scene(vec3 p, out float body, out float piece, out int id) {
   // the fold repeats the body through mirrored space (forms/fold.rs)
   vec3 fsg, fk;
@@ -676,7 +709,10 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   }
   for (int i = ZERO; i < 12; i++) {
     if (i >= uND) break;
-    d = smin(d, length(p - uDrop[i].xyz) - uDrop[i].w, uK.y);
+    vec3 q = p - uDrop[i].xyz;
+    float dd = length(q) - uDrop[i].w;
+    if (((uCaltrop >> i) & 1) != 0) dd = caltrop(q, uDrop[i].w, float(i));
+    d = smin(d, dd, uK.y);
   }
   // the other one, joined last and never smoothly: the two never melt into each other
   if (uOther.w > 0.0) {
@@ -718,7 +754,7 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
   float grow = 0.05 + 0.25 * (uK.x * float(uNH) + uK.y * float(uND)) + 0.12 * r * lake;
   vec2 s = vec2(1e9, -1e9);
   // the furthest the ripples, the gaze, the boiling, the buds and the furrow push the body out
-  float disp = 0.012 + 0.31 * abs(uGaze.w) + 0.045 * abs(uAgit) + 0.32 * abs(uDiv.y);
+  float disp = 0.012 + 0.31 * abs(uGaze.w) + 0.045 * abs(uAgit) + 0.32 * abs(uDiv.y) + 0.03 * abs(uScar.w) + 0.02 * abs(uWound.z);
   // the highest the lake's waves reach, and the highest piece
   float wave = 0.12;
   float top = -1e9;
@@ -728,7 +764,8 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
     disp += below(fi, float(uNR)) * 0.26 * abs(uRip[min(i, 7)].w);
     disp += below(fi, float(uNB)) * 0.3 * abs(uBud[min(i, 4)].w);
     wave += below(fi, float(uNLR)) * 0.06 * abs(uLakeRip[min(i, 5)].w);
-    s = spanSphere(ro, rd, uDrop[i].xyz, pick(-1.0, uDrop[i].w + grow, below(fi, float(uND))), s);
+    float spikes = 1.0 + 0.6 * float((uCaltrop >> i) & 1);
+    s = spanSphere(ro, rd, uDrop[i].xyz, pick(-1.0, uDrop[i].w * spikes + grow, below(fi, float(uND))), s);
     int h = min(i, 3);
     vec3 a = uHA[h].xyz, b = uHB[h].xyz;
     float rt = 0.5 * length(b - a) + max(max(uHA[h].w, uHB[h].w), uHBulb[h]) + 0.03 * r + grow;
@@ -763,6 +800,10 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
 // `d` is bodySurface(p), which the caller already has.
 vec3 sceneColor(vec3 p, float d) {
   vec3 col = uBodyCol;
+  // the seam a shade darker than the rest of it; the wound raw, then what it was given
+  vec2 sc = scarAt(normalize(p - uBody.xyz + 1e-5));
+  col = mix(col, vec3(0.36, 0.2, 0.22), 0.9 * sc.x * (1.0 - uWound.x));
+  col = mix(col, mix(BLOOD, uWoundCol, uWound.y), clamp(sc.y * 1.4, 0.0, 1.0));
   for (int i = ZERO; i < 4; i++) {
     if (i >= uNH) break;
     float stem = sdTaper(p, uHA[i].xyz, uHB[i].xyz, uHA[i].w, uHB[i].w);
