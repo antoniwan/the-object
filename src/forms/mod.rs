@@ -2,6 +2,8 @@
 //!
 //! - pinch it (a short tug, let go at once): a bud stays where you pinched.
 //!   Five buds and it opens into a flower. Tap the flower and it folds back up.
+//!   Pinch the flower and it comes apart into dust on the floor; sweep the dust
+//!   together and it heaps into a mound; hold the mound and it rises (see dust.rs).
 //! - stretch it and hold it taut without letting it tear: it stops resisting
 //!   and draws out into one thread, longer than the room. Tap the thread to
 //!   pluck it; where you pluck decides the harmonic. Hold it still and it winds back.
@@ -18,6 +20,7 @@
 
 pub mod bloom;
 pub mod cosmos;
+pub mod dust;
 pub mod filament;
 pub mod fold;
 pub mod pandora;
@@ -25,6 +28,7 @@ pub mod pandora;
 use crate::math::*;
 use bloom::Bloom;
 use cosmos::Cosmos;
+use dust::Dust;
 use filament::Filament;
 use fold::Fold;
 use pandora::Pandora;
@@ -65,6 +69,16 @@ pub enum Event {
     Backward,
     /// The room folded back up around one of it.
     Crease,
+    /// Pinched as a flower, it came apart into dust.
+    Crumbled,
+    /// The dust was swept along.
+    Swept,
+    /// Nearly all of it in one place: it heaps itself up.
+    Heaped,
+    /// The heap has settled into a mound.
+    Grounded,
+    /// It came back up out of the mound.
+    Unearthed,
 }
 
 #[derive(Default)]
@@ -74,12 +88,13 @@ pub struct Forms {
     pub cosmos: Cosmos,
     pub pandora: Pandora,
     pub fold: Fold,
+    pub dust: Dust,
 }
 
 impl Forms {
     /// True while it is still the liquid it started as (buds alone don't change what it is).
     pub fn whole(&self) -> bool {
-        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole() && self.fold.whole()
+        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole() && self.fold.whole() && self.dust.whole()
     }
 
     pub fn step(&mut self, dt: f32) {
@@ -90,6 +105,16 @@ impl Forms {
         self.cosmos.pace = if self.fold.whole() { 1.0 } else { self.fold.pace() };
         self.cosmos.step(dt);
         self.pandora.step(dt);
+        self.dust.step(dt);
+        // once nothing is left of it, the flower it was is gone too
+        if self.dust.body_gone() && !self.bloom.whole() {
+            self.bloom.scatter();
+        }
+    }
+
+    /// A pinch on the flower: it comes apart over the floor under `pos`.
+    pub fn pinch_flower(&mut self, pos: V3) -> bool {
+        self.bloom.phase == bloom::Phase::Flower && self.dust.crumble(pos.x, pos.z, self.bloom.angle)
     }
 
     /// A stir (in turns, counterclockwise on screen positive): the fold takes it while there
@@ -125,6 +150,7 @@ impl Forms {
         out.append(&mut self.cosmos.events);
         out.append(&mut self.pandora.events);
         out.append(&mut self.fold.events);
+        out.append(&mut self.dust.events);
         out
     }
 }

@@ -1,0 +1,423 @@
+//! Pinch the flower and it does not fold: it lets go of itself. The petals go to grain,
+//! the grain to a cloud, and the cloud comes down as dust over the floor in drifts.
+//! Drag a finger through the dust and it is swept along like a broom pushes it; drifts
+//! pushed together become one. Gather nearly all of it into one place and it heaps itself
+//! up: a mound standing on the ground, which settles and firms and then breathes, slowly,
+//! where it stands. Tap the mound and it answers low. Press and hold it and it comes back
+//! up out of itself as the liquid, floating again, and the mound goes into it.
+//! Left alone long enough, the dust drifts together on its own.
+//!
+//! Like the other forms, `Phase` only decides which 0..1 values move; the shader mixes
+//! them: the body crumbling (`crumble`), the cloud (`cloud`), the dust landing (`settle`),
+//! and the mound (`heap`, `firm`).
+
+use super::Event;
+use crate::math::*;
+
+pub const CLUMPS: usize = 8;
+/// Crumbling, the cloud, and the dust coming down.
+const SCATTER_SECS: f32 = 3.0;
+/// The last of it drawn in, and the heap firming.
+const HEAP_SECS: f32 = 3.2;
+/// Coming back up out of the mound.
+const RISE_SECS: f32 = 2.6;
+/// This much of it in one drift and it heaps itself.
+pub const HEAP_AT: f32 = 0.9;
+/// Pressing the mound this long brings it back up.
+pub const RISE_HOLD_SECS: f32 = 1.2;
+/// Untouched this long, the dust starts to drift together by itself.
+const GATHER_SELF_AFTER: f32 = 40.0;
+/// How wide a finger sweeps, in world units.
+const BRUSH: f32 = 0.6;
+/// The dust is kept within this far of the middle of the room, where it can be seen.
+const REACH: f32 = 4.2;
+const FLOOR_Y: f32 = crate::fusion::FLOOR_Y;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Clump {
+    pub x: f32,
+    pub z: f32,
+    /// Its share of all the dust, 0..1; 0 is no drift.
+    pub amount: f32,
+}
+
+impl Clump {
+    /// How wide the drift lies; more dust lies wider.
+    pub fn radius(&self) -> f32 {
+        0.45 + 1.0 * self.amount.sqrt()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Phase {
+    Whole,
+    Scattering { t: f32 },
+    Dust,
+    Heaping { t: f32 },
+    Mound,
+    Rising { t: f32 },
+}
+
+pub struct Dust {
+    pub phase: Phase,
+    pub clumps: [Clump; CLUMPS],
+    /// Seconds since a finger last touched the dust.
+    idle: f32,
+    swept: bool,
+    /// The mound answering a tap, 0..1.
+    pub thud: f32,
+    /// How long the mound has been pressed, 0..1 of what it takes to come back up.
+    pub press: f32,
+    pub(super) events: Vec<Event>,
+}
+
+impl Default for Dust {
+    fn default() -> Self {
+        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, events: Vec::new() }
+    }
+}
+
+impl Dust {
+    pub fn whole(&self) -> bool {
+        self.phase == Phase::Whole
+    }
+
+    /// Pinched while it is a flower: it comes apart over the floor under (x, z).
+    /// `turn` sets where the drifts fall, so no two times are the same.
+    pub fn crumble(&mut self, x: f32, z: f32, turn: f32) -> bool {
+        if !self.whole() {
+            return false;
+        }
+        let mut total = 0.0;
+        for (i, c) in self.clumps.iter_mut().enumerate() {
+            // a golden-angle spiral, so the drifts lie apart without a grid
+            let a = turn + i as f32 * 2.399_963;
+            let r = 0.9 + 2.6 * ((i as f32 + 0.5) / CLUMPS as f32).sqrt();
+            c.x = x + a.cos() * r;
+            c.z = z + a.sin() * r;
+            c.amount = 0.7 + 0.6 * (i as f32 * 12.9898).sin().abs();
+            total += c.amount;
+        }
+        for c in &mut self.clumps {
+            c.amount /= total;
+            clamp_reach(c);
+        }
+        self.phase = Phase::Scattering { t: 0.0 };
+        self.idle = 0.0;
+        self.swept = false;
+        self.events.push(Event::Crumbled);
+        true
+    }
+
+    /// How far the camera has stepped back to look down on the floor, 0..1.
+    pub fn view(&self) -> f32 {
+        match self.phase {
+            Phase::Whole => 0.0,
+            Phase::Scattering { t } => smoothstep(0.0, SCATTER_SECS, t),
+            Phase::Rising { t } => 1.0 - smoothstep(RISE_SECS * 0.3, RISE_SECS, t),
+            _ => 1.0,
+        }
+    }
+
+    /// How far the body has come apart: 0 whole, 1 nothing left of it.
+    pub fn crumble_amount(&self) -> f32 {
+        match self.phase {
+            Phase::Whole => 0.0,
+            Phase::Scattering { t } => smoothstep(0.0, SCATTER_SECS * 0.45, t),
+            Phase::Rising { t } => 1.0 - smoothstep(RISE_SECS * 0.15, RISE_SECS, t),
+            _ => 1.0,
+        }
+    }
+
+    /// Whether there is no body left to see or touch.
+    pub fn body_gone(&self) -> bool {
+        self.crumble_amount() >= 1.0
+    }
+
+    /// The cloud between the body and the floor: how much of it is in the air, and how far it has fallen.
+    pub fn cloud(&self) -> (f32, f32) {
+        match self.phase {
+            Phase::Scattering { t } => {
+                let k = t / SCATTER_SECS;
+                (smoothstep(0.0, 0.3, k) * (1.0 - smoothstep(0.55, 1.0, k)), smoothstep(0.15, 0.95, k))
+            }
+            _ => (0.0, 0.0),
+        }
+    }
+
+    /// How much of the dust is down on the floor, 0..1.
+    pub fn settle(&self) -> f32 {
+        match self.phase {
+            Phase::Whole => 0.0,
+            Phase::Scattering { t } => smoothstep(SCATTER_SECS * 0.35, SCATTER_SECS, t),
+            _ => 1.0,
+        }
+    }
+
+    /// The fullest drift.
+    pub fn biggest(&self) -> usize {
+        let mut best = 0;
+        for (i, c) in self.clumps.iter().enumerate() {
+            if c.amount > self.clumps[best].amount {
+                best = i;
+            }
+        }
+        best
+    }
+
+    /// The mound: where it stands (x, z), how wide, how high. It rises out of the
+    /// fullest drift as the dust is swept into it, so it never appears from nowhere.
+    pub fn heap(&self) -> (f32, f32, f32, f32) {
+        let c = self.clumps[self.biggest()];
+        let grown = match self.phase {
+            Phase::Whole | Phase::Scattering { .. } => 0.0,
+            Phase::Dust => 0.7 * smoothstep(0.2, HEAP_AT, c.amount),
+            Phase::Heaping { t } => 0.7 + 0.3 * smoothstep(0.0, HEAP_SECS, t),
+            Phase::Mound => 1.0,
+            Phase::Rising { t } => 1.0 - smoothstep(0.0, RISE_SECS * 0.85, t),
+        };
+        (c.x, c.z, 0.6 + 1.0 * grown.sqrt(), 1.0 * grown)
+    }
+
+    /// How settled the mound is: grains at 0, one firm thing at 1.
+    pub fn firm(&self) -> f32 {
+        match self.phase {
+            Phase::Heaping { t } => smoothstep(HEAP_SECS * 0.3, HEAP_SECS, t),
+            Phase::Mound | Phase::Rising { .. } => 1.0,
+            _ => 0.0,
+        }
+    }
+
+    /// Whether (x, z) on the floor is on the mound.
+    pub fn on_mound(&self, x: f32, z: f32) -> bool {
+        let (hx, hz, r, h) = self.heap();
+        h > 0.3 && (x - hx).hypot(z - hz) < r * 1.1
+    }
+
+    /// Where the body should be while there is no body: in the mound, and on the way up out of it.
+    /// None once it is itself again.
+    pub fn body_at(&self, home: V3) -> Option<V3> {
+        let (x, z, _, h) = self.heap();
+        let low = v3(x, FLOOR_Y + h * 0.5, z);
+        match self.phase {
+            Phase::Whole | Phase::Scattering { .. } => None,
+            Phase::Rising { t } => Some(low.lerp(home, smoothstep(0.0, RISE_SECS, t))),
+            _ => Some(low),
+        }
+    }
+
+    /// A finger dragged over the floor from `a` to `b` (x, z): every drift it passes through
+    /// goes along with it, and drifts pushed into each other become one. True if any moved.
+    pub fn sweep(&mut self, a: (f32, f32), b: (f32, f32)) -> bool {
+        if self.phase != Phase::Dust {
+            return false;
+        }
+        self.idle = 0.0;
+        let (dx, dz) = (b.0 - a.0, b.1 - a.1);
+        let len2 = dx * dx + dz * dz;
+        if len2 < 1e-8 {
+            return false;
+        }
+        let mut moved = false;
+        for c in self.clumps.iter_mut().filter(|c| c.amount > 0.0) {
+            // nearest point of the stroke to the drift
+            let s = (((c.x - a.0) * dx + (c.z - a.1) * dz) / len2).clamp(0.0, 1.0);
+            let (px, pz) = (a.0 + dx * s, a.1 + dz * s);
+            let d = (c.x - px).hypot(c.z - pz);
+            let reach = BRUSH + 0.5 * c.radius();
+            if d < reach {
+                // pushed the rest of the way the stroke went; heavier drifts lag a little
+                let push = (1.0 - s) * (1.0 - 0.35 * c.amount) * smoothstep(reach, reach * 0.4, d).max(0.35);
+                c.x += dx * push;
+                c.z += dz * push;
+                clamp_reach(c);
+                moved = true;
+            }
+        }
+        self.merge();
+        if moved && !self.swept {
+            self.swept = true;
+            self.events.push(Event::Swept);
+        }
+        moved
+    }
+
+    /// Drifts lying over each other become one, where their dust balances.
+    fn merge(&mut self) {
+        for i in 0..CLUMPS {
+            for j in 0..CLUMPS {
+                let (a, b) = (self.clumps[i], self.clumps[j]);
+                if i == j || a.amount <= 0.0 || b.amount <= 0.0 || a.amount < b.amount {
+                    continue;
+                }
+                if (a.x - b.x).hypot(a.z - b.z) < 0.45 * (a.radius() + b.radius()) {
+                    let m = a.amount + b.amount;
+                    self.clumps[i] = Clump { x: (a.x * a.amount + b.x * b.amount) / m, z: (a.z * a.amount + b.z * b.amount) / m, amount: m };
+                    self.clumps[j].amount = 0.0;
+                }
+            }
+        }
+    }
+
+    /// A tap on the mound.
+    pub fn tap(&mut self) -> bool {
+        if !matches!(self.phase, Phase::Mound | Phase::Heaping { .. }) {
+            return false;
+        }
+        self.thud = 1.0;
+        true
+    }
+
+    /// Held long enough: it comes back up out of the mound.
+    pub fn rise(&mut self) -> bool {
+        if self.phase != Phase::Mound {
+            return false;
+        }
+        self.phase = Phase::Rising { t: 0.0 };
+        true
+    }
+
+    pub fn step(&mut self, dt: f32) {
+        self.thud = fade(self.thud, -5.0 * dt);
+        self.idle += dt;
+        self.phase = match self.phase {
+            Phase::Whole => Phase::Whole,
+            Phase::Scattering { t } if t + dt >= SCATTER_SECS => Phase::Dust,
+            Phase::Scattering { t } => Phase::Scattering { t: t + dt },
+            Phase::Dust => {
+                if self.idle > GATHER_SELF_AFTER {
+                    // left alone, it drifts toward its fullest part, a little faster the longer it waits
+                    let pull = (0.15 + 0.01 * (self.idle - GATHER_SELF_AFTER)).min(0.6) * dt;
+                    let k = self.biggest();
+                    let (hx, hz) = (self.clumps[k].x, self.clumps[k].z);
+                    for c in self.clumps.iter_mut() {
+                        let (ox, oz) = (hx - c.x, hz - c.z);
+                        let d = ox.hypot(oz).max(1e-4);
+                        let step = (pull / d).min(1.0);
+                        c.x += ox * step;
+                        c.z += oz * step;
+                    }
+                    self.merge();
+                }
+                if self.clumps[self.biggest()].amount >= HEAP_AT {
+                    self.events.push(Event::Heaped);
+                    Phase::Heaping { t: 0.0 }
+                } else {
+                    Phase::Dust
+                }
+            }
+            Phase::Heaping { t } => {
+                // the last of it is drawn in, along the floor
+                let k = self.biggest();
+                let (hx, hz) = (self.clumps[k].x, self.clumps[k].z);
+                let (was, now) = (smoothstep(0.0, HEAP_SECS * 0.6, t), smoothstep(0.0, HEAP_SECS * 0.6, t + dt));
+                let share = if now >= 1.0 { 1.0 } else { ((now - was) / (1.0 - was).max(1e-4)).min(1.0) };
+                let mut taken = 0.0;
+                for (i, c) in self.clumps.iter_mut().enumerate() {
+                    if i != k && c.amount > 0.0 {
+                        let part = c.amount * share;
+                        c.amount -= part;
+                        taken += part;
+                        c.x += (hx - c.x) * share;
+                        c.z += (hz - c.z) * share;
+                    }
+                }
+                self.clumps[k].amount += taken;
+                if t + dt >= HEAP_SECS {
+                    self.events.push(Event::Grounded);
+                    Phase::Mound
+                } else {
+                    Phase::Heaping { t: t + dt }
+                }
+            }
+            Phase::Mound => Phase::Mound,
+            Phase::Rising { t } if t + dt >= RISE_SECS => {
+                self.clumps = [Clump::default(); CLUMPS];
+                self.press = 0.0;
+                self.events.push(Event::Unearthed);
+                Phase::Whole
+            }
+            Phase::Rising { t } => Phase::Rising { t: t + dt },
+        };
+    }
+}
+
+fn clamp_reach(c: &mut Clump) {
+    let d = c.x.hypot(c.z);
+    if d > REACH {
+        c.x *= REACH / d;
+        c.z *= REACH / d;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(d: &mut Dust, secs: f32) {
+        for _ in 0..(secs * 60.0) as usize {
+            d.step(1.0 / 60.0);
+        }
+    }
+
+    fn total(d: &Dust) -> f32 {
+        d.clumps.iter().map(|c| c.amount).sum()
+    }
+
+    #[test]
+    fn it_crumbles_lands_and_sweeping_it_together_heaps_a_mound_that_rises_back() {
+        let mut d = Dust::default();
+        assert!(d.crumble(0.0, 0.0, 0.3));
+        assert!(!d.crumble(0.0, 0.0, 0.3));
+        run(&mut d, 3.5);
+        assert_eq!(d.phase, Phase::Dust);
+        assert!(d.body_gone());
+        assert!((total(&d) - 1.0).abs() < 1e-4);
+        // sweep every drift to one place, the way a broom would
+        for _ in 0..40 {
+            if d.phase != Phase::Dust {
+                break;
+            }
+            for i in 0..CLUMPS {
+                let c = d.clumps[i];
+                if c.amount > 0.0 && c.x.hypot(c.z) > 0.2 {
+                    let back = (c.x - c.x * 0.2, c.z - c.z * 0.2);
+                    d.sweep((c.x * 1.2, c.z * 1.2), back);
+                    d.sweep(back, (0.0, 0.0));
+                }
+            }
+            d.step(1.0 / 60.0);
+        }
+        assert!(d.events.contains(&Event::Swept));
+        assert!(matches!(d.phase, Phase::Heaping { .. }), "{:?} {:?}", d.phase, d.clumps);
+        run(&mut d, 3.5);
+        assert_eq!(d.phase, Phase::Mound);
+        assert!((total(&d) - 1.0).abs() < 1e-3, "{}", total(&d));
+        let (x, z, _, h) = d.heap();
+        assert!(h > 0.9 && d.on_mound(x, z));
+        assert!(d.tap() && d.thud > 0.9);
+        assert!(d.rise());
+        run(&mut d, 3.0);
+        assert!(d.whole() && d.crumble_amount() == 0.0);
+        assert!(d.events.contains(&Event::Unearthed));
+    }
+
+    #[test]
+    fn left_alone_the_dust_gathers_itself() {
+        let mut d = Dust::default();
+        d.crumble(0.5, -0.5, 1.0);
+        run(&mut d, 3.5 + GATHER_SELF_AFTER + 40.0);
+        assert!(matches!(d.phase, Phase::Heaping { .. } | Phase::Mound), "{:?}", d.clumps);
+    }
+
+    #[test]
+    fn the_dust_stays_where_it_can_be_seen() {
+        let mut d = Dust::default();
+        d.crumble(0.0, 0.0, 0.0);
+        run(&mut d, 3.5);
+        for _ in 0..30 {
+            d.sweep((0.0, 0.0), (6.0, 0.0));
+        }
+        assert!(d.clumps.iter().all(|c| c.x.hypot(c.z) <= REACH + 1e-3));
+    }
+}

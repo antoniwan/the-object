@@ -380,6 +380,11 @@ impl World {
         self.fusion.step(dt);
         self.burst.step(dt);
         self.forms.step(dt);
+        // gone to dust, it is in the mound, and comes back up out of it (forms/dust.rs)
+        if let Some(at) = self.forms.dust.body_at(home) {
+            self.body.pos = at;
+            self.body.vel = V3::ZERO;
+        }
         self.step_handles(dt);
 
         for r in &mut self.ripples {
@@ -595,8 +600,8 @@ impl World {
         let b = &self.body;
         let r = b.radius();
         let s = b.scale();
-        // Once it has burst, there is no body to touch.
-        let mut d = if self.burst.body_gone() { 1e3 } else { self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s)) };
+        // Once it has burst, or gone to dust, there is no body to touch.
+        let mut d = if self.burst.body_gone() || self.forms.dust.body_gone() { 1e3 } else { self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s)) };
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }

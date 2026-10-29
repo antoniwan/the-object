@@ -77,11 +77,11 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/mere.rs` | What the liquid floor can become: mirror, ice, the deep, a fountain. |
 | `src/burst.rs` | Poke it to death and it bursts into twelve pieces. |
 | `src/landscape.rs` | What the twelve pieces do once they have landed. |
-| `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); and `fold`, where the universe stirred on gets out into the room. |
+| `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); `fold`, where the universe stirred on gets out into the room; and `dust`, where the flower pinched comes apart over the floor, is swept and heaps into a mound. |
 | `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
 | `src/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
 | `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 97 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 101 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |

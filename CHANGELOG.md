@@ -12,6 +12,13 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-29
+
+### Added
+- Pinched once it has flowered, it does not close: it comes apart into a cloud of grain that settles over the floor in drifts. (#PR)
+- A finger drawn through the dust sweeps it along, and drifts pushed together become one. Gathered nearly all in one place, it heaps itself into a mound that settles, stands on the ground and breathes there. Left alone long enough, the dust drifts together on its own. (#PR)
+- Tapped, the mound answers low; held, light comes up through it and it rises back out of itself, floating again, and leaves nothing behind. Four new discoveries. (#PR)
+
 ## [1.8.5] - 2026-10-29
 
 ### Added
@@ -240,7 +247,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.5...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/antoniwan/the-object/compare/v1.8.5...v1.9.0
 [1.8.5]: https://github.com/antoniwan/the-object/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/antoniwan/the-object/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/antoniwan/the-object/compare/v1.8.2...v1.8.3

@@ -101,9 +101,13 @@ pub enum Discovery {
     Facet,
     Backward,
     Crease,
+    Dust,
+    Sweep,
+    Mound,
+    Unearth,
 }
 
-pub const ALL: [Discovery; 97] = [
+pub const ALL: [Discovery; 101] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -201,6 +205,10 @@ pub const ALL: [Discovery; 97] = [
     Discovery::Facet,
     Discovery::Backward,
     Discovery::Crease,
+    Discovery::Dust,
+    Discovery::Sweep,
+    Discovery::Mound,
+    Discovery::Unearth,
 ];
 
 impl Discovery {
@@ -303,6 +311,10 @@ impl Discovery {
             Discovery::Facet => "facet",
             Discovery::Backward => "backward",
             Discovery::Crease => "crease",
+            Discovery::Dust => "dust",
+            Discovery::Sweep => "sweep",
+            Discovery::Mound => "mound",
+            Discovery::Unearth => "unearth",
         }
     }
 
@@ -405,6 +417,10 @@ impl Discovery {
             Discovery::Facet => "one more mirror. it is in all of them.",
             Discovery::Backward => "it unturned. the stars went back where they were.",
             Discovery::Crease => "the room folded back up. it kept the crease.",
+            Discovery::Dust => "it let go of every part of itself at once.",
+            Discovery::Sweep => "pushed, every grain leans back toward the rest.",
+            Discovery::Mound => "it is heavy now. it chose the ground.",
+            Discovery::Unearth => "it came up out of itself and left nothing behind.",
         }
     }
 }
@@ -469,7 +485,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Crease as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Unearth as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }

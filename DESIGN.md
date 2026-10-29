@@ -55,6 +55,8 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game.rs` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
+| dust | `#ccc7d4`, grainy, a few grains still glinting in the film's colors | the flower let go of; drifts on the floor, and the cloud they fall from | `shader.frag` `DUST`, `dustFloor()` |
+| mound | `#b3abb3`, faint layers, the film back at its grazing edges; lit from inside while pressed | the dust heaped and settled; the only thing it is that stands on the ground | `MOUND`, `shadeHeap()` |
 | fold | `#080412` the dark between, then a cosine run through `#e50839` `#6b00db` `#0091e0` `#6b9f3e` (`foldPal()`), squared, so mostly the violet and blue of the galaxy's arms come through, on an orbit-trap fractal | the galaxy's own colors let out into the room; each copy of it takes a different turn of the run | `shader.frag` fold block |
 | fold seams | `#f2d9ff`, flaring on a new mirror | where the mirrors meet | `foldSky()` |
 | backward | the fold's colors rotated a channel (`col.zxy`), cooler | its time running the other way | `foldSky()` `uFold.w` |
@@ -73,6 +75,7 @@ Every shock (whatever shakes the room: a cut, a slam, the burst, the lid, the sl
 | a cut | the seam's pink | `#ff4d9e` |
 | the lid | the box's light | `#ffd173` |
 | the river's beat | blood | `#bf0a17` |
+| coming apart into dust | the dust | `#ccc7d4` |
 | the burst | every color at once, around it | spectrum by angle |
 | upset or wounded (no shock needed) | the edges bruise toward `#473859`, then `#8c1429` | at most 60%, less at night |
 
@@ -165,6 +168,10 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
+| `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
+| `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
+| `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
+| `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
 | `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
 | `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
@@ -186,8 +193,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | --- | --- | --- |
 | hit-stop | 0.12 s | the freeze right after a cut (`meiosis.rs`) |
 | quick change | 0.5 – 1.5 s | a bud growing, ice thawing, the floor taking it in |
-| becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2 |
-| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0 |
+| becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2, coming apart into dust 3.0, heaping into a mound 3.2 |
+| letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0, rising out of the mound 2.6 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
 | slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
@@ -286,6 +293,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | press and drag | the liquid | stretch | far enough: tear off a drop | `sim.rs` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
+| short tug, let go at once | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
+| drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
 | keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |
 | draw a square | around it | (corners) | a box; knock three times | `forms/pandora.rs` |
