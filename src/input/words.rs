@@ -3,8 +3,9 @@
 //!
 //! - say a verb and it is done to it, once for each time it is said: "poke poke poke" is three
 //!   pokes, in the order said. Poke, cut, squeeze, hold, pull, tear, pinch, throw, come, in
-//!   English or Spanish. The hand that does it is the same hand the pointer is, so every word
-//!   does exactly what that gesture would, wherever it is.
+//!   English or Spanish, mixed as you like, with a pronoun on the end or not ("córtalo"). The
+//!   hand that does it is the same hand the pointer is, so every word does exactly what that
+//!   gesture would, wherever it is.
 //! - greet it, in any language, and what it does depends on how it has been treated, as
 //!   remembrance.rs keeps it. Treated gently, it turns to you and answers in its own signs: the
 //!   same signs for the same greeting, so a player can learn its word for theirs. Not sure of
@@ -40,18 +41,46 @@ pub enum Verb {
     Come,
 }
 
-/// Words that are the hand, by language. Accents are taken off before comparing.
+/// Words that are the hand, by language. Accents are taken off before comparing, and a Spanish
+/// word with a pronoun on the end ("córtalo", "tócala") is the word without it (`verb`).
 const VERBS: [(Verb, &[&str]); 9] = [
-    (Verb::Poke, &["poke", "pokes", "poked", "poking", "prod", "boop", "tap", "toca", "tocar", "toco", "pica", "picar", "puya", "puyar", "puyo"]),
-    (Verb::Cut, &["cut", "slice", "split", "chop", "corta", "cortar", "corto", "parte", "partir", "divide", "dividir"]),
-    (Verb::Squeeze, &["squeeze", "squish", "squash", "crush", "aprieta", "apretar", "exprime", "estruja", "apachurra", "apachurrar"]),
-    (Verb::Hold, &["hold", "warm", "hug", "aguanta", "sosten", "sostener", "sujeta", "abraza", "abrazar", "calienta"]),
-    (Verb::Pull, &["pull", "stretch", "estira", "estirar", "jala", "jalar", "hala", "halar"]),
-    (Verb::Tear, &["tear", "rip", "arranca", "arrancar", "rompe", "romper"]),
-    (Verb::Pinch, &["pinch", "pellizca", "pellizcar", "pellizco"]),
-    (Verb::Throw, &["throw", "slam", "drop", "lanza", "lanzar", "tira", "tirar", "bota", "botar"]),
-    (Verb::Come, &["come", "ven", "venga", "acercate", "aca", "aqui"]),
+    (Verb::Poke, &[
+        "poke", "pokes", "poked", "poking", "prod", "boop", "tap", "touch", "nudge", "jab",
+        "toca", "tocar", "toco", "toque", "pica", "picar", "pique", "puya", "puyar", "puyo", "puyalo",
+    ]),
+    (Verb::Cut, &[
+        "cut", "slice", "split", "chop", "halve", "cleave",
+        "corta", "cortar", "corto", "corte", "parte", "partir", "divide", "dividir", "rebana", "rebanar",
+    ]),
+    (Verb::Squeeze, &[
+        "squeeze", "squish", "squash", "crush", "press", "compress",
+        "aprieta", "apretar", "apreta", "exprime", "estruja", "estrujar", "apachurra", "apachurrar",
+        "espachurra", "espachurrar", "aplasta", "aplastar", "presiona", "presionar",
+    ]),
+    (Verb::Hold, &[
+        "hold", "warm", "hug", "cuddle",
+        "aguanta", "aguantar", "sosten", "sostener", "sujeta", "abraza", "abrazar", "calienta", "calentar",
+        "agarra", "agarrar",
+    ]),
+    (Verb::Pull, &["pull", "stretch", "drag", "tug", "estira", "estirar", "jala", "jalar", "hala", "halar"]),
+    (Verb::Tear, &["tear", "rip", "break", "arranca", "arrancar", "rompe", "romper", "rasga", "rasgar", "desgarra"]),
+    (Verb::Pinch, &["pinch", "nip", "pellizca", "pellizcar", "pellizco", "pellizque"]),
+    (Verb::Throw, &[
+        "throw", "slam", "drop", "toss", "fling",
+        "lanza", "lanzar", "tira", "tirar", "bota", "botar", "avienta", "aventar", "arroja", "arrojar", "estrella",
+    ]),
+    (Verb::Come, &["come", "closer", "ven", "venga", "vente", "acercate", "acercar", "aca", "aqui"]),
 ];
+
+/// Pronouns Spanish puts on the end of a command, longest first.
+const ENCLITICS: [&str; 7] = ["selo", "sela", "los", "las", "lo", "la", "le"];
+
+fn verb(word: &str) -> Option<Verb> {
+    let find = |w: &str| VERBS.iter().find(|(_, words)| words.contains(&w)).map(|(v, _)| *v);
+    find(word).or_else(|| {
+        ENCLITICS.iter().find_map(|e| word.strip_suffix(e).filter(|stem| stem.len() >= 2).and_then(find))
+    })
+}
 
 /// Greetings, written as they come back from the browser (lowercase, accents off). The ones in
 /// scripts without spaces are found anywhere in what was said; the rest only as whole words.
@@ -61,7 +90,7 @@ const GREETINGS: &[&str] = &[
     "good evening", "good day", "morning", "hey there", "hullo",
     // spanish
     "hola", "buenos dias", "buen dia", "buenas tardes", "buenas noches", "buenas", "saludos",
-    "que tal", "wepa",
+    "que tal", "wepa", "alo", "jelou",
     // and others
     "bonjour", "bonsoir", "salut", "ciao", "buongiorno", "buonasera", "salve", "hallo",
     "guten morgen", "guten tag", "guten abend", "servus", "moin", "ola", "oi", "bom dia",
@@ -108,10 +137,20 @@ fn plain(text: &str) -> String {
 
 /// Every verb in what was said, in order, as often as it was said.
 pub fn verbs(text: &str) -> Vec<Verb> {
-    plain(text)
-        .split_whitespace()
-        .filter_map(|w| VERBS.iter().find(|(_, words)| words.contains(&w)).map(|(v, _)| *v))
-        .collect()
+    plain(text).split_whitespace().filter_map(verb).collect()
+}
+
+/// Whether anything in what was said is a word it takes.
+pub fn known(text: &str) -> bool {
+    !verbs(text).is_empty() || greeting(text).is_some()
+}
+
+/// Of the browser's guesses at what was said, best first, the one with the most of its words in
+/// it: a "poke" heard as "polk" first and "poke" second is still a poke.
+pub fn likeliest(guesses: &[String]) -> &str {
+    let score = |t: &str| verbs(t).len() + greeting(t).is_some() as usize;
+    let best = guesses.iter().map(|g| score(g)).max().unwrap_or(0);
+    guesses.iter().find(|g| score(g) == best).map(String::as_str).unwrap_or("")
 }
 
 /// The greeting in what was said, if there is one.
@@ -435,9 +474,21 @@ mod tests {
     fn it_finds_verbs_as_often_as_they_are_said() {
         assert_eq!(verbs("poke poke poke poke poke"), vec![Verb::Poke; 5]);
         assert_eq!(verbs("Poke-poke, POKE!"), vec![Verb::Poke; 3]);
-        assert_eq!(verbs("aprieta y luego córtalo"), vec![Verb::Squeeze]);
+        assert_eq!(verbs("aprieta y luego córtalo"), vec![Verb::Squeeze, Verb::Cut]);
+        assert_eq!(verbs("Tócala, estíralo, ¡apachúrralo!"), vec![Verb::Poke, Verb::Pull, Verb::Squeeze]);
+        assert_eq!(verbs("poke it, ahora puya, then cut"), vec![Verb::Poke, Verb::Poke, Verb::Cut]);
+        assert!(verbs("hola la luz lo sé").is_empty(), "a pronoun alone is not a verb");
         assert_eq!(verbs("corta, estira, ven"), vec![Verb::Cut, Verb::Pull, Verb::Come]);
         assert!(verbs("this is a spoken sentence").is_empty(), "not inside other words");
+    }
+
+    #[test]
+    fn of_the_guesses_it_takes_the_one_it_understands() {
+        let g = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(likeliest(&g(&["polk polk", "poke poke", "poke"])), "poke poke");
+        assert_eq!(likeliest(&g(&["what is this", "what is these"])), "what is this");
+        assert_eq!(likeliest(&[]), "");
+        assert!(known("ven acá") && known("buenas") && !known("what is this"));
     }
 
     #[test]

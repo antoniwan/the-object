@@ -64,7 +64,7 @@ fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
     }
     let c = &corrs[..lags];
     let best = c.iter().cloned().fold(f32::MIN, f32::max);
-    if best < 0.82 {
+    if best < 0.78 {
         return None;
     }
     // The first peak nearly as good as the best, so a note is not heard an octave low.

@@ -44,16 +44,19 @@ pub const OFFER_WINDOW: f32 = 9.0;
 /// Between asking to hear and asking to see, at least.
 const OFFER_GAP: f32 = 40.0;
 
-/// Below this the room is silent, whatever the microphone says.
-const QUIET: f32 = 0.004;
+/// Below this the room is silent, whatever the microphone says. Phones hand over the raw
+/// microphone (devices.rs), which is quiet: a whisper at arm's length is about 0.003.
+const QUIET: f32 = 0.0015;
 /// A voice is loud enough; a breath at the microphone is louder and has no pitch.
-const VOICE: f32 = 0.012;
-const BLOW: f32 = 0.11;
+const VOICE: f32 = 0.005;
+const BLOW: f32 = 0.09;
 /// A voice this loud, kept up, is shouting.
 const SHOUT: f32 = 0.16;
 /// Rough, quiet, unpitched: a whisper. Roughness is the zero-crossing rate, 0..1.
-const WHISPER_ROUGH: f32 = 0.09;
-const WHISPER_MAX: f32 = 0.06;
+const WHISPER_ROUGH: f32 = 0.07;
+const WHISPER_MAX: f32 = 0.07;
+/// Above the room by this much, a sound is someone's: a fan or traffic, however loud, is not.
+const OVER_ROOM: f32 = 2.0;
 /// A held note is this steady (fraction of its pitch) for this long, at least.
 const HELD_STEADY: f32 = 0.06;
 const HELD_SECS: f32 = 0.8;
@@ -171,6 +174,9 @@ pub struct Senses {
     shout: f32,
     /// Smoothed loudness, to tell a sudden sound from a loud room.
     loud: f32,
+    /// How loud the room is with nobody in it: it sinks at once to a quieter moment and
+    /// rises only slowly, so a voice is never taken for the room.
+    room: f32,
     flinch_wait: f32,
     tremble: f32,
     /// A note it is humming back, and how far into it.
@@ -218,6 +224,7 @@ impl Default for Senses {
             blow_wait: 0.0,
             shout: 0.0,
             loud: 0.0,
+            room: QUIET,
             flinch_wait: 0.0,
             tremble: 0.0,
             hum: None,
@@ -467,8 +474,11 @@ impl Senses {
             self.found.push(Discovery::Startle);
         }
         self.loud += (h.level - self.loud) * (1.0 - (-3.0 * dt).exp());
+        let rise = if h.level < self.room { 4.0 } else { 0.05 };
+        self.room = (self.room + (h.level - self.room) * (1.0 - (-rise * dt).exp())).max(QUIET * 0.5);
+        let over = self.room * OVER_ROOM;
 
-        let voice = h.pitch.filter(|_| h.level > VOICE);
+        let voice = h.pitch.filter(|_| h.level > VOICE.max(over));
         if let Some(f) = voice {
             self.voiced += dt;
             self.unvoiced = 0.0;
@@ -512,13 +522,13 @@ impl Senses {
         }
 
         // A whisper: rough, quiet, no pitch. It goes still to hear it, and leans in.
-        let whisper = voice.is_none() && h.level > QUIET * 1.5 && h.level < WHISPER_MAX && h.rough > WHISPER_ROUGH;
+        let whisper = voice.is_none() && h.level > QUIET.max(over) && h.level < WHISPER_MAX && h.rough > WHISPER_ROUGH;
         self.whisper = if whisper { self.whisper + dt } else { (self.whisper - dt * 2.0).max(0.0) };
-        if self.whisper > 0.35 && ordinary {
+        if self.whisper > 0.25 && ordinary {
             world.body.vel *= (-5.0 * dt).exp();
             world.agitation *= (-4.0 * dt).exp();
             world.reach(-look.fwd);
-            if self.whisper > 1.2 {
+            if self.whisper > 0.9 {
                 self.found.push(Discovery::Whisper);
             }
         }
