@@ -15,7 +15,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.9.0] - 2026-10-29
 
 ### Added
-- It remembers what was done to it, between visits: being held, sung to, hummed to, answered and returned to, and being hurt or broken. Hurt fades sooner than care. Once it has begun to regard you, the first time a hand comes near on a visit, it leans toward a hand that was kind to it and pulls away from one that was not. Two discoveries come with it.
+- It remembers what was done to it, between visits: being held, sung to, hummed to, answered and returned to, and being hurt or broken. Hurt fades sooner than care. Once it has begun to regard you, the first time a hand comes near on a visit, it leans toward a hand that was kind to it and pulls away from one that was not. Two discoveries come with it. (#53)
 
 ## [1.8.5] - 2026-10-29
 
