@@ -52,7 +52,7 @@ async function twoFingers(t, a, b, a2, b2, secs) {
 
 export default {
   trackpad: {
-    about: 'two fingers pinched on a trackpad squeeze it as far as two fingers on a screen',
+    about: 'two fingers pinched on a trackpad squeeze it as far as two fingers on a screen; spread, it stands taller',
     async play(t) {
       await t.wait(1);
       t.roll();
@@ -66,7 +66,7 @@ export default {
         await t.wait(0.02);
       }
       await t.wait(0.3);
-      for (let i = 0; i < 24; i++) {
+      for (let i = 0; i < 40; i++) {
         await mouse.wheel(0, -4);
         await t.wait(0.02);
       }

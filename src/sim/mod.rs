@@ -195,7 +195,8 @@ impl World {
         b.squash_vel += kick;
         // It flattens as it melts into the floor.
         let melt = 1.0 - 0.5 * self.fusion.blend().sink;
-        let squash_goal = (1.0 + b.squeeze * 0.55).clamp(0.45, 1.9).min(melt);
+        // Squeezed it flattens; pulled (fingers spread, the wheel turned up) it stands a little taller.
+        let squash_goal = if b.squeeze > 0.0 { (1.0 + b.squeeze * 0.3) * melt } else { (1.0 + b.squeeze * 0.55).max(0.45).min(melt) };
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.5, 1.9);
 

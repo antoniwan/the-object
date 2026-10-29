@@ -408,7 +408,8 @@ fn step_hand(g: &mut Game, dt: f32) {
         d.t += dt;
         let (t, len) = (d.t, d.length());
         match d.hand(t, canvas) {
-            None => g.wheel(-60.0 * dt * 60.0),
+            // said, a squeeze presses it flat
+            None => g.wheel(60.0 * dt * 60.0),
             Some((x, y)) if !d.down => {
                 d.down = true;
                 g.pointer_down(HAND, x, y);
@@ -545,6 +546,15 @@ mod tests {
             assert!(g.progress.has(d), "{word} did not {d:?}");
             assert!(!g.words.pressing(), "{word} let go");
         }
+        // said, a squeeze presses it flat, as the wheel turned down does
+        let mut g = game();
+        g.words.hear(0, 0, "squeeze");
+        let mut least = f32::MAX;
+        for _ in 0..120 {
+            g.update(1.0 / 60.0);
+            least = least.min(g.world.body.squash);
+        }
+        assert!(least < 0.85, "{least}");
         // pulled, not torn
         let mut g = game();
         g.words.hear(0, 0, "pull");

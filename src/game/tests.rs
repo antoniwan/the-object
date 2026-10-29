@@ -278,6 +278,22 @@ fn a_trackpad_pinch_held_still_in_safari_presses_two_cells_back_into_one() {
 }
 
 #[test]
+fn pulled_the_other_way_it_stands_taller_and_settles() {
+    let mut g = game();
+    for _ in 0..20 {
+        g.wheel(-60.0);
+        g.update(1.0 / 60.0);
+    }
+    assert!(g.progress.has(Discovery::Squeeze));
+    assert!(g.world.body.squash > 1.15, "it stands taller: {}", g.world.body.squash);
+    wait(&mut g, 3.0);
+    assert!((g.world.body.squash - 1.0).abs() < 0.03, "and settles");
+    // fingers spread apart on the screen pull it the same way (a moment after they lift, it is still tall)
+    two_fingers(&mut g, (200.0, 300.0), (600.0, 300.0), (100.0, 300.0), (700.0, 300.0), 0.3);
+    assert!(g.world.body.squash > 1.05, "{}", g.world.body.squash);
+}
+
+#[test]
 fn holding_still_warms_instead_of_poking() {
     let mut g = game();
     g.pointer_down(1, 400.0, 300.0);

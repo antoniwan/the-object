@@ -182,6 +182,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s; on the flower, its petals flinch in by 0.18 of how open it is and open again over 1.4 s (`forms/bloom.rs`) |
 | `FINGERS_CLOSE` / `FINGERS_MAX_SECS` | 0.75 / 0.7 s | two fingers that both began on it, closed to this share of how far apart they began and let go this fast, pinch it between them (`forms/bloom.rs`) |
 | `FINGERS_HALF` | 0.25 canvas heights | two fingers squeeze it by how much closer they came, but never more than moving this far would (as much as closing to half); fingers that begin close together on it pinch its skin without flattening all of it (`input/pad.rs`) |
+| squeeze | 0.55 / 0.3 of its height | squeezed all the way it flattens to 0.45 of its height; pulled the other way (fingers spread, the wheel turned up) it stands up to 1.3 times as tall, and settles when let go (`sim/mod.rs`) |
 | `REST_SECS` (pad) | 0.35 s | a trackpad pinch squeezes it as far as two fingers on a screen would, held while the fingers move and this long after; Safari's pinch holds until it ends (`input/pad.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
