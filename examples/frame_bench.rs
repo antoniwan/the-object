@@ -6,6 +6,12 @@
 //! Each scene drives `Game` with the same pointer input every run, then steps it and
 //! times only the steady frames after. Compare the fingerprints before and after a change:
 //! they should match exactly.
+//!
+//!     cargo run --release --example frame_bench -- --check   # fails if any differs from fingerprints.txt
+//!     cargo run --release --example frame_bench -- --bless   # writes the current ones there
+//!
+//! CI runs `--check`. A change that is meant to move the simulation blesses the new ones in
+//! the same pull request and says why.
 
 use chaos_object::game::Game;
 use chaos_object::input::senses::{self, Leave, Retina};
@@ -101,7 +107,11 @@ fn fingerprint(g: &Game) -> u64 {
     h
 }
 
+/// The committed fingerprints, one `name hex` per line.
+const EXPECTED: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/fingerprints.txt");
+
 fn main() {
+    let mut prints: Vec<(&str, u64)> = Vec::new();
     let scenes: [(&str, fn(&mut Game)); 6] = [
         ("still", |_| {}),
         ("torn", torn),
@@ -134,10 +144,14 @@ fn main() {
         }
         let us = t.elapsed().as_secs_f64() * 1e6 / FRAMES as f64;
         total += us;
-        println!("{name:>10}  {us:7.2} µs/frame  fingerprint {:016x}", fingerprint(&g));
+        let f = fingerprint(&g);
+        prints.push((name, f));
+        println!("{name:>10}  {us:7.2} µs/frame  fingerprint {f:016x}");
     }
     println!("{:>10}  {total:7.2} µs", "sum");
-    senses_scene();
+    let (f, analysis) = senses_scene();
+    prints.push(("senses", f));
+    prints.push(("analysis", analysis));
     let voice: Vec<f32> = (0..2048).map(|i| (i as f32 / 48000.0 * 220.0 * TAU).sin() * 0.3).collect();
     let t = Instant::now();
     let mut p = 0.0;
@@ -145,10 +159,27 @@ fn main() {
         p += senses::hear(black_box(&voice), 48000.0).pitch.unwrap_or(0.0);
     }
     println!("{:>10}  {:7.2} µs/call  pitch {p}", "hear", t.elapsed().as_secs_f64() * 1e6 / 2000.0);
+    let now: String = prints.iter().map(|(n, f)| format!("{n} {f:016x}\n")).collect();
+    match std::env::args().nth(1).as_deref() {
+        Some("--bless") => {
+            std::fs::write(EXPECTED, &now).unwrap();
+            println!("wrote {EXPECTED}");
+        }
+        Some("--check") => {
+            let want = std::fs::read_to_string(EXPECTED).unwrap();
+            if want != now {
+                eprintln!("fingerprints differ from examples/fingerprints.txt:\n--- expected\n{want}--- now\n{now}");
+                std::process::exit(1);
+            }
+            println!("fingerprints match examples/fingerprints.txt");
+        }
+        _ => {}
+    }
 }
 
 /// Hearing and sight open, a voice and a moving picture fed in every frame, as web.rs does.
-fn senses_scene() {
+/// Returns the world's fingerprint and one of everything the analysis produced.
+fn senses_scene() -> (u64, u64) {
     let mut g = game();
     g.senses.hear = Leave::Open;
     g.senses.see = Leave::Open;
@@ -193,4 +224,5 @@ fn senses_scene() {
     let f = fingerprint(&g);
     mix(f as f32);
     println!("{:>10}  {us:7.2} µs/frame  fingerprint {:016x} (analysis {h:016x})", "senses", f);
+    (f, h)
 }

@@ -14,6 +14,7 @@ cargo install wasm-bindgen-cli --version 0.2.100
 python3 -m http.server -d web      # open http://localhost:8000
 cargo test                         # runs natively
 cargo run --release --example frame_bench   # times a frame of each scene, natively
+cargo run --release --example frame_bench -- --check   # fails if a scene no longer ends where examples/fingerprints.txt says
 npm ci && npm test                 # the serverless function's helpers (api/)
 ```
 
@@ -53,11 +54,11 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 
 ## How a frame happens
 
-1. `platform/web.rs` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`, and every other key into calls on `keys.rs`.
-2. `game.rs` turns raw pointer movement into verbs: poke, stretch, slice, stir, and so on. It owns the camera, the player's progress, and what the object has learned about them.
-3. The verbs act on `World` in `sim.rs`, which owns the body, its tendrils, ripples and free drops, plus one state machine per transformation.
+1. `platform/web/` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`, and every other key into calls on `keys.rs`.
+2. `game/` turns raw pointer movement into verbs: poke, stretch, slice, stir, and so on. It owns the camera, the player's progress, and what the object has learned about them.
+3. The verbs act on `World` in `sim/`, which owns the body, its tendrils, ripples and free drops, plus one state machine per transformation.
 4. `platform/render.rs` copies the world into shader uniforms, and `shader.frag` raymarches the scene.
-5. `platform/web.rs` writes the object's color, agitation and screen position onto the page as CSS variables (computed in `aura.rs`); `web/glyph.js` uses them to tint and scatter the words.
+5. `platform/web/` writes the object's color, agitation and screen position onto the page as CSS variables (computed in `aura.rs`); `web/glyph.js` uses them to tint and scatter the words.
 6. `platform/audio.rs` plays whatever sounds the frame asked for.
 
 ## Module map
@@ -70,8 +71,8 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 
 | File | What it holds |
 | --- | --- |
-| `src/game.rs` | Pointer input to verbs. The header comment lists every gesture. |
-| `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
+| `src/game/` | Pointer input to verbs. `mod.rs` holds `Game`, its frame step and, in its header comment, every gesture; `gesture.rs` turns pointer movement into verbs, `news.rs` routes what each transformation reports back, `view.rs` projects between screen and room, `learn.rs` feeds contact and the senses, `sound.rs` names the sounds a frame asks for. |
+| `src/sim/` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `mod.rs` holds `World` and its frame step; `parts.rs` the pieces it is made of, `verbs.rs` what a hand does to it, `liquid.rs` tendrils and drops, `moods.rs` how it feels, `geometry.rs` its distance function (`World::sdf`, mirrored by the shader). |
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 118 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
@@ -106,7 +107,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `src/input/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/input/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
 | `src/input/words.rs` | Words, once it hears: a verb said is done by the same hand the pointer is, once for each time it is said; a greeting in any language is answered in signs, or not, by what it remembers (`remembrance.rs`). Plain Rust, tested natively. |
-| `src/input/senses.rs` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers. Plain Rust, tested natively. |
+| `src/input/senses/` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers (`hearing.rs`, `sight.rs`). Plain Rust, tested natively. |
 
 ### What it learns (`src/mind/`)
 
@@ -120,7 +121,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 
 | File | What it holds |
 | --- | --- |
-| `src/platform/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast, the count and its thoughts, saving to `localStorage`. |
+| `src/platform/web/` | Browser glue: canvas, input, the frame loop (`mod.rs`), the hint, the toast, the count and its thoughts (`hud.rs`), the page's colors and marks (`page.rs`), asking for and feeding the senses (`sensing.rs`), canvas size (`frame.rs`), `localStorage` keys (`storage.rs`). |
 | `src/platform/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
 | `src/platform/audio.rs` | Synthesized sounds, no samples. |
 | `src/platform/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
@@ -132,7 +133,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | --- | --- |
 | `src/shader.frag` | The one fragment shader that draws everything. |
 | `build.rs` | Copies `shader.frag` into the build without its comments or indentation, keeping every line where it was, so a driver's error line still points at the source. |
-| `examples/frame_bench.rs` | Times the simulation scene by scene and prints a fingerprint of where each one ends up. A change made for speed should leave every fingerprint as it was. |
+| `examples/frame_bench.rs` | Times the simulation scene by scene and prints a fingerprint of where each one ends up. A change made for speed should leave every fingerprint as it was; CI checks them against `examples/fingerprints.txt` (`--check`). A change meant to move the simulation writes the new ones with `--bless` in the same pull request. |
 | `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
@@ -140,8 +141,8 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 
 ## Adding a verb or a transformation
 
-- Give it its own module (or file in `src/forms/`) and keep `game.rs` and `sim.rs` changes small. Several people may be working at once, and separate files keep merges clean.
-- Write the module's header comment the way the others are written: what the player does and what happens, in a few plain sentences. Then add the gesture to the list at the top of `game.rs`.
+- Give it its own module (or file in `src/forms/`) and keep `game/` and `sim/` changes small. Several people may be working at once, and separate files keep merges clean.
+- Write the module's header comment the way the others are written: what the player does and what happens, in a few plain sentences. Then add the gesture to the list at the top of `game/mod.rs`.
 - Nothing jumps. A state machine only decides which 0..1 values are moving; the shader blends between them. Follow the `Phase`/`Blend` pattern in `meiosis.rs`.
 - New discoveries go at the end of the `Discovery` enum in `progress.rs`, and also in `ALL`, `name()` and `line()`. The test `all_lists_every_discovery` catches a missed one. The line is shown on screen: cryptic, serious, short, lowercase, never cute, never an explanation.
 - Add a test in the module that drives the gesture through `Game` and checks the discovery.
@@ -161,7 +162,7 @@ The page also guards against slow machines: the loader stays up while the shader
 
 ## Words on screen
 
-Every visible line (`#hint`, `#toast`, `#count`, `#thought`, `#senses`) carries `data-glyph`. `#toast` and `#thought` are `aria-hidden`; `web.rs` writes the same words in plain letters into `#said`, a visually hidden live region, so a screen reader never reads the decoding. The Rust side only sets text and classes; `web/glyph.js` watches those elements and decodes each letter through circles, shapes, signs and markup before it settles. New on-screen text should carry `data-glyph` too.
+Every visible line (`#hint`, `#toast`, `#count`, `#thought`, `#senses`) carries `data-glyph`. `#toast` and `#thought` are `aria-hidden`; `platform/web/` writes the same words in plain letters into `#said`, a visually hidden live region, so a screen reader never reads the decoding. The Rust side only sets text and classes; `web/glyph.js` watches those elements and decodes each letter through circles, shapes, signs and markup before it settles. New on-screen text should carry `data-glyph` too.
 
 Fonts are self-hosted from Fontsource. The math font is cut down to just the glyphs `glyph.js` uses, so if you add a glyph there, subset the font again (`web/fonts/README.md` says how).
 
@@ -173,8 +174,8 @@ Five `localStorage` keys, all in the player's browser (the one answer that leave
 - `the-object.visits`: how many times they have come back.
 - `the-object.contact`: what the object has learned about them (`contact.rs`).
 - `the-object.remembrance`: what it remembers of how it was treated (`remembrance.rs`): when it first met them and when they were last here, for each kind of deed how many times ever and a fading recent sum, and the scar, if there is one (which way it faces and how plain it is). Never how it feels about them; that is worked out from these each time.
-- `the-object.senses`: only whether they ever told the browser no to the microphone, the camera, feeling the phone or words leaving the page (`hear=no;see=no;feel=no;words=no`), so it never asks again (`senses.rs`).
+- `the-object.senses`: only whether they ever told the browser no to the microphone, the camera, feeling the phone or words leaving the page (`hear=no;see=no;feel=no;words=no`), so it never asks again (`senses/`).
 
-Words are made by the browser's own speech recognition: on the device where it can (then nothing leaves the page), and otherwise only once the player has tapped `say something.`, whose line says the voice goes to the browser's maker. Either way the text that comes back is read for a few words and dropped. The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses.rs` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
+Words are made by the browser's own speech recognition: on the device where it can (then nothing leaves the page), and otherwise only once the player has tapped `say something.`, whose line says the voice goes to the browser's maker. Either way the text that comes back is read for a few words and dropped. The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses/` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
 
 Clearing site data starts the object over.

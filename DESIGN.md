@@ -35,13 +35,13 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 
 | Palette | Hex | What it means | Source |
 | --- | --- | --- | --- |
-| pearl | `#f5f5fa` body, `#b2bdd6` deep, `#f7f7fc` lit | at rest; milky, light passing through | `sim.rs` `PEARL`, `shadeLiquid()` |
+| pearl | `#f5f5fa` body, `#b2bdd6` deep, `#f7f7fc` lit | at rest; milky, light passing through | `sim/` `PEARL`, `shadeLiquid()` |
 | pearl film | soap-film interference (film 0.2 – 0.7 µm, n 1.33): 5% across its face, up to 55% at the edges; thinner and brighter while it looks at you | it is never quite one color | `filmColor()`, `filmThickness()` |
 | bent light | the room through it, red, green and blue bent at 0.735 / 0.75 / 0.77; 16% looking straight through | it is not quite solid | `dispersed()` |
 | focus | its own color, a hot point in its shadow with a ring split red / green / blue outside it | light passes through it and gathers | `caustic()` |
 | heat | `#ff294d` from inside, brightest where it is thickest; beats at 1.2 Hz while wounded | upset, something shows through | `shadeLiquid()` `hurt` |
 | flush | `#c74c6b` (words), `#bf7380` multiplier (body) | upset: agitation, or the wounds before a burst | `aura.rs` `FLUSH`, `uAgit` |
-| warmth | a slow cosine cycle: `#ff8e8e` `#d966da` `#8c8bff` `#66d7d7` `#8cff8b` `#d9da66` | held still, it changes color through these | `sim.rs` `palette()` |
+| warmth | a slow cosine cycle: `#ff8e8e` `#d966da` `#8c8bff` `#66d7d7` `#8cff8b` `#d9da66` | held still, it changes color through these | `sim/` `palette()` |
 | night lens | the sky seen through it, a rim of its own color | six drops free and the room goes dark | `shadeLiquid()` `uNight` |
 | quicksilver | the environment × `#dbe0eb` | pulled out of a mirror | `uCoat.x` |
 | ink | `#050508` plus a little of its tint | pulled out of the deep | `uCoat.y` |
@@ -54,7 +54,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | stone | `#040405`, reflection only | every seam closed; the 1 : 4 : 9 slab | `shadeStone()` |
 | mere | mirror `#edf0f5`, ice `#c7dbed` to `#f7fcff`, cracks `#526680`, deep ink `#04050a` | the liquid floor's states | `mereSurface()`, `mere.rs` |
 | blood | `#6b050d` river, `#9e0d17` at its banks, `#360306` in its depths, sheen `#ffdbdb` | the twelve, crowded together anywhere but the middle, melt and run as a river; brighter (×1.9) on each heartbeat | `river.rs` `BLOOD`, `shadeBlood()` |
-| blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game.rs` after the river drains |
+| blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game/` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
 | dust | `#ccc7d4`, grainy, a few grains still glinting in the film's colors | the flower let go of; drifts on the floor, and the cloud they fall from | `shader.frag` `DUST`, `dustFloor()` |
@@ -158,7 +158,7 @@ There is one screen, full bleed, no scroll, no chrome.
 | `toast-name-gap` | `6px` | between the name and its line |
 | `seed` | `18px` | the loader's pearl, centered |
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
-| `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
+| `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`platform/web/`) |
 
 The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped. Once it has asked to hear or see you in a visit and was not given it (the word went by, or it was stopped since), that mark stays in the corner, faint and still, until the visit ends; tapped, it is the same as tapping the word. It never appears before it has asked, and never after a no.
 
@@ -168,7 +168,7 @@ The object is always the center of attention. Words go above it (what was found)
 
 The object is liquid, so motion is springy and continuous; the page is quiet, so its motion is slow and eased. Everything decays exponentially (`x += (goal - x) * (1 - exp(-rate * dt))`), never linearly.
 
-### Gesture thresholds (`game.rs`)
+### Gesture thresholds (`game/`)
 
 | Token | Value | Meaning |
 | --- | --- | --- |
@@ -185,7 +185,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
 | `TEND` / `WITHER_AFTER` | 0.35 of a stage / 30 s | each tap on the mound grows what roots in it this much; untended this long, it draws back toward a shoot (`forms/growth.rs`) |
 | `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
-| `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
+| `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses/`) |
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
 | `GAP` (words) | 0.14 s | between one spoken verb and the next; at most eight wait (`words.rs`) |
 | `GREET_GAP` | 6 s | a greeting is answered at most this often |
@@ -306,13 +306,13 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 
 ## 8. Interaction grammar
 
-The player has a few raw gestures. The gesture, where it lands and what state the world is in decide the verb; the verb, repeated or held, decides the form. `game.rs`'s header comment is the full list.
+The player has a few raw gestures. The gesture, where it lands and what state the world is in decide the verb; the verb, repeated or held, decides the form. `game/mod.rs`'s header comment is the full list.
 
 | Gesture | On | Verb | If pushed further, it becomes | Module |
 | --- | --- | --- | --- | --- |
 | tap | the liquid | poke | twelve pokes unhealed: burst into the twelve | `burst.rs` |
-| tap | empty space | call | it reaches toward the place | `sim.rs` |
-| press and drag | the liquid | stretch | far enough: tear off a drop | `sim.rs` |
+| tap | empty space | call | it reaches toward the place | `sim/` |
+| press and drag | the liquid | stretch | far enough: tear off a drop | `sim/` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
 | short tug, let go at once | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
@@ -321,15 +321,15 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
 | keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |
 | draw a square | around it | (corners) | a box; knock three times | `forms/pandora.rs` |
-| press and hold still | the liquid | warm | color shift | `sim.rs` |
+| press and hold still | the liquid | warm | color shift | `sim/` |
 | fast swipe through | the liquid | slice | two cells; again: many, then grain, an eye, stone | `meiosis.rs`, `morula.rs` |
 | flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
 | pinch or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
-| drag | a drop | carry / fling | six drops free: night | `sim.rs` |
+| drag | a drop | carry / fling | six drops free: night | `sim/` |
 | set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
-| nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |
+| nothing | | patience | it watches; later it takes its turn | `sim/`, `contact.rs` |
 | hurt it, scarred | the liquid | (wound) | the scar opens and four spiked pieces fall around it, each turning through every color | `wound.rs` |
 | carry a piece into the wound | a piece | tend | green, it is taken and the wound fills a third; any other color, it is spat back out onto the floor; three and it closes over | `wound.rs` |
 | tap | the other one, after contact | ring | it rings; the first shivers on the side facing it | `other.rs` |
@@ -346,19 +346,19 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | tip the phone | (phone) | lean | the same as the arrows, by as much as the phone is tipped; level is however it was held | `motion.rs` |
 | shake the phone | (phone) | shaken | it sloshes against the far wall from each jolt, and is upset; keep on and drops come loose, flung the way it was thrown, until the room goes dark | `motion.rs` |
 
-**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once. A word that went by untaken, or a sense stopped, leaves its mark faint in the corner for the rest of the visit (section 4); a tap there lets the browser ask, as the word would have.
+**Hearing and sight** (`senses/`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once. A word that went by untaken, or a sense stopped, leaves its mark faint in the corner for the rest of the visit (section 4); a tap there lets the browser ask, as the word would have.
 
 | What the player does | Verb | What it does | Module |
 | --- | --- | --- | --- |
-| speak | voice | trembles where the pitch lands, low notes low on it | `senses.rs` |
-| hold a note, then stop | sing | hums the note back, the same pitch, lower | `senses.rs` |
-| whisper | whisper | goes still and leans in | `senses.rs` |
-| blow | blow | a drop comes off the far side | `senses.rs` |
-| shout, keep shouting | shout | upset, shaking harder the longer it goes | `senses.rs` |
-| a sudden loud sound, or a fast movement | startle | flinches away | `senses.rs` |
-| move in front of it | seen | turns toward where you moved | `senses.rs` |
-| cover the camera | blind | the room goes dark until you uncover it | `senses.rs`, `sim.rs` `dim` |
-| be watched by the eye at eight cells | watched | the eye follows you | `senses.rs`, `morula.rs` |
+| speak | voice | trembles where the pitch lands, low notes low on it | `senses/` |
+| hold a note, then stop | sing | hums the note back, the same pitch, lower | `senses/` |
+| whisper | whisper | goes still and leans in | `senses/` |
+| blow | blow | a drop comes off the far side | `senses/` |
+| shout, keep shouting | shout | upset, shaking harder the longer it goes | `senses/` |
+| a sudden loud sound, or a fast movement | startle | flinches away | `senses/` |
+| move in front of it | seen | turns toward where you moved | `senses/` |
+| cover the camera | blind | the room goes dark until you uncover it | `senses/`, `sim/` `dim` |
+| be watched by the eye at eight cells | watched | the eye follows you | `senses/`, `morula.rs` |
 | say a verb (poke, cut, squeeze, hold, pull, tear, pinch, throw, come; English or Spanish) | word | the same hand the pointer is does it, once for each time it is said | `words.rs` |
 | greet it, in any language, having been gentle | greeting | turns to you, two rising notes, and answers in signs: the same signs for the same greeting | `words.rs` |
 | greet it, having hurt it lately | unanswered | draws back and says nothing; not sure of you yet, it only turns to listen | `words.rs` |
@@ -383,7 +383,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 A checklist. Most of it is enforced by review, some of it by tests.
 
 1. **Find the verb first.** Write the one sentence: "do X to it and it becomes Y". If X is not something a hand does, or Y needs a noun that says what the object is, stop.
-2. **Give it its own file** in `src/forms/` (or its own module for something larger), with a header comment in the house tone. Add it to `forms/mod.rs`'s list and `game.rs`'s gesture list.
+2. **Give it its own file** in `src/forms/` (or its own module for something larger), with a header comment in the house tone. Add it to `forms/mod.rs`'s list and `game/mod.rs`'s gesture list.
 3. **Gate it** on `World::ordinary()` so it cannot start inside another form, and add it to `Forms::whole()` so other forms cannot start inside it.
 4. **Phase and Blend.** A `Phase` enum decides which 0..1 values move; a `Blend` struct carries them to the shader. The shader only mixes. Arrival 2 – 4 s, departure a little shorter, both smoothstepped. Follow `meiosis.rs`.
 5. **Shader, inside the budget.** Add the shape inside `scene()` and the material inside the existing `shadeLiquid()` call. No new calls to `scene()`, `shadeLiquid()` or `calcNormal()`. Every loop starts from `ZERO`. Measure the first frame at 48×32 before and after. Pick colors from section 2, or add the new one to section 2 in the same pull request.
@@ -398,8 +398,8 @@ A checklist. Most of it is enforced by review, some of it by tests.
 These are in `CONTRIBUTING.md` in full. They are here because they limit what a design may ask for.
 
 - **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
-- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`web.rs` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
-- **Module per form.** Many threads work at once; separate files keep merges clean. `game.rs` and `sim.rs` changes stay small.
+- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`platform/web/` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
+- **Module per form.** Many threads work at once; separate files keep merges clean. `game/` and `sim/` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
 - **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`, and words where the player has tapped `say something.` under the line that says they go to the browser's maker. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
 - **The site is the build.** `web/` is everything that is served; build output is never committed.

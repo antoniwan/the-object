@@ -29,6 +29,8 @@ jobs:
             exit 1
           fi
       - run: cargo test
+      - name: The simulation ends where it did
+        run: cargo run --release --example frame_bench -- --check
       - uses: actions/setup-node@v4
         with:
           node-version: 22
