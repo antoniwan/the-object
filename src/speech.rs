@@ -14,12 +14,12 @@ use wasm_bindgen::JsCast;
 /// What this browser can do with a voice.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Can {
-    /// No speech recognition at all, or not asked yet.
+    /// No speech recognition at all.
     Nothing,
-    /// On the device, now.
+    /// Perhaps on the device: only asked once the player has let it hear (`ready`).
+    Perhaps,
+    /// On the device.
     Here,
-    /// On the device, once its language is fetched; that must be asked for inside a tap.
-    HereAfterFetch,
     /// Only by sending the voice away.
     Away,
 }
@@ -62,42 +62,37 @@ fn local_options(lang: &str) -> JsValue {
     o.into()
 }
 
-/// Finds out, in the background, what this browser can do. Asks nothing of the player.
-pub fn probe(lang: &str) -> Rc<Cell<Can>> {
-    let can = Rc::new(Cell::new(Can::Nothing));
-    let Some(r) = recognizer() else { return can };
-    can.set(Can::Away);
-    let Ok(available) = get(&r, "available").dyn_into::<js_sys::Function>() else { return can };
-    let Ok(promise) = available.call1(&r, &local_options(lang)).and_then(|p| p.dyn_into::<js_sys::Promise>()) else {
-        return can;
-    };
-    let answer = can.clone();
-    let ok = Closure::once(move |s: JsValue| {
-        answer.set(match s.as_string().as_deref() {
-            Some("available") => Can::Here,
-            Some("downloadable") | Some("downloading") => Can::HereAfterFetch,
-            _ => Can::Away,
-        })
-    });
-    let _ = promise.then(&ok);
-    ok.forget();
-    can
+/// Whether this browser could make words on the device. Nothing is asked of the browser yet:
+/// in a Chromium without its on-device speech (most builds that are not Google Chrome), even
+/// asking takes the whole page down, so only Google Chrome is asked, and only inside the tap
+/// that lets it hear (`ready`).
+pub fn can() -> Can {
+    let Some(r) = recognizer() else { return Can::Nothing };
+    let Some(w) = web_sys::window() else { return Can::Nothing };
+    let brands = get(&get(&w.navigator(), "userAgentData"), "brands");
+    let chrome = js_sys::Array::from(&brands).iter().any(|b| get(&b, "brand").as_string().as_deref() == Some("Google Chrome"));
+    if chrome && get(&r, "install").is_function() {
+        Can::Perhaps
+    } else {
+        Can::Away
+    }
 }
 
-/// Fetches the language so words can be made on the device. Must be called inside a tap.
-pub fn fetch(can: Rc<Cell<Can>>, lang: &str) {
-    let Some(r) = recognizer() else { return };
-    let Ok(install) = get(&r, "install").dyn_into::<js_sys::Function>() else { return };
+/// Asks for words on the device, fetching the language if it must. Call inside the player's tap.
+/// It lands on `Here`, or on `Away` when this language cannot be had here.
+pub fn ready(can: Rc<Cell<Can>>, lang: &str) {
+    let away = || can.set(Can::Away);
+    let Some(r) = recognizer() else { return away() };
+    let Ok(install) = get(&r, "install").dyn_into::<js_sys::Function>() else { return away() };
     let Ok(promise) = install.call1(&r, &local_options(lang)).and_then(|p| p.dyn_into::<js_sys::Promise>()) else {
-        return;
+        return away();
     };
-    let ok = Closure::once(move |done: JsValue| {
-        if done.is_truthy() {
-            can.set(Can::Here);
-        }
-    });
-    let _ = promise.then(&ok);
+    let (yes, no) = (can.clone(), can);
+    let ok = Closure::once(move |done: JsValue| yes.set(if done.is_truthy() { Can::Here } else { Can::Away }));
+    let err = Closure::once(move |_: JsValue| no.set(Can::Away));
+    let _ = promise.then2(&ok, &err);
     ok.forget();
+    err.forget();
 }
 
 /// The recognizer, while it runs. It stops after silence on most browsers; it is started again
