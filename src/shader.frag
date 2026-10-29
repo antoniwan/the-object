@@ -37,6 +37,7 @@ uniform vec4 uGaze;    // xyz direction it reaches toward, w amount
 // Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
 uniform vec4 uCut;     // xyz normal of the cut, w split: 0 one body, 1 two cells
 uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
+uniform vec2 uNerve;   // after a cut (nerve.rs): x how afraid, y how sure it is still alive
 // Past two (morula.rs): up to sixteen cells, then grain, then stone.
 uniform vec4 uCells[16]; // xyz offset from the body center, w radius
 uniform vec2 uCellF[16]; // x wounds 0..1, y death 0..1
@@ -318,6 +319,9 @@ float surfaceDisp(vec3 n) {
   // The cleavage furrow: a ring squeezed in around the cut, gone once they part.
   float c = dot(n, uCut.xyz);
   disp -= uDiv.y * (1.0 - uCut.w) * 0.32 * exp(-c * c * 9.0);
+  // Cut, it trembles; sure of itself again, it swells slowly, like a held breath.
+  disp += uDiv.z * (uNerve.x * 0.010 * sin(n.x * 23.0 + t * 41.0) * sin(n.y * 19.0 - t * 37.0)
+                    + uNerve.y * 0.014 * (0.5 + 0.5 * sin(t * 1.9)));
   // The scar is raised a little; the wound is a gash, shallower as it fills.
   vec2 sc = scarAt(n);
   disp += 0.03 * sc.x - sc.y * (0.11 * (1.0 - 0.85 * uWound.y) + 0.02 * uWound.z * sin(uTime * 9.0));
@@ -327,6 +331,7 @@ float surfaceDisp(vec3 n) {
 // Radius of each cell, and its center's offset from the body center (cell A at -offset).
 float cellRadius() { return uBody.w * mix(1.0 - K_JOIN * 0.25, CELL_SCALE, uCut.w); }
 vec3 cellOffset() { return uCut.xyz * (SEP * uBody.w * uCut.w); }
+
 
 // The i-th of n points spread evenly over the unit sphere, and the nearest of
 // them to p (spherical Fibonacci mapping, Keinert et al. 2015): four candidates
@@ -1102,108 +1107,144 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
 }
 
 
-// Ray thickness through a sphere, starting at ro going along rd.
-float sphereThickness(vec3 ro, vec3 rd, vec3 c, float r) {
-  vec3 oc = ro - c;
-  float b = dot(oc, rd);
-  float disc = b * b - (dot(oc, oc) - r * r);
-  if (disc <= 0.0) return 0.0;
-  float s = sqrt(disc);
-  return max(-b + s, 0.0) - max(-b - s, 0.0);
-}
+// ---- Divided (meiosis.rs, morula.rs, nerve.rs): how the cells are drawn ------
+// A pale ground drawn over in lines: where a standing wave over each cell is still.
+// The lines carry what the cut did to it (uNerve). Afraid, the ground goes cold and the
+// lines are fine, close and trembling; sure it is still alive, they slow, open out and
+// burn on a deepened ground. Every value reads only where p sits on its cell, in the
+// room's own axes, so cells dividing, moving, dying or turning to grain carry their lines
+// with them and nothing jumps.
 
-// Which cell p is on: its center and radius, a seed of its own, and its wounds and death.
-void cellAt(vec3 p, out vec3 cc, out float rr, out float twin, out vec2 fate) {
-  fate = vec2(0.0);
-  if (uNC == 0) {
-    twin = dot(p - uBody.xyz, uCut.xyz) > 0.0 ? 1.0 : 0.0;
-    cc = uBody.xyz + cellOffset() * (twin * 2.0 - 1.0);
-    rr = cellRadius();
-    return;
-  }
+// The cell p is on under one way of being divided: k = 0 the separate cells (or the two),
+// 1 the grain at its count now, 2 the grain at the count before. Its center, radius,
+// wounds and death, and how near p is to the crease where it meets its neighbour (0..1).
+void cellNear(vec3 p, int k, float px, out vec3 cc, out float rr, out vec2 fate, out float seam) {
   vec3 q = p - uBody.xyz;
-  if (uMor.x > 0.5) {
-    vec3 c = nearestSF(normalize(q + 1e-5), uMor.y);
+  fate = vec2(0.0);
+  seam = 0.0;
+  if (k > 0) {
+    float count = k == 1 ? uMor.y : uMor.z;
+    vec3 nq = normalize(q + 1e-5);
+    vec3 c = nearestSF(nq, count);
     float R = uGrainR * uBody.w;
+    float s = sqrt(4.0 * PI / count);
     cc = uBody.xyz + c * R;
-    rr = 0.5 * sqrt(4.0 * PI / uMor.y) * R;
-    twin = fract(dot(c, vec3(17.1, 31.7, 7.3))) * 9.0;
+    rr = 0.5 * s * R;
+    float x = length(nq - c) / (0.58 * s);
+    seam = 1.0 - smoothstep(0.0, px * 1.5, max(1.0 - x, 0.0) * 0.58 * s * R - 0.006 * uBody.w);
     return;
   }
-  float best = 1e3;
-  for (int i = ZERO; i < 16; i++) {
-    if (i >= uNC) break;
-    float di = length(q - uCells[i].xyz) - uCells[i].w;
-    if (di < best) {
-      best = di;
-      cc = uBody.xyz + uCells[i].xyz;
-      rr = uCells[i].w;
-      twin = float(i);
-      fate = uCellF[i];
+  vec3 c1 = vec3(0.0), c2 = vec3(0.0);
+  float r1 = 1.0, d1 = 1e3, d2 = 1e3;
+  if (uNC == 0) {
+    float rc = cellRadius();
+    c1 = -cellOffset();
+    c2 = -c1;
+    d1 = length(q - c1) - rc;
+    d2 = length(q - c2) - rc;
+    if (d2 < d1) { vec3 t = c1; c1 = c2; c2 = t; float u = d1; d1 = d2; d2 = u; }
+    r1 = rc;
+  } else {
+    for (int i = ZERO; i < 16; i++) {
+      if (i >= uNC) break;
+      float di = length(q - uCells[i].xyz) - uCells[i].w;
+      if (di < d1) {
+        d2 = d1; c2 = c1;
+        d1 = di; c1 = uCells[i].xyz; r1 = uCells[i].w;
+        fate = uCellF[i];
+      } else if (di < d2) {
+        d2 = di; c2 = uCells[i].xyz;
+      }
     }
   }
+  cc = uBody.xyz + c1;
+  rr = r1;
+  // two cells only just parted share every point, so their crease draws in as they part
+  float apart = smoothstep(0.05, 0.5, length(c1 - c2) / max(r1, 1e-3));
+  seam = apart * (1.0 - smoothstep(0.0, px * 1.5, d2 - d1 - 0.012 * uBody.w));
 }
 
-// A stained living cell: pale cytoplasm, a magenta membrane, and a violet
-// nucleus with its chromatin, seen through the cell.
-vec3 shadeCell(vec3 p, vec3 rd, vec3 n) {
-  vec3 cc;
-  float rr, twin;
-  vec2 fate;
-  cellAt(p, cc, rr, twin, fate);
+// A line `d` away, `w` wide, never thinner than a pixel `px` (all in the same units).
+float ink(float d, float w, float px) {
+  w = max(w, px * 0.6);
+  return 1.0 - smoothstep(w, w + px * 1.2, abs(d));
+}
+
+// The lines on one cell at unit direction u from its center (c, its offset from the body
+// center), px a pixel in its radii: x the line, y its glow. Too fine for the pixels, they
+// fade to their average.
+vec2 cellLines(vec3 u, float px, vec3 c) {
+  float t = uTime;
+  float fear = uNerve.x, sure = uNerve.y;
+  // afraid, the lines crowd close and will not keep still
+  u += fear * 0.035 * sin(u.zxy * 17.0 + t * vec3(31.0, 37.0, 29.0) + dot(c, vec3(5.0, 7.0, 3.0)));
+  float k = mix(5.0, 8.5, fear) - 1.6 * sure;
+  vec3 a = u * k + c * 3.0 + vec3(0.0, t * (0.02 + 0.25 * fear), 0.0);
+  float f = (sin(a.x) * cos(a.y) + sin(a.y) * cos(a.z) + sin(a.z) * cos(a.x)) / (k * 1.3);
+  float w = mix(0.006, 0.004, fear) + 0.012 * sure;
+  float fine = smoothstep(0.05, 0.12, px * k / 5.0);
+  float line = mix(ink(f, w, px), 0.18 + 0.1 * sure, fine);
+  float glow = exp(-abs(f) / (0.025 + 0.03 * sure)) * (1.0 - fine) + 0.25 * fine;
+  return vec2(line, glow);
+}
+
+// A divided body: the ground, each cell's lines, the creases between cells.
+vec3 shadeCell(vec3 p, vec3 rd, vec3 n, vec3 er) {
   float ndv = clamp(dot(n, -rd), 0.0, 1.0);
-  float rim = pow(1.0 - ndv, 2.2);
-  vec3 col = mix(vec3(0.985, 0.925, 0.945), vec3(0.70, 0.27, 0.50), rim * 0.9);
-
-  // the nucleus drifts slowly inside each cell
-  vec3 nc = cc + 0.12 * rr * vec3(sin(uTime * 0.4 + twin * 3.0), cos(uTime * 0.33 + twin), sin(uTime * 0.27 + twin * 5.0));
-  float nr = rr * 0.38;
-  float th = sphereThickness(p, rd, nc, nr);
-  vec3 mid = p + rd * dot(nc - p, rd);
-  float grain = 0.6 + 0.4 * sin(dot(mid - nc, vec3(23.0, 17.0, 29.0)) / uBody.w + uTime * 0.6)
-                          * sin(dot(mid - nc, vec3(-19.0, 31.0, 13.0)) / uBody.w);
-  col *= mix(vec3(1.0), vec3(0.42, 0.24, 0.60), (1.0 - exp(-th / uBody.w * 3.2)) * (0.75 + 0.25 * grain));
-  float tn = sphereThickness(p, rd, nc + vec3(0.06, 0.05, 0.0) * rr, nr * 0.32);
-  col *= mix(vec3(1.0), vec3(0.32, 0.14, 0.42), 1.0 - exp(-tn / uBody.w * 6.0));
-
-  // cytoplasm granules
-  float g = 0.0;
-  for (int i = ZERO; i < 6; i++) {
-    float fi = float(i);
-    vec3 gd = normalize(vec3(hash(vec3(fi, twin, 1.0)), hash(vec3(twin, fi, 2.0)), hash(vec3(2.0, fi, twin))) - 0.5);
-    vec3 gp = cc + rr * 0.62 * gd + 0.06 * rr * vec3(sin(uTime * 0.7 + fi), cos(uTime * 0.5 + fi * 2.0), 0.0);
-    g += sphereThickness(p, rd, gp, rr * 0.07);
+  float pxw = length(p - uCamPos) * 2.0 / (uRes.y * uFocal) / max(ndv, 0.35);
+  // separate cells, then the grain: the count now and the count before, all blended
+  float gw = uNC > 0 ? smoothstep(0.3, 0.7, uMor.x) : 0.0;
+  vec2 lines = vec2(0.0);
+  float seam = 0.0;
+  vec2 fate = vec2(0.0);
+  for (int k = ZERO; k < 3; k++) {
+    float w = k == 0 ? 1.0 - gw : (k == 1 ? gw * uMor.w : gw * (1.0 - uMor.w));
+    if (w < 0.001) continue;
+    vec3 cc;
+    float rr, sm;
+    vec2 fk;
+    cellNear(p, k, pxw, cc, rr, fk, sm);
+    lines += w * cellLines(normalize(p - cc + 1e-5), pxw / rr, cc - uBody.xyz);
+    seam += w * sm;
+    fate += w * fk;
   }
-  col *= mix(vec3(1.0), vec3(0.78, 0.50, 0.66), 1.0 - exp(-g / uBody.w * 10.0));
-
+  // the one that stopped agreeing: its lines all run to the point it looks from
+  vec3 ev = p - uBody.xyz - uEyeC.xyz;
+  float near = uNC > 0 ? uEye.w * smoothstep(uEyeC.w * 1.45, uEyeC.w * 0.9, length(ev)) : 0.0;
+  if (near > 0.001) {
+    vec3 e = normalize(ev + 1e-5);
+    vec3 side = normalize(cross(uEye.xyz, vec3(0.0, 1.0, 0.0)) + 1e-4);
+    float off = acos(clamp(dot(e, uEye.xyz), -1.0, 1.0));
+    float spoke = atan(dot(e, side), dot(e, cross(uEye.xyz, side)));
+    float sp = PI / 12.0;
+    float ds = (fract(spoke / sp + 0.5) - 0.5) * sp * sin(off) * uEyeC.w;
+    float rays = ink(ds, 0.006 * uBody.w, pxw) * smoothstep(0.06, 0.16, off);
+    lines = mix(lines, vec2(rays, rays * 0.8), near);
+  }
+  float fear = uNerve.x, sure = uNerve.y;
+  float lit = 0.8 + 0.2 * max(dot(n, KEY), 0.0);
+  // the ground: pale; cold while afraid; deepened once it is sure of itself
+  vec3 ground = mix(vec3(0.955, 0.952, 0.945), vec3(0.83, 0.86, 0.95), fear);
+  ground = mix(ground, vec3(0.16, 0.15, 0.19), sure * 0.85) * lit;
+  float fres = 0.04 + 0.6 * pow5(1.0 - ndv);
+  vec3 col = mix(ground, er, fres * mix(0.5, 0.8, sure));
+  // the lines: graphite, cold when afraid, burning when sure; hurt, they run hot
+  vec3 inkc = mix(vec3(0.13, 0.13, 0.16), vec3(0.10, 0.13, 0.30), fear);
+  inkc = mix(inkc, vec3(1.0, 0.86, 0.62) * 1.4, sure);
+  inkc = mix(inkc, vec3(1.0, 0.16, 0.30), clamp(fate.x * 1.2, 0.0, 1.0));
+  float alive = 1.0 - smoothstep(0.0, 0.6, fate.y);
+  // sure of itself, the strength comes and goes with a slow beat
+  float beat = 0.75 + 0.25 * sin(uTime * 1.9);
+  col = mix(col, inkc, clamp(max(lines.x, seam) * alive, 0.0, 1.0) * mix(0.88, 1.0, sure));
+  col += vec3(1.0, 0.72, 0.42) * lines.y * sure * beat * 0.45 * alive;
+  col = mix(col, vec3(0.60, 0.60, 0.62) * (0.9 + 0.2 * pow(1.0 - ndv, 2.0)), smoothstep(0.0, 0.35, fate.y));
   if (uNC > 0) {
-    // a wounded cell flushes; a dying one empties to grey
-    col *= mix(vec3(1.0), vec3(1.0, 0.70, 0.76), fate.x * 0.8);
-    col = mix(col, vec3(0.60, 0.60, 0.62) * (0.9 + 0.2 * rim), smoothstep(0.0, 0.35, fate.y));
-    // the newest cut glows through each cell's middle
-    float seam = abs(dot(p - cc, uCut.xyz)) / max(rr, 1e-3);
-    col += uDiv.x * vec3(1.0, 0.35, 0.65) * exp(-seam * 14.0);
-    // The one that became different: an eye, looking where it looks.
-    vec3 ev = p - uBody.xyz - uEyeC.xyz;
-    float near = uEye.w * smoothstep(uEyeC.w * 1.45, uEyeC.w * 0.9, length(ev));
-    if (near > 0.001) {
-      // smaller on a body of grain than on a cell
-      float iris = uMor.x > 0.5 ? 0.975 : 0.86;
-      float a = (1.0 - dot(normalize(ev), uEye.xyz)) / (1.0 - iris);
-      vec3 eye = mix(vec3(0.10, 0.03, 0.14), vec3(0.58, 0.26, 0.66), smoothstep(0.25, 1.0, a));
-      vec3 side = normalize(cross(uEye.xyz, vec3(0.0, 1.0, 0.0)) + 1e-4);
-      float spoke = atan(dot(normalize(ev), side), dot(normalize(ev), cross(uEye.xyz, side)));
-      eye *= 0.8 + 0.2 * sin(spoke * 23.0 + twin) * smoothstep(0.3, 0.6, a);
-      eye = mix(eye, vec3(0.0), smoothstep(0.45 - 0.15 * uEye.w, 0.3 - 0.15 * uEye.w, a));
-      col = mix(col, eye, near * smoothstep(1.08, 0.95, a));
-    }
+    // the newest cut glows through the cluster
+    float s = abs(dot(p - uBody.xyz, uCut.xyz)) / uBody.w;
+    col += uDiv.x * vec3(1.0, 0.35, 0.65) * exp(-s * 14.0);
   }
-
-  vec3 L = KEY;
-  col *= 0.9 + 0.1 * max(dot(n, L), 0.0);
   vec3 r = reflect(rd, n);
-  col += vec3(pow(max(dot(r, L), 0.0), 90.0) * 0.8);
-  col += vec3(pow(max(dot(r, BOX_B), 0.0), 40.0) * 0.12);
+  col += vec3(pow(max(dot(r, KEY), 0.0), 120.0) * mix(0.6, 0.9, sure));
   return col;
 }
 
@@ -1311,7 +1352,7 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
     col = mix(col, bg * shadow, floorness);
   }
   if (uDiv.z > 0.001 || uStone.x > 0.001) {
-    if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n), uDiv.z);
+    if (uDiv.z > 0.001) col = mix(col, shadeCell(p, rd, n, er), uDiv.z);
     if (uStone.x > 0.001) col = mix(col, shadeStone(p, rd, n, er), uStone.x);
   }
   if (uOtherIn > 0.001) {

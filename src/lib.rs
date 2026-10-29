@@ -14,6 +14,7 @@ pub mod landscape;
 pub mod math;
 pub mod meiosis;
 pub mod mere;
+pub mod nerve;
 pub mod morula;
 pub mod motion;
 pub mod other;

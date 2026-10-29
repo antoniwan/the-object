@@ -10,6 +10,7 @@
 
 use crate::math::*;
 use crate::morula::{self, Morula};
+use crate::nerve::Nerve;
 
 /// 2^(-1/3): each of two cells holding half the volume.
 pub const CELL_SCALE: f32 = 0.7937;
@@ -78,11 +79,13 @@ pub struct Division {
     events: Vec<Event>,
     /// Everything past two cells, while there is more than two.
     pub morula: Option<Morula>,
+    /// Afraid after each cut, then not (nerve.rs).
+    pub nerve: Nerve,
 }
 
 impl Default for Division {
     fn default() -> Self {
-        Division { phase: Phase::Whole, axis: v3(1.0, 0.0, 0.0), squeezed_for: 0.0, events: Vec::new(), morula: None }
+        Division { phase: Phase::Whole, axis: v3(1.0, 0.0, 0.0), squeezed_for: 0.0, events: Vec::new(), morula: None, nerve: Nerve::default() }
     }
 }
 
@@ -120,7 +123,7 @@ impl Division {
 
     /// Cut along `axis`: a whole body divides in two; cells all divide again.
     pub fn slice(&mut self, axis: V3) -> bool {
-        match self.phase {
+        let cut = match self.phase {
             Phase::Whole => {
                 self.axis = axis.norm();
                 self.phase = Phase::Dividing { t: 0.0 };
@@ -133,7 +136,11 @@ impl Division {
             }
             Phase::Many => self.morula.as_mut().is_some_and(|m| m.cleave(axis)),
             _ => false,
+        };
+        if cut {
+            self.nerve.cut();
         }
+        cut
     }
 
     /// Past two, still alive, and not stone.
@@ -150,6 +157,7 @@ impl Division {
     /// cells, it presses them back together.
     /// `watch` is the direction the body is looking, for an eye if it has one.
     pub fn step(&mut self, dt: f32, squeeze: f32, watch: V3) {
+        self.nerve.step(dt);
         if let Some(m) = &mut self.morula {
             m.step(dt, squeeze, watch);
             for e in m.drain_events() {

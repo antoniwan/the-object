@@ -12,6 +12,16 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-29
+
+### Fixed
+- The page lost its newest parts in a merge, and the object stayed on the other side; they are back. (#60)
+
+### Changed
+- Divided, it is no longer pink, and nothing sits in the middle of each part. Each one is pale, drawn over in lines where a slow wave over it is still, and the lines show what the cut did. Right after a cut they are cold, fine and trembling, and the surface shivers. Left alone, they calm, slow and thicken; then the ground deepens and the lines burn from inside, in time with a slow swell. Every new cut frightens it again from wherever it had got to. (#60)
+- The one that looks is drawn the same way: all its lines run to the point it looks from. (#60)
+- Going from parts to grain, and from one fineness of grain to the next, the drawing now blends instead of changing at once. (#60)
+
 ## [1.15.0] - 2026-10-29
 
 ### Added
@@ -299,7 +309,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/antoniwan/the-object/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/antoniwan/the-object/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.13.1
