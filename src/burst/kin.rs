@@ -19,7 +19,7 @@
 //! the shader: a piece's place and its turn are all it needs.
 
 use crate::burst::{Shard, SHARDS};
-use crate::landscape::Land;
+use crate::burst::landscape::Land;
 use crate::math::*;
 
 /// Set down this much further apart than they shove each other to, two pieces hold on.

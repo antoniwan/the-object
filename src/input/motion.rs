@@ -17,7 +17,7 @@
 use crate::game::{Game, Sound};
 use crate::math::*;
 use crate::progress::Discovery;
-use crate::senses::Kind;
+use crate::input::senses::Kind;
 
 /// Degrees of tip that tip the room all the way; less than DEAD is the hand being a hand.
 const FULL_TILT: f32 = 18.0;
@@ -184,7 +184,7 @@ pub fn step(g: &mut Game, dt: f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::senses::Leave;
+    use crate::input::senses::Leave;
 
     fn game() -> Game {
         let mut g = Game::new();
@@ -279,7 +279,7 @@ mod tests {
         assert!(g.motion.alive, "but it knows it could be");
 
         let mut g = game();
-        g.world.division.phase = crate::meiosis::Phase::Two;
+        g.world.division.phase = crate::division::meiosis::Phase::Two;
         run(&mut g, 3.0, shaken);
         assert!(g.world.drops.is_empty() && !g.progress.has(Discovery::Shaken));
     }

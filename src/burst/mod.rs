@@ -11,10 +11,14 @@
 //! Like meiosis.rs and fusion.rs, `Phase` only decides which continuous values
 //! move; the shader blends them, so the burst and the flight never jump.
 
-use crate::kin::{self, Kin};
-use crate::landscape::{self, Land};
+pub mod kin;
+pub mod landscape;
+pub mod river;
+
+use kin::Kin;
+use landscape::Land;
 use crate::math::*;
-use crate::river::{self, River};
+use river::River;
 
 pub const SHARDS: usize = 12;
 /// Wounds open at once that kill it.
@@ -32,7 +36,7 @@ pub const BEAD: f32 = 0.437;
 pub const GATHER_HOLD_SECS: f32 = 1.4;
 /// Camera distance from which the whole landscape can be seen.
 pub const LANDSCAPE_DIST: f32 = 21.0;
-const FLOOR_Y: f32 = crate::fusion::FLOOR_Y;
+const FLOOR_Y: f32 = crate::floor::fusion::FLOOR_Y;
 
 /// How each piece answers a poke. Index-matched with the materials in the shader.
 #[derive(Clone, Copy, Debug, PartialEq)]

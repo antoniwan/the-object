@@ -64,16 +64,16 @@
 use crate::camera::{Basis, Camera, FOCAL};
 use crate::math::*;
 use crate::burst;
-use crate::contact::{self, Contact, Sense};
+use crate::mind::contact::{self, Contact, Sense};
 use crate::forms::{self, bloom, filament, pandora};
-use crate::fusion;
-use crate::meiosis::{self, Swipe};
-use crate::mere;
-use crate::morula;
+use crate::floor::fusion;
+use crate::division::meiosis::{self, Swipe};
+use crate::floor::mere;
+use crate::division::morula;
 use crate::progress::{Discovery, Progress};
-use crate::senses::{self, Senses};
+use crate::input::senses::{self, Senses};
 use crate::sim::{Event, Hit, Target, World};
-use crate::thoughts::{Mind, Thoughts};
+use crate::mind::thoughts::{Mind, Thoughts};
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
@@ -197,13 +197,13 @@ pub struct Game {
     /// What it is thinking, for the page to show now and then.
     pub thoughts: Thoughts,
     /// What the keyboard is doing to it (see keys.rs).
-    pub keys: crate::keys::Keys,
+    pub keys: crate::input::keys::Keys,
     /// What a phone in the hand is doing to the room (see motion.rs).
-    pub motion: crate::motion::Motion,
+    pub motion: crate::input::motion::Motion,
     /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
-    pub remembrance: crate::remembrance::Remembrance,
+    pub remembrance: crate::mind::remembrance::Remembrance,
     /// Words it hears, and how it has been treated (see words.rs).
-    pub words: crate::words::Words,
+    pub words: crate::input::words::Words,
 }
 
 impl Game {
@@ -669,7 +669,7 @@ impl Game {
                 let moved = dist(start, (x, y)) / self.h;
                 if moved > TAP_SLOP {
                     // off fast where pieces hold on to each other, it cuts between them; otherwise it looks around
-                    let fast = dt > 0.0 && moved / dt > crate::kin::CUT_SPEED && !self.world.burst.kin.groups().is_empty();
+                    let fast = dt > 0.0 && moved / dt > crate::burst::kin::CUT_SPEED && !self.world.burst.kin.groups().is_empty();
                     self.gesture = if fast { Gesture::Cutting { last: start } } else { Gesture::Orbiting { start, last: start } };
                     self.pointer_move(id, x, y, dt);
                 }
@@ -768,7 +768,7 @@ impl Game {
         let at: Vec<(f32, f32)> = (0..burst::SHARDS).map(|i| self.screen(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3))).collect();
         let cuts: Vec<(usize, usize)> = (0..burst::SHARDS)
             .flat_map(|a| (a + 1..burst::SHARDS).map(move |b| (a, b)))
-            .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::kin::crosses(from, to, at[a], at[b]))
+            .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::burst::kin::crosses(from, to, at[a], at[b]))
             .collect();
         if cuts.is_empty() {
             return;
@@ -950,8 +950,8 @@ impl Game {
         }
     }
 
-    fn on_land(&mut self, e: crate::landscape::Event) {
-        use crate::landscape::Event as L;
+    fn on_land(&mut self, e: crate::burst::landscape::Event) {
+        use crate::burst::landscape::Event as L;
         match e {
             L::Chord | L::Planted => {}
             L::Grown => self.discover(Discovery::Grow),
@@ -959,7 +959,7 @@ impl Game {
             L::Eroded => self.gesture = Gesture::Idle,
             L::Mended { last } => {
                 // it comes back in the color of the last piece home
-                let tint = crate::landscape::TINTS[last];
+                let tint = crate::burst::landscape::TINTS[last];
                 self.world.body.color = crate::sim::PEARL.lerp(tint, 0.65);
                 self.sounds.push(Sound::Chord);
                 self.discover(Discovery::Mend);
@@ -968,8 +968,8 @@ impl Game {
         }
     }
 
-    fn on_kin(&mut self, e: crate::kin::Event) {
-        use crate::kin::Event as K;
+    fn on_kin(&mut self, e: crate::burst::kin::Event) {
+        use crate::burst::kin::Event as K;
         match e {
             K::Joined => {
                 self.sounds.push(Sound::Merge);
@@ -985,8 +985,8 @@ impl Game {
         }
     }
 
-    fn on_river(&mut self, e: crate::river::Event) {
-        use crate::river::Event as R;
+    fn on_river(&mut self, e: crate::burst::river::Event) {
+        use crate::burst::river::Event as R;
         match e {
             R::Bled => {
                 self.sounds.push(Sound::Become);
@@ -1005,7 +1005,7 @@ impl Game {
             }
             R::Pulsed => {
                 // it comes up out of the river dark red, and keeps the beat a while
-                self.world.body.color = crate::sim::PEARL.lerp(crate::river::BLOOD, 0.8);
+                self.world.body.color = crate::sim::PEARL.lerp(crate::burst::river::BLOOD, 0.8);
                 self.heart = (self.world.burst.river.rhythm(), 0.0, 40);
                 self.sounds.push(Sound::Beat);
                 self.gesture = Gesture::Idle;
@@ -1235,9 +1235,9 @@ impl Game {
             self.wheel_squeeze = fade(self.wheel_squeeze, -2.5 * dt);
             self.world.body.squeeze = self.wheel_squeeze;
         }
-        crate::motion::step(self, dt);
-        crate::keys::step(self, dt);
-        crate::words::step(self, dt);
+        crate::input::motion::step(self, dt);
+        crate::input::keys::step(self, dt);
+        crate::input::words::step(self, dt);
 
         let sub = 3;
         for _ in 0..sub {
@@ -1303,7 +1303,7 @@ impl Game {
             }
         }
         if let Gesture::Shard { i, since, carried: false, .. } = self.gesture {
-            if self.clock - since > crate::landscape::PLANT_HOLD_SECS {
+            if self.clock - since > crate::burst::landscape::PLANT_HOLD_SECS {
                 if self.world.burst.land.toggle_root(i) {
                     self.discover(Discovery::Plant);
                 }
@@ -1434,7 +1434,7 @@ impl Game {
                 Event::Closed => self.discover(Discovery::Close),
             }
         }
-        crate::remembrance::step(self, dt);
+        crate::mind::remembrance::step(self, dt);
     }
 }
 
@@ -1936,7 +1936,7 @@ mod tests {
         assert!(g.world.forms.bloom.whole() && !g.world.ordinary());
         assert!(g.world.raycast(g.cam.basis().pos, (g.world.body.pos - g.cam.basis().pos).norm()).is_none(), "nothing left to touch");
         // sweep each drift into the fullest one, with strokes across the floor
-        let floor = |x: f32, z: f32| v3(x, crate::fusion::FLOOR_Y, z);
+        let floor = |x: f32, z: f32| v3(x, crate::floor::fusion::FLOOR_Y, z);
         for _ in 0..12 {
             if g.world.forms.dust.phase != forms::dust::Phase::Dust {
                 break;
@@ -2307,7 +2307,7 @@ mod tests {
 
         // a tap on the river stands a column up out of it
         let river = &g.world.burst.river;
-        let slot = crate::river::LANES * 12 + 1;
+        let slot = crate::burst::river::LANES * 12 + 1;
         let (x, z) = river.slot_pos(slot);
         let (px, py) = project(&g, v3(x, fusion::FLOOR_Y, z));
         g.pointer_down(60, px, py);
@@ -2319,15 +2319,15 @@ mod tests {
         assert!(!g.world.burst.whole());
 
         // drag along it, lane by lane, until the view is full of them
-        for lane in 0..crate::river::LANES {
+        for lane in 0..crate::burst::river::LANES {
             let id = 61 + lane as i32;
             let at = |g: &Game, row: usize| {
-                let (x, z) = g.world.burst.river.slot_pos(row * crate::river::LANES + lane);
+                let (x, z) = g.world.burst.river.slot_pos(row * crate::burst::river::LANES + lane);
                 project(g, v3(x, fusion::FLOOR_Y, z))
             };
             let (x0, y0) = at(&g, 0);
             g.pointer_down(id, x0, y0);
-            for row in 1..crate::river::ROWS {
+            for row in 1..crate::burst::river::ROWS {
                 let (x, y) = at(&g, row);
                 g.pointer_move(id, x, y, 1.0 / 60.0);
                 g.update(1.0 / 60.0);

@@ -19,7 +19,7 @@
 //! values move, and the shader mixes them, so nothing jumps.
 
 use crate::math::*;
-use crate::meiosis::CELL_SCALE;
+use crate::division::meiosis::CELL_SCALE;
 
 /// More cells than this and they become grain instead.
 pub const MAX_CELLS: usize = 16;
@@ -485,7 +485,7 @@ impl Morula {
 
 /// Where the slab stands: on the floor, under the body.
 pub fn slab_center(pos: V3, r: f32) -> V3 {
-    v3(pos.x, crate::fusion::FLOOR_Y + Morula::slab_half().y * r, pos.z)
+    v3(pos.x, crate::floor::fusion::FLOOR_Y + Morula::slab_half().y * r, pos.z)
 }
 
 /// Distance to an upright box centered at `c`, turned by `yaw`, with half extents `h`.

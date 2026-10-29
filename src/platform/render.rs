@@ -3,7 +3,7 @@
 use crate::camera::{Camera, FOCAL};
 use crate::math::V3;
 use crate::sim::{World, K_DROP, K_HANDLE, MAX_DROPS, MAX_HANDLES, MAX_RIPPLES};
-use crate::morula;
+use crate::division::morula;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use wasm_bindgen::JsValue;
@@ -228,10 +228,10 @@ impl Renderer {
         // Slamming: see fusion.rs.
         let fu = &world.fusion;
         let loc = self.loc("uLake");
-        let radius = fu.blend().lake * crate::fusion::LAKE_RADIUS;
+        let radius = fu.blend().lake * crate::floor::fusion::LAKE_RADIUS;
         gl.uniform4f(loc.as_ref(), fu.impact.0, fu.impact.1, radius, fu.since_impact);
         let mut lr = Vec::new();
-        for r in fu.ripples.iter().take(crate::fusion::MAX_LAKE_RIPPLES) {
+        for r in fu.ripples.iter().take(crate::floor::fusion::MAX_LAKE_RIPPLES) {
             lr.extend([r.x, r.z, r.age, r.amp]);
         }
         self.v4v("uLakeRip", &lr);
@@ -244,7 +244,7 @@ impl Renderer {
         let loc = self.loc("uIce");
         gl.uniform4f(loc.as_ref(), m.ice_at.0, m.ice_at.1, m.ice_reach, 0.0);
         let mut cr = Vec::new();
-        for c in m.cracks.iter().take(crate::mere::MAX_CRACKS) {
+        for c in m.cracks.iter().take(crate::floor::mere::MAX_CRACKS) {
             cr.extend([c.x, c.z, c.age, c.seed]);
         }
         self.v4v("uCrack", &cr);
@@ -281,9 +281,9 @@ impl Renderer {
         let rv = &bu.river;
         self.v4v("uRiver", &[rv.at.0, rv.at.1, rv.angle, if rv.active { rv.reach() } else { 0.0 }]);
         self.v4v("uRiver2", &[rv.amount, rv.flow, rv.beat(), rv.tallest()]);
-        let pil: Vec<f32> = (0..crate::river::SLOTS).map(|i| rv.height(i)).collect();
+        let pil: Vec<f32> = (0..crate::burst::river::SLOTS).map(|i| rv.height(i)).collect();
         self.v4v("uPil", &pil);
-        let rows: Vec<f32> = (0..crate::river::ROWS).map(|k| rv.rows_to_standing(k)).collect();
+        let rows: Vec<f32> = (0..crate::burst::river::ROWS).map(|k| rv.rows_to_standing(k)).collect();
         self.v4v("uPilRow", &rows);
         let sp: Vec<f32> = rv.splashes.iter().flat_map(|&(x, z, age)| [x, z, age, 1.0]).collect();
         self.v4v("uSplash", &sp);

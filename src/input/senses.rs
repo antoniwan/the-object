@@ -20,7 +20,7 @@
 //! kept, nothing leaves the browser. Stopping is always one key or one tap away. A refusal is
 //! remembered (`save` / `load`) and never asked again.
 
-use crate::contact::Stage;
+use crate::mind::contact::Stage;
 use crate::math::*;
 use crate::progress::Discovery;
 use crate::sim::World;

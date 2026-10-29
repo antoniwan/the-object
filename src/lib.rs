@@ -1,40 +1,26 @@
-//! The object. Everything outside render.rs, web.rs, audio.rs, devices.rs and speech.rs is plain Rust
-//! with no browser types, so it builds and tests natively; those five only exist in the wasm build.
+//! The object. Everything outside `platform/` is plain Rust with no browser types, so it builds
+//! and tests natively; `platform/` only exists in the wasm build.
+//!
+//! - `game`: pointer input to verbs; `sim`: the liquid itself.
+//! - `division`, `floor`, `burst`, `forms`, `wound`, `other`: what it can become, one module each.
+//! - `input`: keyboard, phone, words, hearing and sight. `mind`: what it learns of the player.
+//! - `progress`, `aura`, `camera`, `math`, `version`: small shared pieces.
 
 pub mod aura;
 pub mod burst;
 pub mod camera;
-pub mod contact;
+pub mod division;
+pub mod floor;
 pub mod forms;
-pub mod fusion;
 pub mod game;
-pub mod keys;
-pub mod kin;
-pub mod landscape;
+pub mod input;
 pub mod math;
-pub mod meiosis;
-pub mod mere;
-pub mod nerve;
-pub mod morula;
-pub mod motion;
+pub mod mind;
 pub mod other;
 pub mod progress;
-pub mod remembrance;
-pub mod river;
-pub mod senses;
 pub mod sim;
-pub mod thoughts;
 pub mod version;
-pub mod words;
 pub mod wound;
 
 #[cfg(target_arch = "wasm32")]
-mod render;
-#[cfg(target_arch = "wasm32")]
-mod web;
-#[cfg(target_arch = "wasm32")]
-mod audio;
-#[cfg(target_arch = "wasm32")]
-mod devices;
-#[cfg(target_arch = "wasm32")]
-mod speech;
+mod platform;

@@ -18,7 +18,7 @@
 //! the soft one is itself. Its shape is the last thing joined in the shader's `scene()`, and
 //! never smoothly: the two never melt into each other. Its material is `shadeOther()`.
 
-use crate::fusion::FLOOR_Y;
+use crate::floor::fusion::FLOOR_Y;
 use crate::game::{Game, Sound};
 use crate::math::*;
 use crate::progress::Discovery;

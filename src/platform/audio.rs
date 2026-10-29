@@ -156,7 +156,7 @@ impl Audio {
             }),
             // up the scale with the river, a row raised in one drag climbs
             Sound::Column { slot } => {
-                let row = slot / crate::river::LANES;
+                let row = slot / crate::burst::river::LANES;
                 let f = 196.0 * 2f32.powf(SCALE[row % SCALE.len()] / 12.0);
                 self.pluck(Sine, f * 0.5, f, 0.06, 0.6, 0.0).and_then(|_| self.pluck(Triangle, f * 2.0, f * 2.0, 0.015, 0.9, 0.05))
             }
