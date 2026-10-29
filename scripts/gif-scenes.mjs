@@ -224,4 +224,13 @@ export default {
       await t.wait(3.5);
     },
   },
+  box: {
+    about: 'a square drawn around it: it takes the corners, and the light under it goes as it does',
+    async play(t) {
+      await t.wait(1.5);
+      t.roll();
+      await t.drag([[-0.417, -0.367], [0.417, -0.367], [0.417, 0.367], [-0.417, 0.367], [-0.417, -0.367]], 1.7);
+      await t.wait(3);
+    },
+  },
 };

@@ -1563,6 +1563,8 @@ vec3 caustic(vec3 p) {
   float core = exp(-r * r * 7.0);
   vec3 light = normalize(uBodyCol + 0.05) * 1.73;
   float clear = (1.0 - uCoat.y) * (1.0 - uCosmos.x) * (1.0 - uNight) * exp(-h * 0.35);
+  // gone before the box or the dust is halfway, where they leave it out altogether
+  clear *= (1.0 - smoothstep(0.15, 0.5, uBox.x)) * (1.0 - smoothstep(0.15, 0.5, uDust.y));
   return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit) * uFine * (1.0 - uBurst.x);
 }
 
