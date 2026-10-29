@@ -921,7 +921,7 @@ float sphOcc(vec3 pos, vec4 sph) {
   return max(0.0, di.y / l) * (sph.w * sph.w) / (l * l);
 }
 
-// How much light reaches the matte white floor at p, under the soft shadows of everything
+// How much light reaches the white floor at p, under the soft shadows of everything
 // above it. main() asks once per pixel, for whichever floor point it shows.
 float floorShadow(vec3 p) {
   vec3 off = cellOffset();
@@ -966,6 +966,7 @@ vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db, vec3 er);
 vec3 galaxy(vec3 p, vec3 rd);
 vec3 caustic(vec3 p);
 vec3 drama(vec3 col, vec2 uv, vec2 c, vec3 w);
+vec3 floorLight(vec3 p, vec3 rd, vec3 bg);
 vec3 filmColor(float d, float c);
 vec3 shadeHeap(vec3 p, vec3 rd, vec3 n, float ao);
 
@@ -1080,6 +1081,7 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
     bg *= shadow;
     bg += caustic(p) * bg;
+    bg = floorLight(p, rd, bg);
     if (uRiver.w > 0.0) bg = riverFloor(p, rd, bg);
     if (uDust.x > 0.0) bg = dustFloor(p, bg);
     // past the marcher's reach the liquid floor still shows, flat
@@ -1566,6 +1568,45 @@ vec3 caustic(vec3 p) {
   // gone before the box or the dust is halfway, where they leave it out altogether
   clear *= (1.0 - smoothstep(0.15, 0.5, uBox.x)) * (1.0 - smoothstep(0.15, 0.5, uDust.y));
   return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit) * uFine * (1.0 - uBurst.x);
+}
+
+// What else it gives the floor at p, seen along rd: on the polished white, a faint soft
+// copy of it, film and all, fainter the higher it floats; and where it burns or beats, its
+// own light falling around it. Neither marches: the copy is the round body met by the ray
+// bounced off the floor, worked out on paper, so only while it is round is it shown.
+vec3 floorLight(vec3 p, vec3 rd, vec3 bg) {
+  vec3 c = uBody.xyz;
+  float R = uBody.w * uScale.y;
+  float whole = (1.0 - uCut.w) * (1.0 - uBox.x) * (1.0 - uBloom.x) * (1.0 - uFil2.y) * (1.0 - uDust.y)
+              * (1.0 - smoothstep(0.0, 0.6, uLake.z)) * step(float(uNC), 0.5) * step(uBurst.x, 0.5);
+  vec3 r = vec3(rd.x, -rd.y, rd.z);
+  vec3 oc = c - p;
+  float along = max(dot(oc, r), 0.0);
+  vec3 off = r * along - oc;
+  float miss = length(off);
+  // the further the light travels up from the floor, the softer the copy
+  float blur = 0.05 * R + 0.12 * along;
+  float cover = (1.0 - smoothstep(R - blur, R + blur, miss)) * whole;
+  if (cover > 0.002) {
+    vec3 ns = normalize(off - r * sqrt(max(R * R - miss * miss, 0.0)));
+    float ndv = max(dot(ns, -r), 0.0);
+    float wrap = clamp((dot(ns, KEY) + 0.6) / 1.6, 0.0, 1.0);
+    vec3 body = mix(vec3(0.70, 0.74, 0.84), vec3(0.97, 0.97, 0.99), wrap) * uBodyCol;
+    float film = 1.0 - ndv;
+    body = mix(body, filmColor(filmThickness(ns), ndv) * 1.05 + 0.08, 0.1 + 0.5 * film * film);
+    body = mix(body, vec3(0.6, 0.62, 0.66), uCoat.x);
+    body = mix(body, vec3(0.03, 0.03, 0.06), max(uCoat.y, uCosmos.x * 0.85));
+    // the floor is glossier the lower the eye skims it
+    float gloss = (0.24 + 0.3 * pow5(1.0 - abs(rd.y))) * exp(-0.3 * along / uBody.w);
+    bg = mix(bg, body * (bg + 0.03), cover * gloss);
+  }
+  // its own light: the burning lines once it is sure of itself, and the heat of its wounds,
+  // beating; each falls on the floor like light from a lamp where it floats
+  float sure = uNerve.y * uDiv.z * (0.75 + 0.25 * sin(uTime * 1.9));
+  float hot = uBurst.z * (0.8 + 0.2 * sin(uTime * 7.5)) * step(uBurst.x, 0.5) * (1.0 - uDiv.z);
+  vec3 glow = mix(vec3(1.0, 0.58, 0.26), vec3(1.0, 0.22, 0.32), hot / (sure + hot + 1e-4)) * 1.6;
+  float lamp = sphOcc(p, vec4(c, uBody.w * 1.5)) * exp(-0.05 * dot(p.xz - c.xz, p.xz - c.xz));
+  return mix(bg, bg * glow, clamp(lamp * (sure * 0.9 + hot * 0.5), 0.0, 0.7));
 }
 
 // Where the body is on screen, in the same units as uv.

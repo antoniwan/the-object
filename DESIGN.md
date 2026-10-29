@@ -30,6 +30,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | `room-lights` | key `#ffffff` × 1.4, fill `#bfb3a8` × 1 | the two softboxes it reflects, hard-edged, `env()` |
 | `room-gels` | cold `#4d6b9e` low behind it, warm `#8c5c4d` low to its right | the only color the room has, and only in reflections, `env()` |
 | `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars; the page background and `theme-color` follow the room toward it, in 32 steps, as night or the fold comes (`platform/web/page.rs` `show_room`), so a phone's own bars darken with it |
+| `room-floor` | the room's white, polished: a soft copy of it lies on the floor below it, 24% of its color, up to 54% where the eye skims the floor, fainter and softer the higher it floats; only while it is round | `shader.frag` `floorLight()` |
 
 ### The object (its own palettes)
 
@@ -39,6 +40,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | pearl film | soap-film interference (film 0.2 – 0.7 µm, n 1.33): 5% across its face, up to 55% at the edges; thinner and brighter while it looks at you | it is never quite one color | `filmColor()`, `filmThickness()` |
 | bent light | the room through it, red, green and blue bent at 0.735 / 0.75 / 0.77; 16% looking straight through | it is not quite solid | `dispersed()` |
 | focus | its own color, a hot point in its shadow with a ring split red / green / blue outside it | light passes through it and gathers | `caustic()` |
+| its light | the floor around it multiplied toward `#ff9442` while its lines burn (in time with their swell), toward `#ff3852` while its wounds beat; at most 70%, under it like a lamp | what it gives off reaches the room | `floorLight()` |
 | heat | `#ff294d` from inside, brightest where it is thickest; beats at 1.2 Hz while wounded | upset, something shows through | `shadeLiquid()` `hurt` |
 | flush | `#c74c6b` (words), `#bf7380` multiplier (body) | upset: agitation, or the wounds before a burst | `aura.rs` `FLUSH`, `uAgit` |
 | warmth | a slow cosine cycle: `#ff8e8e` `#d966da` `#8c8bff` `#66d7d7` `#8cff8b` `#d9da66` | held still, it changes color through these | `sim/` `palette()` |
