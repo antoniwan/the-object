@@ -4,12 +4,14 @@
 //! twelve triangles, each its own shape, color and consistency, standing in
 //! a white landscape. Poke a triangle and it answers in its own material.
 //! Hold still on the empty ground and the pieces come home.
-//! What else the landscape does is in landscape.rs; crowded together
-//! anywhere but the middle, they run as a river (river.rs).
+//! What else the landscape does is in landscape.rs; set close together they
+//! keep together, in as many groups as they are set down in (kin.rs); all
+//! crowded into one anywhere but the middle, they run as a river (river.rs).
 //!
 //! Like meiosis.rs and fusion.rs, `Phase` only decides which continuous values
 //! move; the shader blends them, so the burst and the flight never jump.
 
+use crate::kin::{self, Kin};
 use crate::landscape::{self, Land};
 use crate::math::*;
 use crate::river::{self, River};
@@ -76,6 +78,7 @@ pub enum Event {
     Gathered,
     Land(landscape::Event),
     River(river::Event),
+    Kin(kin::Event),
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -96,6 +99,7 @@ pub struct Burst {
     pub shards: [Shard; SHARDS],
     pub land: Land,
     pub river: River,
+    pub kin: Kin,
     events: Vec<Event>,
 }
 
@@ -114,7 +118,7 @@ fn scatter() -> [Shard; SHARDS] {
 
 impl Default for Burst {
     fn default() -> Self {
-        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards: scatter(), land: Land::default(), river: River::default(), events: Vec::new() }
+        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards: scatter(), land: Land::default(), river: River::default(), kin: Kin::default(), events: Vec::new() }
     }
 }
 
@@ -169,7 +173,8 @@ impl Burst {
             return (home, 1.0 - melt);
         }
         // Out along an arc: rise, then come down where it will stand.
-        let flat = V3::ZERO.lerp(home, s);
+        // kept together with others, it breathes with them
+        let flat = V3::ZERO.lerp(home + self.kin.lean(i), s);
         let arc = (s * std::f32::consts::PI).sin() * (3.0 + self.shards[i].home.len() * 0.35);
         // planted, it stands partly underground
         let (depth, _) = self.land.depth_and_scale(i);
@@ -193,6 +198,8 @@ impl Burst {
             return false;
         }
         let mut homes = self.shards.map(|s| s.home);
+        // the rest of its group come after it (kin.rs)
+        self.kin.carry(i, &homes);
         let sizes = std::array::from_fn(|j| self.shard_size(j));
         let at = self.land.shove(i, v3(to.x, FLOOR_Y, to.z), &mut homes, &sizes);
         homes[i] = at;
@@ -207,9 +214,12 @@ impl Burst {
         if self.phase != Phase::Landscape || self.river.active {
             return false;
         }
-        if !self.land.release(i, self.shards[i].home) {
-            // not home, but maybe close enough to all the others
-            let homes = self.shards.map(|s| s.home);
+        let homes = self.shards.map(|s| s.home);
+        if !self.land.release(i, homes[i]) {
+            // not home, but maybe close to others: it holds on to them
+            let sizes = std::array::from_fn(|j| self.shard_size(j));
+            self.kin.settle(i, &homes, &sizes, |j| self.land.returned(j));
+            // and all of them crowded into one run
             if (0..SHARDS).all(|j| !self.land.returned(j)) {
                 if let Some(at) = River::crowded(&homes) {
                     self.river.begin(at);
@@ -217,8 +227,16 @@ impl Burst {
             }
             return false;
         }
+        // its group goes home with it, all but the planted
+        let g = self.kin.group(i);
+        self.kin.let_go();
         let blob = BEAD * body_r;
-        self.shards[i].home = landscape::bead(i, blob);
+        for j in (0..SHARDS).filter(|&j| g & (1 << j) != 0) {
+            if j == i || (self.land.can_carry(j) && self.land.take_home(j, homes[j])) {
+                self.shards[j].home = landscape::bead(j, blob);
+            }
+            self.kin.forget(j);
+        }
         true
     }
 
@@ -235,6 +253,7 @@ impl Burst {
             self.shards = scatter();
             self.land = Land::default();
             self.river = River::default();
+            self.kin = Kin::default();
             self.wounds = 0.0;
             self.events.push(Event::Burst);
             return true;
@@ -245,6 +264,8 @@ impl Burst {
     /// Returns true if this poke made all twelve ring together.
     pub fn poke_shard(&mut self, i: usize) -> bool {
         self.shards[i].wobble = 1.0;
+        // and the rest of its group feel it after
+        self.kin.touch(i);
         if self.land.struck(i) {
             for s in self.shards.iter_mut() {
                 s.wobble = 1.0;
@@ -296,6 +317,17 @@ impl Burst {
         }
         if self.phase == Phase::Landscape && !self.river.active {
             self.land.step(dt);
+            let sizes = std::array::from_fn(|j| self.shard_size(j));
+            let land = &self.land;
+            self.kin.step(dt, &mut self.shards, &sizes, land, |j| land.returned(j) || !land.can_carry(j));
+        } else {
+            self.kin.let_go();
+        }
+        for e in self.kin.drain_events() {
+            if let kin::Event::Felt { i } = e {
+                self.shards[i].wobble = self.shards[i].wobble.max(0.8);
+            }
+            self.events.push(Event::Kin(e));
         }
         self.river.step(dt);
         for e in self.river.drain_events() {

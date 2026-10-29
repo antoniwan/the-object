@@ -190,6 +190,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8, the river draining 2.4, the room folding back up 3.0 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
+| kept together | follow 5 / s, lean 2 / s, turn 0.5 / s; a touch 0.12 s a piece; a breath 3.0 s + 0.35 s a piece | a cut steps each side back, fading `exp(-3 t)`; a drag off the ground faster than 1.5 canvas heights / s cuts instead of looking around (`kin.rs`) |
 | slow life | 24 – 75 s | planted pieces growing 24, weathering 50, a coat wearing off 75 |
 
 ### Decay and recovery
@@ -296,6 +297,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
 | pinch or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim.rs` |
+| set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim.rs`, `contact.rs` |

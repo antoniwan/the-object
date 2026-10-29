@@ -101,11 +101,16 @@ pub enum Discovery {
     Facet,
     Backward,
     Crease,
+    Kin,
+    Loose,
+    Part,
+    Pass,
+    Many,
     Remembered,
     Wary,
 }
 
-pub const ALL: [Discovery; 99] = [
+pub const ALL: [Discovery; 104] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -203,6 +208,11 @@ pub const ALL: [Discovery; 99] = [
     Discovery::Facet,
     Discovery::Backward,
     Discovery::Crease,
+    Discovery::Kin,
+    Discovery::Loose,
+    Discovery::Part,
+    Discovery::Pass,
+    Discovery::Many,
     Discovery::Remembered,
     Discovery::Wary,
 ];
@@ -307,6 +317,11 @@ impl Discovery {
             Discovery::Facet => "facet",
             Discovery::Backward => "backward",
             Discovery::Crease => "crease",
+            Discovery::Kin => "kin",
+            Discovery::Loose => "loose",
+            Discovery::Part => "part",
+            Discovery::Pass => "pass",
+            Discovery::Many => "many",
             Discovery::Remembered => "remembered",
             Discovery::Wary => "wary",
         }
@@ -411,6 +426,11 @@ impl Discovery {
             Discovery::Facet => "one more mirror. it is in all of them.",
             Discovery::Backward => "it unturned. the stars went back where they were.",
             Discovery::Crease => "the room folded back up. it kept the crease.",
+            Discovery::Kin => "two of the twelve stood close, and chose to stay.",
+            Discovery::Loose => "one came away. the rest closed around the gap.",
+            Discovery::Part => "cut between them. now each side keeps its own.",
+            Discovery::Pass => "one was touched. the others felt it after.",
+            Discovery::Many => "not one, not twelve. as many as you leave them.",
             Discovery::Remembered => "it knew your hand before it touched it.",
             Discovery::Wary => "it has not forgotten what your hand did.",
         }

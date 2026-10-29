@@ -9,6 +9,7 @@ pub mod forms;
 pub mod fusion;
 pub mod game;
 pub mod keys;
+pub mod kin;
 pub mod landscape;
 pub mod math;
 pub mod meiosis;
