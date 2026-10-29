@@ -29,7 +29,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | `room-sky-low` | `#b2b5bd` | lower half of the reflected environment, `env()` |
 | `room-lights` | key `#ffffff` × 1.4, fill `#bfb3a8` × 1 | the two softboxes it reflects, hard-edged, `env()` |
 | `room-gels` | cold `#4d6b9e` low behind it, warm `#8c5c4d` low to its right | the only color the room has, and only in reflections, `env()` |
-| `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars |
+| `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars; the page background and `theme-color` follow the room toward it, in 32 steps, as night or the fold comes (`platform/web/page.rs` `show_room`), so a phone's own bars darken with it |
 
 ### The object (its own palettes)
 

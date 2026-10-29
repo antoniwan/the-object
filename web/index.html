@@ -91,7 +91,8 @@
   @font-face { font-family: "Glyphs"; font-style: normal; font-weight: 400; font-display: block; src: url(fonts/noto-sans-math-glyphs.15edc812.woff2) format("woff2"); }
   /* --tint, --unrest, --ox, --oy come from the object every frame (src/aura.rs). */
   :root { color-scheme: light; --tint: 120 120 132; --words: "Cormorant Garamond", Georgia, serif; --mono: "JetBrains Mono", ui-monospace, monospace; }
-  html, body { margin: 0; height: 100%; background: #f8f7f5; overflow: hidden; overscroll-behavior: none; }
+  /* --room darkens with the night, with the theme-color beside it (src/platform/web/page.rs show_room). */
+  html, body { margin: 0; height: 100%; background: rgb(var(--room, 248 247 245)); overflow: hidden; overscroll-behavior: none; }
   /* A finger is a hand here, not a pointer: nothing gets selected, flashed or called out under it. */
   body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }

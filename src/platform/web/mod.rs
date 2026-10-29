@@ -56,6 +56,8 @@ struct App {
     /// The aura last handed to the page, in hundredths (tint r g b, unrest, x, y), so the CSS
     /// only changes when the object does, and only the variables that moved are written.
     aura_shown: [i32; 6],
+    /// How dark the room last was, as the browser's own bars were told (thirty-seconds).
+    room_shown: i32,
     /// The page root's style, where the aura is written.
     root_style: Option<web_sys::CssStyleDeclaration>,
     /// Canvas pixels per CSS pixel, measured once a frame in `resize`, so pointer events never ask for layout.
@@ -177,7 +179,9 @@ impl App {
         // Emptied in place, so the list keeps its room for the next frame.
         self.game.sounds.clear();
         // the fold is dark too (forms/fold.rs)
-        let night = self.game.world.night.max(self.game.world.forms.fold.amount()) > 0.5;
+        let dark = self.game.world.night.max(self.game.world.forms.fold.amount());
+        self.show_room(dark);
+        let night = dark > 0.5;
         if night != self.night_shown {
             self.night_shown = night;
             if let Some(body) = body() {
@@ -278,6 +282,7 @@ pub fn start() -> Result<(), JsValue> {
         awake: false,
         lost: false,
         aura_shown: [i32::MIN; 6],
+        room_shown: 0,
         root_style: doc.document_element().and_then(|r| r.dyn_into::<HtmlElement>().ok()).map(|r| r.style()),
         scale: (1.0, 1.0),
         cursor: "",
