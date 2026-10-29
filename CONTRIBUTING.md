@@ -14,6 +14,7 @@ cargo install wasm-bindgen-cli --version 0.2.100
 python3 -m http.server -d web      # open http://localhost:8000
 cargo test                         # runs natively
 cargo run --release --example frame_bench   # times a frame of each scene, natively
+cargo run --release --example frame_bench -- --check   # fails if a scene no longer ends where examples/fingerprints.txt says
 npm ci && npm test                 # the serverless function's helpers (api/)
 ```
 
@@ -132,7 +133,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | --- | --- |
 | `src/shader.frag` | The one fragment shader that draws everything. |
 | `build.rs` | Copies `shader.frag` into the build without its comments or indentation, keeping every line where it was, so a driver's error line still points at the source. |
-| `examples/frame_bench.rs` | Times the simulation scene by scene and prints a fingerprint of where each one ends up. A change made for speed should leave every fingerprint as it was. |
+| `examples/frame_bench.rs` | Times the simulation scene by scene and prints a fingerprint of where each one ends up. A change made for speed should leave every fingerprint as it was; CI checks them against `examples/fingerprints.txt` (`--check`). A change meant to move the simulation writes the new ones with `--bless` in the same pull request. |
 | `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
