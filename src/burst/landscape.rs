@@ -92,6 +92,9 @@ pub struct Land {
 /// Where each bead settles: the corners of an icosahedron, a small cluster
 /// where the body was. `blob` is a bead's radius; positions are its base.
 pub fn bead(i: usize, blob: f32) -> V3 {
+    // Written out: std only has it in newer compilers, and these digits are what the
+    // fingerprints were taken with.
+    #[allow(clippy::approx_constant)]
     const P: f32 = 1.618_034;
     const ICO: [(f32, f32, f32); SHARDS] = [
         (0.0, 1.0, P), (0.0, 1.0, -P), (0.0, -1.0, P), (0.0, -1.0, -P),

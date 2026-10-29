@@ -36,10 +36,13 @@ jobs:
             exit 1
           fi
       - run: cargo test
-      - name: No lint warnings, native and wasm
+      # Compiler warnings and the lints that catch mistakes fail the build. Style, complexity and
+      # speed lints only warn: the toolchain is the newest stable, and each release adds some.
+      - name: No warnings or suspect code, native and wasm
         run: |
-          cargo clippy --all-targets -- -D warnings
-          cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
+          lints="-D warnings -A clippy::style -A clippy::complexity -A clippy::perf"
+          cargo clippy --all-targets -- $lints
+          cargo clippy --release --target wasm32-unknown-unknown -- $lints
       - name: The simulation ends where it did
         run: cargo run --release --example frame_bench -- --check
       - uses: actions/setup-node@v4
