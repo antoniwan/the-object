@@ -80,9 +80,10 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/kin.rs` | Which of the landed pieces hold on to which: groups made by setting them down close, followed when carried, loosed, cut apart, breathing together. |
 | `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); and `fold`, where the universe stirred on gets out into the room. |
 | `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
+| `src/remembrance.rs` | What it remembers of how it was treated, after Lifesworn's Remembrance: a ledger of deeds (held, sung to, answered, returned to; hurt, broken) it notices by itself each frame, and how warm or wary it is, worked out from that ledger by a formula and never saved. Hurt fades in half the time care does. Once a visit, from regard on, it meets the first hand that comes near accordingly. Other code reads `kind()`, `wary()`, `warmth()` and `bond()`, and adds deeds with `remember()`. |
 | `src/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
 | `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 102 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 104 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
@@ -126,11 +127,12 @@ Fonts are self-hosted from Fontsource. The math font is cut down to just the gly
 
 ## Saved state
 
-Four `localStorage` keys, all in the player's browser (the one answer that leaves it is described under Where it runs):
+Five `localStorage` keys, all in the player's browser (the one answer that leaves it is described under Where it runs):
 
 - `the-object.found`: which discoveries they have made.
 - `the-object.visits`: how many times they have come back.
 - `the-object.contact`: what the object has learned about them (`contact.rs`).
+- `the-object.remembrance`: what it remembers of how it was treated (`remembrance.rs`): when it first met them and when they were last here, and for each kind of deed how many times ever and a fading recent sum. Never how it feels about them; that is worked out from these each time.
 - `the-object.senses`: only whether they ever told the browser no to the microphone, the camera or feeling the phone (`hear=no;see=no;feel=no`), so it never asks again (`senses.rs`).
 
 The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses.rs` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.

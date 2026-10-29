@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-29
+
+### Added
+- It remembers what was done to it, between visits: being held, sung to, hummed to, answered and returned to, and being hurt or broken. Hurt fades sooner than care. Once it has begun to regard you, the first time a hand comes near on a visit, it leans toward a hand that was kind to it and pulls away from one that was not. Two discoveries come with it. (#53)
+
 ## [1.9.0] - 2026-10-29
 
 ### Added
@@ -249,7 +254,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/antoniwan/the-object/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/antoniwan/the-object/compare/v1.8.5...v1.9.0
 [1.8.5]: https://github.com/antoniwan/the-object/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/antoniwan/the-object/compare/v1.8.3...v1.8.4
