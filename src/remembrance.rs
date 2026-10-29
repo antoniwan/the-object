@@ -23,6 +23,7 @@
 
 use crate::contact::Stage;
 use crate::game::{Game, Sound};
+use crate::math::*;
 use crate::progress::Discovery;
 
 /// Bump when `warmth_of` or `bond_of` change meaning. Saved for whoever reads the value; never
@@ -50,6 +51,8 @@ const HELD_SECS: f32 = 1.2;
 const STAY_SECS: f32 = 45.0;
 /// It writes itself down at least this often (seconds) while you are here.
 const SAVE_EVERY: f32 = 30.0;
+/// Hurt this much, ever (a break counts twice), and it scars (wound.rs).
+const SCAR_AT: f64 = 8.0;
 /// How near (in body radii, on the plane through it) a pointer has to come to be greeted.
 const GREET_NEAR: f32 = 1.8;
 
@@ -76,10 +79,12 @@ pub enum Deed {
     Hurt,
     /// Poked to death.
     Broken,
+    /// Something carried into an open wound, and kept (wound.rs).
+    Tended,
 }
 
 impl Deed {
-    pub const COUNT: usize = 10;
+    pub const COUNT: usize = 11;
     pub const ALL: [Deed; Deed::COUNT] = [
         Deed::Touch,
         Deed::Held,
@@ -91,6 +96,7 @@ impl Deed {
         Deed::Stayed,
         Deed::Hurt,
         Deed::Broken,
+        Deed::Tended,
     ];
 
     /// Its name in the saved string.
@@ -106,6 +112,7 @@ impl Deed {
             Deed::Stayed => "stayed",
             Deed::Hurt => "hurt",
             Deed::Broken => "broken",
+            Deed::Tended => "tended",
         }
     }
 
@@ -123,7 +130,7 @@ impl Deed {
     fn felt(self) -> f64 {
         match self {
             Deed::Touch => 0.0,
-            Deed::Held | Deed::Sang | Deed::Answered | Deed::LongReturn => 1.0,
+            Deed::Held | Deed::Sang | Deed::Answered | Deed::LongReturn | Deed::Tended => 1.0,
             Deed::Hummed | Deed::Returned => 0.5,
             Deed::Stayed => 0.25,
             Deed::Hurt => -1.0,
@@ -238,6 +245,10 @@ pub struct Remembrance {
     /// The clock, unix seconds: set at load, moved on by every frame.
     now: f64,
     greeting: Greeting,
+    /// The scar, if any: which way it faces from the middle, and how plain it is (wound.rs).
+    scar: (V3, f32),
+    /// Whether the scar has been handed to the world yet this visit.
+    scar_shown: bool,
     // ---- what it was watching last frame
     upset: bool,
     held: f32,
@@ -266,6 +277,8 @@ impl Remembrance {
             seen: now,
             now,
             greeting: Greeting::Done,
+            scar: (V3::UP, 0.0),
+            scar_shown: false,
             upset: false,
             held: 0.0,
             hummed: false,
@@ -290,6 +303,15 @@ impl Remembrance {
                 "born" => m.born = num.unwrap_or(now).min(now),
                 "seen" => m.seen = num.unwrap_or(now).min(now),
                 "at" => m.ledger.at = num.unwrap_or(now).min(now),
+                "scar" => {
+                    let n: Vec<f32> = v.split(',').filter_map(|x| x.parse::<f32>().ok()).filter(|x| x.is_finite()).collect();
+                    if let [x, y, z, k] = n[..] {
+                        let dir = v3(x, y, z);
+                        if dir.len() > 0.5 {
+                            m.scar = (dir.norm(), k.clamp(0.0, 1.0));
+                        }
+                    }
+                }
                 _ => {
                     let Some(d) = Deed::ALL.iter().find(|d| d.key() == k) else { continue };
                     let mut it = v.split(',').map(|x| x.parse::<f64>().ok().filter(|x| x.is_finite() && *x >= 0.0));
@@ -326,6 +348,10 @@ impl Remembrance {
                 s.push_str(&format!(";{}={},{:.3}", d.key(), t.count, t.recent));
             }
         }
+        let (dir, k) = self.scar;
+        if k > 0.0 {
+            s.push_str(&format!(";scar={:.3},{:.3},{:.3},{:.2}", dir.x, dir.y, dir.z, k));
+        }
         s
     }
 
@@ -357,6 +383,11 @@ impl Remembrance {
         bond_of(&self.ledger)
     }
 
+    /// How much it has been hurt, ever.
+    fn hurt_ever(&self) -> f64 {
+        self.ledger.get(Deed::Hurt).count as f64 + 2.0 * self.ledger.get(Deed::Broken).count as f64
+    }
+
     /// Something happened to it.
     pub fn remember(&mut self, d: Deed) {
         self.ledger.add(d, self.now);
@@ -385,9 +416,16 @@ pub fn step(g: &mut Game, dt: f32) {
             m.remember(Deed::Touch);
         }
     }
+    if !m.scar_shown {
+        m.scar_shown = true;
+        g.world.wound.dir = m.scar.0;
+        g.world.wound.scar = m.scar.1;
+    }
     let agitation = g.world.agitation;
+    let mut hurt = false;
     if !m.upset && agitation > HURT {
         m.upset = true;
+        hurt = true;
         m.remember(Deed::Hurt);
     } else if m.upset && agitation < CALM {
         m.upset = false;
@@ -430,7 +468,34 @@ pub fn step(g: &mut Game, dt: f32) {
         }
     }
 
+    scar(g, hurt);
+    crate::wound::step(g, dt);
+    let w = &g.world.wound;
+    if g.remembrance.scar != (w.dir, w.scar) {
+        g.remembrance.scar = (w.dir, w.scar);
+        g.remembrance.dirty = true;
+    }
     greet(g);
+}
+
+/// Hurt enough, ever, and it scars where it is struck most; hurt again while scarred, and the
+/// scar opens (wound.rs).
+fn scar(g: &mut Game, hurt: bool) {
+    if g.world.wound.scar <= 0.0 && g.remembrance.hurt_ever() >= SCAR_AT {
+        let spot = g.contact.spot;
+        let dir = if spot.len() > 0.5 { spot.norm() } else { -g.cam.basis().fwd };
+        g.world.wound.dir = dir;
+        g.world.wound.scar = 1.0;
+        g.world.add_ripple(dir, 0.6);
+        g.discover(Discovery::Scar);
+    } else if hurt && g.world.ordinary() {
+        let mut wound = std::mem::take(&mut g.world.wound);
+        let opened = wound.tear_open(&mut g.world);
+        g.world.wound = wound;
+        if opened {
+            g.discover(Discovery::Wound);
+        }
+    }
 }
 
 /// The first time this visit a hand comes near it, it shows how it remembers you: it leans

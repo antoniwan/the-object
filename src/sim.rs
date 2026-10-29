@@ -160,6 +160,8 @@ pub struct World {
     /// Something else in the room, late on (see other.rs). Not part of the body: it never
     /// changes whether the body is ordinary.
     pub other: Other,
+    /// An old hurt, a scar and what opens out of it (see wound.rs).
+    pub wound: crate::wound::Wound,
     pub time: f32,
     next_id: u32,
     events: Vec<Event>,
@@ -208,6 +210,7 @@ impl World {
             burst: Burst::default(),
             forms: Forms::default(),
             other: Other::default(),
+            wound: Default::default(),
             time: 0.0,
             next_id: 1,
             events: Vec::new(),
@@ -519,7 +522,9 @@ impl World {
                 let close = (a.pos - b.pos).len() < (a.r + b.r) * 0.8;
                 // Free drops keep their distance; one has to be carried into another.
                 let carried = a.target.is_some() || b.target.is_some();
-                if close && carried && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
+                // The wound's pieces hold their places, and never run together (wound.rs).
+                let pieces = self.wound.is_caltrop(a.id) && self.wound.is_caltrop(b.id);
+                if close && carried && !pieces && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
                     let keep_a = a.target.is_some() || (b.target.is_none() && a.r >= b.r);
                     let (ki, gi) = if keep_a { (i, j) } else { (j, i) };
                     let gone = self.drops.remove(gi);

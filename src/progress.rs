@@ -108,9 +108,13 @@ pub enum Discovery {
     Many,
     Remembered,
     Wary,
+    Scar,
+    Wound,
+    Tend,
+    Heal,
 }
 
-pub const ALL: [Discovery; 104] = [
+pub const ALL: [Discovery; 108] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -215,6 +219,10 @@ pub const ALL: [Discovery; 104] = [
     Discovery::Many,
     Discovery::Remembered,
     Discovery::Wary,
+    Discovery::Scar,
+    Discovery::Wound,
+    Discovery::Tend,
+    Discovery::Heal,
 ];
 
 impl Discovery {
@@ -324,6 +332,10 @@ impl Discovery {
             Discovery::Many => "many",
             Discovery::Remembered => "remembered",
             Discovery::Wary => "wary",
+            Discovery::Scar => "scar",
+            Discovery::Wound => "wound",
+            Discovery::Tend => "tend",
+            Discovery::Heal => "heal",
         }
     }
 
@@ -433,6 +445,10 @@ impl Discovery {
             Discovery::Many => "not one, not twelve. as many as you leave them.",
             Discovery::Remembered => "it knew your hand before it touched it.",
             Discovery::Wary => "it has not forgotten what your hand did.",
+            Discovery::Scar => "it closed. it did not forget where.",
+            Discovery::Wound => "the old place opened. something fell out of it.",
+            Discovery::Tend => "what went in stayed in. it is less open.",
+            Discovery::Heal => "full again. the seam is thinner. it stays.",
         }
     }
 }
@@ -497,7 +513,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Wary as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Heal as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
