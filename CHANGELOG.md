@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.6] - 2026-10-29
+
+### Added
+- Its own count of visits beside the one it had, with no cookies, that leaves alone anyone who asks not to be followed. It also notes when someone leaves by a link. The copy on itch.io leaves it out. (#66)
+
 ## [1.16.5] - 2026-10-29
 
 ### Changed
@@ -336,7 +341,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.5...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.6...HEAD
+[1.16.6]: https://github.com/antoniwan/the-object/compare/v1.16.5...v1.16.6
 [1.16.5]: https://github.com/antoniwan/the-object/compare/v1.16.4...v1.16.5
 [1.16.4]: https://github.com/antoniwan/the-object/compare/v1.16.3...v1.16.4
 [1.16.3]: https://github.com/antoniwan/the-object/compare/v1.16.2...v1.16.3
