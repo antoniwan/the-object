@@ -95,6 +95,11 @@ impl Audio {
         let _ = self.ctx.resume();
     }
 
+    /// Nobody is looking at the page: everything it was sounding stops where it is.
+    pub fn suspend(&self) {
+        let _ = self.ctx.suspend();
+    }
+
     pub fn toggle_mute(&mut self) {
         self.muted = !self.muted;
         let t = self.ctx.current_time();

@@ -150,13 +150,17 @@ There is one screen, full bleed, no scroll, no chrome.
 | `edge-v` | `9vh` | the hint sits 9vh from the bottom; the toast 9vh from the top |
 | `thought` | `15vh` from the bottom, under the object's screen position (`--ox`, kept between 28% and 72%) | a thought; it drifts with the object over 3 s |
 | `edge-corner` | `16px` right, `14px` bottom | the count |
-| `edge-corner-left` | `16px` left, `14px` bottom | the marks while it hears or sees: `◍` hearing, `◉` seeing, in its tint at 70%, breathing |
+| `edge-corner-left` | `16px` left, `14px` bottom | the marks while it hears or sees: `◍` hearing, `◉` seeing, in its tint at 70%, breathing; a mark it asked for and was not given stays at 28%, still |
+| `safe-area` | `env(safe-area-inset-*)` added to both corners | so a phone's rounded edge and home bar never sit on the marks or the count |
+| `reach` | `14px 22px` around its word, `12px` around the marks | how far past what is drawn a tap still lands; the look does not move |
 | `toast-name-gap` | `6px` | between the name and its line |
 | `seed` | `18px` | the loader's pearl, centered |
 | `whisper-offset` | `50% + 88px` | the loader's line, under the seed |
 | `max-pixels` | `1.6e6` | the canvas renders at most this many and scales up (`web.rs`) |
 
-The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped.
+The object is always the center of attention. Words go above it (what was found) and below it (what to try, and what it is thinking), and nowhere else. Never cover the object with interface. Never add a menu, a settings icon, a close button or a progress bar. No key is announced: `m` mutes, `Escape` stops it hearing and seeing, and the rest of the keyboard is a second way to reach it (section 8), found by pressing. The one exception to "no interface" is the pair of marks while it hears or sees: privacy is never hidden, and the marks stop it when tapped. Once it has asked to hear or see you in a visit and was not given it (the word went by, or it was stopped since), that mark stays in the corner, faint and still, until the visit ends; tapped, it is the same as tapping the word. It never appears before it has asked, and never after a no.
+
+**Touch and access.** Nothing on the page can be selected, long-pressed or flashed by a tap, and the page does not pull or bounce. Whatever is tappable reaches further than it is drawn. While its word is up, Enter takes it. The toast and the thought are hidden from screen readers, which decode them as noise; a hidden `#said` line reads them out in plain letters instead (its signs are left unread), and adds, for its word only, that Enter allows it. The canvas is described as the README describes it.
 
 ## 5. Motion and time
 
@@ -244,6 +248,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Envelope.** One shape for everything: an 8 ms attack, an exponential slide from one pitch to another over half the decay, an exponential fade. Chords are plucks staggered by 0.03 – 0.75 s.
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
+- **Away.** Left for another tab, it goes silent at once (the audio context is suspended), and comes back as it was when the page is looked at again.
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
@@ -338,7 +343,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | tip the phone | (phone) | lean | the same as the arrows, by as much as the phone is tipped; level is however it was held | `motion.rs` |
 | shake the phone | (phone) | shaken | it sloshes against the far wall from each jolt, and is upset; keep on and drops come loose, flung the way it was thrown, until the room goes dark | `motion.rs` |
 
-**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once.
+**Hearing and sight** (`senses.rs`, `devices.rs`) are never taken, only given. Once it echoes, it asks `speak.`; once it takes turns, `show yourself.` Each once a visit, only when untouched and ordinary, and only the player's tap on that word lets the browser ask. A no to the browser is answered in its voice (`silence is also something it can learn.`, `it looks away. it will not ask again.`) and kept: it never asks again. What it hears is three numbers (loudness, pitch, roughness), what it sees three more (light, how much moved, where); there is no picture and no recording, and nothing leaves the page. `Escape`, a tap on the marks, or leaving the tab stops both at once. A word that went by untaken, or a sense stopped, leaves its mark faint in the corner for the rest of the visit (section 4); a tap there lets the browser ask, as the word would have.
 
 | What the player does | Verb | What it does | Module |
 | --- | --- | --- | --- |

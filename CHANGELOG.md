@@ -18,6 +18,23 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 - Once the mound has settled, something takes root in it. Tended, it grows: a shoot, a trunk, branches one after another, pale leaves, and at last the flower's pink again, in blossom along them. It sways a little once it is tall. (#59)
 - Left untended, it slowly draws back down to a shoot. Held, the mound takes it back in as the liquid rises out. Three new discoveries. (#59)
 
+## [1.14.0] - 2026-10-29
+
+### Added
+- When it asks to hear or to see you and the moment goes by, the asking does not go with it: a faint mark waits in the corner for the rest of the visit, and taking it is the same as taking the word. Stopped, it waits there again. (#57)
+
+### Changed
+- Its word, when it asks, reaches further than it looks, so a thumb finds it; on a keyboard, Enter takes it. (#57)
+- On a phone nothing under a finger is selected, flashed or called out, the page no longer pulls or bounces, and the corners keep clear of rounded screens and the home bar. (#57)
+- Left in another tab, it falls silent, and its sound comes back with you. (#57)
+- A hand closed on it shows as closed until it opens. (#57)
+- A screen reader hears what it finds, thinks and asks, in plain letters, instead of the signs they pass through. (#57)
+
+## [1.13.1] - 2026-10-29
+
+### Fixed
+- Since 1.11.0 the page could fall over as it opened, in browsers built on Chrome's engine that are not Chrome itself. It no longer asks anything about words until it has been let hear you, and then asks Chrome alone whether they can be made on the device. (#58)
+
 ## [1.13.0] - 2026-10-29
 
 ### Added
@@ -283,7 +300,9 @@ The arc arrives: what it was always about.
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
 [Unreleased]: https://github.com/antoniwan/the-object/compare/v1.15.0...HEAD
-[1.15.0]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.15.0
+[1.15.0]: https://github.com/antoniwan/the-object/compare/v1.14.0...v1.15.0
+[1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.1...v1.14.0
+[1.13.1]: https://github.com/antoniwan/the-object/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
