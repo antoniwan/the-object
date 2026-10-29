@@ -6,7 +6,7 @@
 <title>the object</title>
 <meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
 <meta name="author" content="Antonio Rodríguez Martínez">
-<meta name="version" content="1.16.3">
+<meta name="version" content="1.16.4">
 <meta name="theme-color" content="#f8f7f5">
 <link rel="canonical" href="https://the-object.antoniwan.online/">
 <link rel="author" href="https://antoniwan.online">
@@ -57,7 +57,7 @@
       "inLanguage": "en",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "softwareVersion": "1.16.3",
+      "softwareVersion": "1.16.4",
       "datePublished": "2026-10-28",
       "author": { "@id": "https://antoniwan.online/#person" },
       "creator": { "@id": "https://antoniwan.online/#person" },
@@ -187,36 +187,7 @@
 <div id="said" role="status" aria-live="polite"></div>
 <div id="error" class="hud"></div>
 <script type="module" src="glyph.js"></script>
-<script type="module">
-// After contact it asks one question (src/contact.rs). The answer goes to api/rating, and what
-// all the answers come to goes into the structured data above, once there is at least one.
-addEventListener('the-object:answer', (e) => {
-  fetch('/api/rating', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ v: e.detail }), keepalive: true }).catch(() => {});
-});
-// Read only once the veil has lifted (or the page gave up), on idle: it never helps the first frame.
-let asked = false;
-function enrich() {
-  if (asked) return;
-  asked = true;
-  fetch('/api/rating').then((r) => (r.ok ? r.json() : null)).then((a) => {
-    if (!a || !(a.count >= 1)) return;
-    const ld = document.querySelector('script[type="application/ld+json"]');
-    const data = JSON.parse(ld.textContent);
-    const game = data['@graph'].find((n) => n['@id'].endsWith('#the-object'));
-    game.aggregateRating = { '@type': 'AggregateRating', ratingValue: a.value, ratingCount: a.count, bestRating: a.best, worstRating: a.worst };
-    ld.textContent = JSON.stringify(data);
-  }).catch(() => {});
-}
-const body = document.body.classList;
-const ready = new MutationObserver(() => {
-  if (!body.contains('awake') && !body.contains('failed')) return;
-  ready.disconnect();
-  if (window.requestIdleCallback) requestIdleCallback(enrich, { timeout: 2000 });
-  else setTimeout(enrich, 500);
-});
-ready.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-setTimeout(enrich, 10000);
-</script>
+<script type="module" src="rating.js"></script>
 <script type="module">
 try {
   const { default: init } = await import('./pkg/chaos_object.js');
