@@ -25,6 +25,7 @@ pub mod sim;
 pub mod thoughts;
 pub mod version;
 pub mod words;
+pub mod wound;
 
 #[cfg(target_arch = "wasm32")]
 mod render;
