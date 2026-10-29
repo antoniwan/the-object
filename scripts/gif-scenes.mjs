@@ -164,6 +164,20 @@ export default {
       await t.wait(2.5);
     },
   },
+  night: {
+    about: 'drops torn free all round it, the room goes dark, and the night rings it',
+    async play(t) {
+      await t.wait(1);
+      t.roll(3);
+      for (let i = 0; i < 8; i++) {
+        const a = (i * TAU) / 8;
+        await t.drag([[Math.cos(a) * 0.1, Math.sin(a) * 0.1], [Math.cos(a) * 0.6, Math.sin(a) * 0.6]], 1);
+        await t.wait(0.3);
+      }
+      t.roll();
+      await t.wait(4);
+    },
+  },
   dust: {
     about: 'the flower, pinched, comes apart and settles as dust',
     async play(t) {

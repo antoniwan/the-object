@@ -1103,6 +1103,13 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
       float dist = length(c - rd * along);
       sky += uDropCol[i] * 0.006 * uDrop[i].w / (dist * dist + 0.004);
     }
+    // and around it a ring of split light, red inside and blue outside, the way a cold
+    // night rings the moon; between the ring and its edge, a little of its own color
+    vec3 tc = uBody.xyz - ro;
+    float tl = length(tc);
+    float x = acos(clamp(dot(rd, tc / tl), -1.0, 1.0)) / asin(min(uBody.w / tl, 0.99));
+    vec3 hr = (x - vec3(1.36, 1.44, 1.52)) * 8.0;
+    sky += (exp(-hr * hr) * 0.13 + uBodyCol * 0.07 * exp(-(x - 1.0) * 3.0)) * step(uBurst.x, 0.5) * (1.0 - uCut.w) * (1.0 - uBox.x);
     bg = mix(bg, sky, uNight);
   }
   return bg;

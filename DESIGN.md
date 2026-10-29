@@ -44,7 +44,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | heat | `#ff294d` from inside, brightest where it is thickest; beats at 1.2 Hz while wounded | upset, something shows through | `shadeLiquid()` `hurt` |
 | flush | `#c74c6b` (words), `#bf7380` multiplier (body) | upset: agitation, or the wounds before a burst | `aura.rs` `FLUSH`, `uAgit` |
 | warmth | a slow cosine cycle: `#ff8e8e` `#d966da` `#8c8bff` `#66d7d7` `#8cff8b` `#d9da66` | held still, it changes color through these | `sim/` `palette()` |
-| night lens | the sky seen through it, a rim of its own color | six drops free and the room goes dark | `shadeLiquid()` `uNight` |
+| night lens | the sky seen through it, a rim of its own color; around it on the sky a ring of split light, red inside, blue outside (1.36 – 1.52 times its size, 13%), and a little of its color between, as a cold night rings the moon | six drops free and the room goes dark | `shadeLiquid()`, `background()` `uNight` |
 | quicksilver | the environment × `#dbe0eb` | pulled out of a mirror | `uCoat.x` |
 | ink | `#050508` plus a little of its tint | pulled out of the deep | `uCoat.y` |
 | cell | ground `#f4f3f1`, lines `#212129` where a slow wave over each part is still; no center, nothing round drawn on it | divided; each part drawn, not filled | `shadeCell()`, `cellLines()` |
