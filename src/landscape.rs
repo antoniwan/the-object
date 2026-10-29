@@ -149,7 +149,15 @@ impl Land {
 
     /// Dropped piece `i`, standing at `at`: in the middle, it goes home. Returns true if it did.
     pub fn release(&mut self, i: usize, at: V3) -> bool {
-        if self.returned(i) || (at.x * at.x + at.z * at.z).sqrt() > MEND_RADIUS {
+        if (at.x * at.x + at.z * at.z).sqrt() > MEND_RADIUS {
+            return false;
+        }
+        self.take_home(i, at)
+    }
+
+    /// Piece `i`, standing at `at`, goes home wherever it is: it came with one that was let go there.
+    pub fn take_home(&mut self, i: usize, at: V3) -> bool {
+        if self.returned(i) {
             return false;
         }
         self.returns[i] = Return { melt: 1e-4, from: at };
