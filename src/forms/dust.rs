@@ -5,12 +5,14 @@
 //! up: a mound standing on the ground, which settles and firms and then breathes, slowly,
 //! where it stands. Tap the mound and it answers low. Press and hold it and it comes back
 //! up out of itself as the liquid, floating again, and the mound goes into it.
-//! Left alone long enough, the dust drifts together on its own.
+//! Left alone long enough, the dust drifts together on its own. Once the mound has
+//! settled something takes root in it and grows as far as it is tended (growth.rs).
 //!
 //! Like the other forms, `Phase` only decides which 0..1 values move; the shader mixes
 //! them: the body crumbling (`crumble`), the cloud (`cloud`), the dust landing (`settle`),
 //! and the mound (`heap`, `firm`).
 
+use super::growth::Growth;
 use super::Event;
 use crate::math::*;
 
@@ -68,12 +70,14 @@ pub struct Dust {
     pub thud: f32,
     /// How long the mound has been pressed, 0..1 of what it takes to come back up.
     pub press: f32,
+    /// What grows out of the mound once it has settled.
+    pub growth: Growth,
     pub(super) events: Vec<Event>,
 }
 
 impl Default for Dust {
     fn default() -> Self {
-        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, events: Vec::new() }
+        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, growth: Growth::default(), events: Vec::new() }
     }
 }
 
@@ -259,13 +263,40 @@ impl Dust {
         }
     }
 
-    /// A tap on the mound.
-    pub fn tap(&mut self) -> bool {
-        if !matches!(self.phase, Phase::Mound | Phase::Heaping { .. }) {
+    /// A tap on the mound, or on what grows from it: it answers, and once it stands, it is
+    /// tended. Returns how far it has grown, 0..1, for the pitch it answers in.
+    pub fn tap(&mut self) -> Option<f32> {
+        match self.phase {
+            Phase::Heaping { .. } => {
+                self.thud = 1.0;
+                Some(0.0)
+            }
+            Phase::Mound => {
+                self.thud = 1.0;
+                Some(self.growth.tend())
+            }
+            _ => None,
+        }
+    }
+
+    /// Whether the ray from `ro` along `rd` passes through what grows from the mound.
+    pub fn touches_growth(&self, ro: V3, rd: V3) -> bool {
+        let (x, z, _, h) = self.heap();
+        if self.growth.shown < 0.3 || h < 0.3 {
             return false;
         }
-        self.thud = 1.0;
-        true
+        // the nearest the ray comes to the upright through the middle of the mound
+        let a = v3(x, FLOOR_Y + h, z);
+        let up = V3::UP;
+        let w = ro - a;
+        let (b, d, e) = (rd.dot(up), rd.dot(w), up.dot(w));
+        let den = 1.0 - b * b;
+        if den < 1e-4 {
+            return false;
+        }
+        let s = ((b * d - e) / den).clamp(0.0, self.growth.reach());
+        let t = (rd.dot(a + up * s - ro)).max(0.0);
+        (ro + rd * t - (a + up * s)).len() < 0.2 + 0.8 * self.growth.spread()
     }
 
     /// Held long enough: it comes back up out of the mound.
@@ -330,14 +361,21 @@ impl Dust {
                     Phase::Heaping { t: t + dt }
                 }
             }
-            Phase::Mound => Phase::Mound,
+            Phase::Mound => {
+                self.growth.step(dt, &mut self.events);
+                Phase::Mound
+            }
             Phase::Rising { t } if t + dt >= RISE_SECS => {
                 self.clumps = [Clump::default(); CLUMPS];
+                self.growth = Growth::default();
                 self.press = 0.0;
                 self.events.push(Event::Unearthed);
                 Phase::Whole
             }
-            Phase::Rising { t } => Phase::Rising { t: t + dt },
+            Phase::Rising { t } => {
+                self.growth.recede(dt);
+                Phase::Rising { t: t + dt }
+            }
         };
     }
 }
@@ -395,7 +433,7 @@ mod tests {
         assert!((total(&d) - 1.0).abs() < 1e-3, "{}", total(&d));
         let (x, z, _, h) = d.heap();
         assert!(h > 0.9 && d.on_mound(x, z));
-        assert!(d.tap() && d.thud > 0.9);
+        assert!(d.tap().is_some() && d.thud > 0.9);
         assert!(d.rise());
         run(&mut d, 3.0);
         assert!(d.whole() && d.crumble_amount() == 0.0);

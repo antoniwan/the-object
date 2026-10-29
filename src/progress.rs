@@ -119,9 +119,12 @@ pub enum Discovery {
     Wound,
     Tend,
     Heal,
+    Root,
+    Canopy,
+    Wither,
 }
 
-pub const ALL: [Discovery; 115] = [
+pub const ALL: [Discovery; 118] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -237,6 +240,9 @@ pub const ALL: [Discovery; 115] = [
     Discovery::Wound,
     Discovery::Tend,
     Discovery::Heal,
+    Discovery::Root,
+    Discovery::Canopy,
+    Discovery::Wither,
 ];
 
 impl Discovery {
@@ -357,6 +363,9 @@ impl Discovery {
             Discovery::Wound => "wound",
             Discovery::Tend => "tend",
             Discovery::Heal => "heal",
+            Discovery::Root => "root",
+            Discovery::Canopy => "canopy",
+            Discovery::Wither => "wither",
         }
     }
 
@@ -477,6 +486,9 @@ impl Discovery {
             Discovery::Wound => "the old place opened. something fell out of it.",
             Discovery::Tend => "what went in stayed in. it is less open.",
             Discovery::Heal => "full again. the seam is thinner. it stays.",
+            Discovery::Root => "it reached down. the ground let it.",
+            Discovery::Canopy => "it grew toward the light, and kept the flower it was.",
+            Discovery::Wither => "it forgot the light, a little at a time.",
         }
     }
 }
@@ -541,7 +553,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Heal as usize + 1);
+        assert_eq!(ALL.len(), Discovery::Wither as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
