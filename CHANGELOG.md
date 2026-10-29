@@ -12,6 +12,16 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-10-29
+
+### Added
+- The floor is polished: a soft copy of it lies beneath, and where it burns or its wounds beat, its light falls around it. (#74)
+- A cut runs through the whole room for a moment; the burst throws every color out in rays. (#74)
+- At night a ring of split light stands around it. (#74)
+
+### Fixed
+- Past two cells, the glow of a cut follows the cut just made. (#74)
+
 ## [1.19.0] - 2026-10-29
 
 ### Added
@@ -397,7 +407,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.19.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/antoniwan/the-object/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/antoniwan/the-object/compare/v1.18.1...v1.19.0
 [1.18.1]: https://github.com/antoniwan/the-object/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/antoniwan/the-object/compare/v1.17.2...v1.18.0
