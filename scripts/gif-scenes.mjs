@@ -36,6 +36,24 @@ async function sweep(t, strokes, secs) {
 const cut = (t, x = 0) => t.drag([[x, -0.47], [x, 0.48]], 0.1);
 
 export default {
+  almost: {
+    about: 'a pinch let go of too late nearly leaves a bud, which sinks back; let go at once, it stays',
+    async play(t) {
+      await t.wait(1);
+      t.roll();
+      await t.wait(0.4);
+      await t.drag([[0.12, -0.04], [0.19, -0.065]], 0.15, 1, { lift: false });
+      await t.wait(0.45);
+      await t.up(1, 0.19, -0.065);
+      await t.wait(0.35);
+      await t.snap('nearly');
+      await t.wait(1.6);
+      await t.drag([[0.12, -0.04], [0.19, -0.065]], 0.06);
+      await t.wait(0.5);
+      await t.snap('bud');
+      await t.wait(1.2);
+    },
+  },
   cells: {
     about: 'cut, it is afraid; left alone it calms and burns; cut again, afraid again',
     async play(t) {

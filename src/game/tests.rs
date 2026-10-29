@@ -452,6 +452,49 @@ fn five_pinches_make_a_flower_and_a_tap_folds_it() {
     assert!(g.world.ordinary());
 }
 
+/// A tug outward from a point on it: `steps` moves of `px` canvas pixels, `dt` apart, then held for `hold` seconds.
+fn tug(g: &mut Game, (x0, y0): (f32, f32), (dx, dy): (f32, f32), px: f32, steps: usize, dt: f32, hold: f32) {
+    g.pointer_down(1, x0, y0);
+    for k in 1..=steps {
+        g.pointer_move(1, x0 + dx * px * k as f32, y0 + dy * px * k as f32, dt);
+        g.update(dt);
+    }
+    wait(g, hold);
+    g.pointer_up(1);
+}
+
+#[test]
+fn a_tug_let_go_a_little_too_late_nearly_leaves_a_bud() {
+    let mut g = game();
+    tug(&mut g, (450.0, 300.0), (1.0, 0.0), 14.0, 3, 1.0 / 60.0, 0.5);
+    assert!(!g.progress.has(Discovery::Pinch), "too late to be a pinch");
+    assert!(g.world.forms.bloom.buds.is_empty());
+    assert!(g.world.forms.bloom.near.is_some(), "but a bud nearly rose");
+    assert!(g.sounds.contains(&Sound::Almost));
+    wait(&mut g, 0.3);
+    assert!(g.world.forms.bloom.near_size() > 0.2);
+    wait(&mut g, 1.5);
+    assert!(g.world.forms.bloom.near.is_none(), "and sank back");
+    // held much longer, it was only a stretch
+    g.sounds.clear();
+    tug(&mut g, (350.0, 300.0), (-1.0, 0.0), 14.0, 3, 1.0 / 60.0, 1.5);
+    assert!(g.world.forms.bloom.near.is_none() && !g.sounds.contains(&Sound::Almost));
+}
+
+#[test]
+fn a_tug_flicked_off_fast_is_still_a_pinch_not_a_throw() {
+    let mut g = game();
+    // a finger leaves a short tug fast enough to be a flick
+    tug(&mut g, (450.0, 300.0), (1.0, 0.0), 24.0, 3, 1.0 / 120.0, 0.0);
+    wait(&mut g, 0.1);
+    assert!(g.progress.has(Discovery::Pinch));
+    assert!(!g.progress.has(Discovery::Throw));
+    assert_eq!(g.world.forms.bloom.buds.len(), 1);
+    // pulled further, the same flick throws it
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 40.0, 4, 1.0 / 120.0, 0.0);
+    assert!(g.progress.has(Discovery::Throw));
+}
+
 fn flower(g: &mut Game) {
     for i in 0..5 {
         let a = i as f32 * std::f32::consts::TAU / 5.0;

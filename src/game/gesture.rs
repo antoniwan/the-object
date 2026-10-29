@@ -68,15 +68,25 @@ impl Game {
                 let stage = self.stage();
                 let dir = self.world.handles.iter().find(|h| h.id == handle).map(|h| h.dir);
                 self.world.release_handle(handle);
-                let thrown = self.throw();
-                // A short tug let go of at once is a pinch.
-                let quick = self.clock - since < bloom::PINCH_MAX_SECS && (bloom::PINCH_MIN..bloom::PINCH_MAX).contains(&reach);
-                if let (Some(dir), true, false, true) = (dir, quick, thrown, self.world.ordinary()) {
-                    if self.world.forms.bloom.pinch(dir) {
-                        self.world.add_ripple(dir, 0.35);
+                let secs = self.clock - since;
+                let short = (bloom::PINCH_MIN..bloom::PINCH_MAX).contains(&reach);
+                // A short tug let go of at once is a pinch, however fast the hand flew off it.
+                let quick = secs < bloom::PINCH_MAX_SECS && short && self.world.ordinary();
+                let thrown = !quick && self.throw();
+                match dir {
+                    Some(dir) if quick => {
+                        if self.world.forms.bloom.pinch(dir) {
+                            self.world.add_ripple(dir, 0.35);
+                        }
                     }
-                } else if let (Some(dir), false, false, true) = (dir, quick, thrown, self.world.ordinary()) {
-                    self.contact.reached(dir, reach, stage);
+                    Some(dir) if !thrown && self.world.ordinary() => {
+                        // Let go of a little too late, a bud nearly rises there, and sinks back.
+                        if short && secs < bloom::NEAR_MAX_SECS && self.world.forms.bloom.almost(dir) {
+                            self.sounds.push(Sound::Almost);
+                        }
+                        self.contact.reached(dir, reach, stage);
+                    }
+                    _ => {}
                 }
             }
             Gesture::Lake { at, moved, .. } => {

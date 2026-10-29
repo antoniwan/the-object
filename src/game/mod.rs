@@ -25,7 +25,8 @@
 //!   of a mirror it comes up quicksilver, out of the deep it comes up ink
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
-//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
+//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs);
+//!   let go a little too late, a bud nearly rises and sinks back; a quick short tug is a pinch, never a throw
 //! - pinch the flower: it comes apart into dust on the floor; drag through the dust to sweep it,
 //!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
 //!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)

@@ -1,5 +1,7 @@
 //! Pinch it and a bud stays. A pinch is a short, small pull let go of at once,
-//! too small to tear and too quick to be a stretch. Five buds and it opens:
+//! too small to tear and too quick to be a stretch. A pull of the right length let go
+//! of a little too late leaves only the shadow of a bud, which sinks back at once.
+//! Five buds and it opens:
 //! the body becomes a flower facing up, its petals unfolding from where the
 //! buds were. Tap the flower and it folds back into the body. Pinch the flower
 //! and it comes apart instead (dust.rs).
@@ -12,6 +14,11 @@ pub const PETALS: usize = 5;
 pub const PINCH_MAX_SECS: f32 = 0.4;
 pub const PINCH_MIN: f32 = 0.12;
 pub const PINCH_MAX: f32 = 0.75;
+/// The same pull let go of later than a pinch, but sooner than this, nearly leaves a bud.
+pub const NEAR_MAX_SECS: f32 = 1.1;
+/// How long the shadow of a bud lasts, and how big it gets beside a real one.
+const NEAR_SECS: f32 = 1.3;
+const NEAR_SIZE: f32 = 0.7;
 /// On the flower, which does not stretch, a pull this short (canvas heights) let go of at once is a pinch.
 pub const TUG_MAX: f32 = 0.12;
 const GROW_SECS: f32 = 0.5;
@@ -38,6 +45,8 @@ pub enum Phase {
 pub struct Bloom {
     pub phase: Phase,
     pub buds: Vec<Bud>,
+    /// A pinch let go of too late: a bud that rises a little and sinks back.
+    pub near: Option<Bud>,
     /// Where around the stem the first petal points.
     pub angle: f32,
     pub(super) events: Vec<Event>,
@@ -45,7 +54,7 @@ pub struct Bloom {
 
 impl Default for Bloom {
     fn default() -> Self {
-        Bloom { phase: Phase::Buds, buds: Vec::new(), angle: 0.0, events: Vec::new() }
+        Bloom { phase: Phase::Buds, buds: Vec::new(), near: None, angle: 0.0, events: Vec::new() }
     }
 }
 
@@ -70,6 +79,21 @@ impl Bloom {
         grown * (1.0 - smoothstep(0.0, 0.3, self.open()))
     }
 
+    /// How far the shadow of a bud has risen, 0..`NEAR_SIZE`.
+    pub fn near_size(&self) -> f32 {
+        self.near.map_or(0.0, |b| NEAR_SIZE * smoothstep(0.0, 0.15, b.age) * (1.0 - smoothstep(0.3, NEAR_SECS, b.age)))
+    }
+
+    /// A pinch at `dir` let go of a little too late. Returns true if a bud nearly rose there.
+    pub fn almost(&mut self, dir: V3) -> bool {
+        let dir = dir.norm();
+        if self.phase != Phase::Buds || self.buds.len() >= PETALS || self.buds.iter().any(|b| b.dir.dot(dir) > 0.97) {
+            return false;
+        }
+        self.near = Some(Bud { dir, age: 0.0 });
+        true
+    }
+
     /// A pinch at `dir`. Returns true if it left a bud.
     pub fn pinch(&mut self, dir: V3) -> bool {
         if self.phase != Phase::Buds || self.buds.len() >= PETALS {
@@ -85,6 +109,7 @@ impl Bloom {
             self.angle = dir.z.atan2(dir.x);
         }
         self.buds.push(Bud { dir, age: 0.0 });
+        self.near = None;
         self.events.push(Event::Budded);
         if self.buds.len() == PETALS {
             self.phase = Phase::Opening { t: 0.0 };
@@ -104,13 +129,15 @@ impl Bloom {
     /// Gone to dust (dust.rs): there is no flower left to fold, and no buds.
     pub fn scatter(&mut self) {
         self.buds.clear();
+        self.near = None;
         self.phase = Phase::Buds;
     }
 
     pub fn step(&mut self, dt: f32) {
-        for b in &mut self.buds {
+        for b in self.buds.iter_mut().chain(&mut self.near) {
             b.age += dt;
         }
+        self.near = self.near.filter(|b| b.age < NEAR_SECS && self.phase == Phase::Buds);
         self.phase = match self.phase {
             Phase::Buds => {
                 self.buds.retain(|b| b.age < BUD_LIFE_SECS);
@@ -178,6 +205,21 @@ mod tests {
         assert!(b.pinch(v3(1.0, 0.0, 0.0)));
         assert!(!b.pinch(v3(1.0, 0.05, 0.0)));
         assert_eq!(b.buds.len(), 1);
+    }
+
+    #[test]
+    fn a_pinch_let_go_too_late_rises_a_little_and_sinks_back() {
+        let mut b = Bloom::default();
+        assert!(b.almost(v3(0.0, 0.0, 1.0)));
+        b.step(0.3);
+        let risen = b.near_size();
+        assert!(risen > 0.5 && risen <= NEAR_SIZE);
+        assert!(b.buds.is_empty() && b.events.is_empty(), "it is not a bud");
+        b.step(1.2);
+        assert!(b.near.is_none() && b.near_size() == 0.0);
+        // where a bud already is, nothing nearly rises
+        b.pinch(V3::UP);
+        assert!(!b.almost(V3::UP));
     }
 
     #[test]
