@@ -12,6 +12,28 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-29
+
+### Added
+- Hurt enough, over time, it scars where it is struck most, and the scar stays between visits. Hurt again, the scar opens, and small spiked pieces of it fall onto the floor around it, each slowly turning through every color. Some of what is carried back in is kept, and fills the wound; the rest is thrown back out. Filled, it closes over, and the scar is fainter. It never goes. Four discoveries come with it.
+
+## [1.12.0] - 2026-10-29
+
+### Added
+- Pinched once it has flowered, it does not close: it comes apart into a cloud of grain that settles over the floor in drifts. (#55)
+- A finger drawn through the dust sweeps it along, and drifts pushed together become one. Gathered nearly all in one place, it heaps itself into a mound that settles, stands on the ground and breathes there. Left alone long enough, the dust drifts together on its own. (#55)
+- Tapped, the mound answers low; held, light comes up through it and it rises back out of itself, floating again, and leaves nothing behind. Four new discoveries. (#55)
+
+## [1.11.0] - 2026-10-29
+
+### Added
+- Once it hears you, some words do what a hand would, as many times as they are said, in English or Spanish.
+- A greeting, in almost any language, is answered in its own signs, the same signs for the same greeting; but only if it remembers being treated gently. Hurt lately, it draws back. Not sure of you yet, it only listens. Being greeted is remembered too.
+- Three new things to find.
+
+### Changed
+- Words are made on the device where the browser can, so nothing leaves the page. Where the browser cannot, it asks for that separately, and says under its word where the voice would go.
+
 ## [1.10.0] - 2026-10-29
 
 ### Added
@@ -254,7 +276,10 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/antoniwan/the-object/compare/v1.12.0...v1.13.0
+[1.12.0]: https://github.com/antoniwan/the-object/compare/v1.11.0...v1.12.0
+[1.11.0]: https://github.com/antoniwan/the-object/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/antoniwan/the-object/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/antoniwan/the-object/compare/v1.8.5...v1.9.0
 [1.8.5]: https://github.com/antoniwan/the-object/compare/v1.8.4...v1.8.5

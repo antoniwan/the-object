@@ -6,7 +6,7 @@
 <title>the object</title>
 <meta name="description" content="There is an object. You can touch it. It has not said what it is. It is paying attention.">
 <meta name="author" content="Antonio Rodríguez Martínez">
-<meta name="version" content="1.10.0">
+<meta name="version" content="1.13.0">
 <meta name="theme-color" content="#f8f7f5">
 <link rel="canonical" href="https://the-object.antoniwan.online/">
 <link rel="author" href="https://antoniwan.online">
@@ -57,7 +57,7 @@
       "inLanguage": "en",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "softwareVersion": "1.10.0",
+      "softwareVersion": "1.13.0",
       "datePublished": "2026-10-28",
       "author": { "@id": "https://antoniwan.online/#person" },
       "creator": { "@id": "https://antoniwan.online/#person" },
@@ -106,6 +106,9 @@
   #thought.show { opacity: .8; transform: translate(-50%, 0); }
   /* Its word when it asks to hear or see you (src/senses.rs): the only words that can be tapped. */
   #toast.show .offer { pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
+  /* Under its word for words, where they must leave the page: what the tap allows (src/web.rs AWAY). */
+  #toast .away { display: block; max-width: 30em; margin: 10px auto 0; padding: 0 16px; font: 400 10px/1.4 var(--mono); font-style: normal; letter-spacing: normal; text-transform: none; color: #9a9aa3; }
+  #toast.show .away { pointer-events: auto; cursor: pointer; }
   /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. */
   #senses { left: 16px; bottom: 14px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s; pointer-events: none; }
   #senses.on { opacity: .7; pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }

@@ -309,6 +309,14 @@ impl Renderer {
         self.v4v("uFold2", &[fd.mirrors_was as f32, fd.mirrors as f32, crate::math::smoothstep(0.0, 1.0, fd.mirror_t), 0.0]);
         let pa = &fo.pandora;
         self.v4v("uBox", &[pa.boxness(), pa.lid(), pa.rattle, pa.yaw]);
+        let du = &fo.dust;
+        let (cloud, fall) = du.cloud();
+        self.v4v("uDust", &[du.settle(), du.crumble_amount(), cloud, fall]);
+        let clumps: Vec<f32> = du.clumps.iter().flat_map(|c| [c.x, c.z, c.radius(), c.amount]).collect();
+        self.v4v("uClump", &clumps);
+        let (hx, hz, hr, hh) = du.heap();
+        self.v4v("uHeap", &[hx, hz, hr, hh]);
+        self.v4v("uHeapB", &[du.firm(), du.thud, du.press, 0.0]);
 
         // The other one: see other.rs.
         let ot = &world.other;

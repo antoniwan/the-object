@@ -68,6 +68,8 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/game.rs` | Pointer input to verbs. The header comment lists every gesture. |
 | `src/senses.rs` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers. Plain Rust, tested natively. |
 | `src/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
+| `src/words.rs` | Words, once it hears: a verb said is done by the same hand the pointer is, once for each time it is said; a greeting in any language is answered in signs, or not, by what it remembers (`remembrance.rs`). Plain Rust, tested natively. |
+| `src/speech.rs` | Browser side of the same (wasm only): the browser's speech recognition, on the device (`processLocally`) as soon as it hears where the browser can, otherwise only after the player taps `say something.`; the text goes to `words.rs` and is dropped. |
 | `src/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
 | `src/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
@@ -78,12 +80,13 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 | `src/burst.rs` | Poke it to death and it bursts into twelve pieces. |
 | `src/landscape.rs` | What the twelve pieces do once they have landed. |
 | `src/kin.rs` | Which of the landed pieces hold on to which: groups made by setting them down close, followed when carried, loosed, cut apart, breathing together. |
-| `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); and `fold`, where the universe stirred on gets out into the room. |
+| `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); `fold`, where the universe stirred on gets out into the room; and `dust`, where the flower pinched comes apart over the floor, is swept and heaps into a mound. |
 | `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
+| `src/wound.rs` | An old hurt: hurt enough, ever, it scars where it is struck most (kept in `the-object.remembrance`); hurt again, the scar opens and four spiked pieces, drops it holds in place, lie around it turning through every color. Carried in green, one is taken and fills the wound; any other color is spat back out. Three and it closes, leaving the scar fainter. The seam and wound are on the body's surface in the shader (`scarAt()`), the spikes in the drops' loop (`caltrop()`, `uCaltrop` bits). |
 | `src/remembrance.rs` | What it remembers of how it was treated, after Lifesworn's Remembrance: a ledger of deeds (held, sung to, answered, returned to; hurt, broken) it notices by itself each frame, and how warm or wary it is, worked out from that ledger by a formula and never saved. Hurt fades in half the time care does. Once a visit, from regard on, it meets the first hand that comes near accordingly. Other code reads `kind()`, `wary()`, `warmth()` and `bond()`, and adds deeds with `remember()`. |
 | `src/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
 | `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 104 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 115 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
@@ -132,9 +135,9 @@ Five `localStorage` keys, all in the player's browser (the one answer that leave
 - `the-object.found`: which discoveries they have made.
 - `the-object.visits`: how many times they have come back.
 - `the-object.contact`: what the object has learned about them (`contact.rs`).
-- `the-object.remembrance`: what it remembers of how it was treated (`remembrance.rs`): when it first met them and when they were last here, and for each kind of deed how many times ever and a fading recent sum. Never how it feels about them; that is worked out from these each time.
-- `the-object.senses`: only whether they ever told the browser no to the microphone, the camera or feeling the phone (`hear=no;see=no;feel=no`), so it never asks again (`senses.rs`).
+- `the-object.remembrance`: what it remembers of how it was treated (`remembrance.rs`): when it first met them and when they were last here, for each kind of deed how many times ever and a fading recent sum, and the scar, if there is one (which way it faces and how plain it is). Never how it feels about them; that is worked out from these each time.
+- `the-object.senses`: only whether they ever told the browser no to the microphone, the camera, feeling the phone or words leaving the page (`hear=no;see=no;feel=no;words=no`), so it never asks again (`senses.rs`).
 
-The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses.rs` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
+Words are made by the browser's own speech recognition: on the device where it can (then nothing leaves the page), and otherwise only once the player has tapped `say something.`, whose line says the voice goes to the browser's maker. Either way the text that comes back is read for a few words and dropped. The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses.rs` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
 
 Clearing site data starts the object over.

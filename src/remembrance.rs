@@ -79,12 +79,14 @@ pub enum Deed {
     Hurt,
     /// Poked to death.
     Broken,
+    /// Greeted, out loud (words.rs).
+    Greeted,
     /// Something carried into an open wound, and kept (wound.rs).
     Tended,
 }
 
 impl Deed {
-    pub const COUNT: usize = 11;
+    pub const COUNT: usize = 12;
     pub const ALL: [Deed; Deed::COUNT] = [
         Deed::Touch,
         Deed::Held,
@@ -96,6 +98,7 @@ impl Deed {
         Deed::Stayed,
         Deed::Hurt,
         Deed::Broken,
+        Deed::Greeted,
         Deed::Tended,
     ];
 
@@ -112,6 +115,7 @@ impl Deed {
             Deed::Stayed => "stayed",
             Deed::Hurt => "hurt",
             Deed::Broken => "broken",
+            Deed::Greeted => "greeted",
             Deed::Tended => "tended",
         }
     }
@@ -131,7 +135,7 @@ impl Deed {
         match self {
             Deed::Touch => 0.0,
             Deed::Held | Deed::Sang | Deed::Answered | Deed::LongReturn | Deed::Tended => 1.0,
-            Deed::Hummed | Deed::Returned => 0.5,
+            Deed::Hummed | Deed::Returned | Deed::Greeted => 0.5,
             Deed::Stayed => 0.25,
             Deed::Hurt => -1.0,
             Deed::Broken => -2.0,
