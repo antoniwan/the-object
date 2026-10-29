@@ -4,17 +4,17 @@
 //! (senses.rs, devices.rs), words made of what it hears (words.rs, speech.rs), and how a phone
 //! is held and moved (motion.rs).
 
-use crate::audio::Audio;
+use crate::platform::audio::Audio;
 use crate::aura::{aura, roman};
-use crate::contact::{self, Contact, KEEP_STEPS};
-use crate::devices::{self, Answer, Ears, Eyes};
+use crate::mind::contact::{self, Contact, KEEP_STEPS};
+use crate::platform::devices::{self, Answer, Ears, Eyes};
 use crate::game::Game;
-use crate::keys;
-use crate::motion::Felt;
+use crate::input::keys;
+use crate::input::motion::Felt;
 use crate::progress::{Discovery, Progress};
-use crate::render::Renderer;
-use crate::senses::{self, Kind, Senses};
-use crate::speech::{self, Can, Note, Speech};
+use crate::platform::render::Renderer;
+use crate::input::senses::{self, Kind, Senses};
+use crate::platform::speech::{self, Can, Note, Speech};
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -708,7 +708,7 @@ pub fn start() -> Result<(), JsValue> {
         game.progress = Progress::load(&found);
         game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
         game.senses = Senses::load(&s.get_item(KEY_SENSES).ok().flatten().unwrap_or_default());
-        game.remembrance = crate::remembrance::Remembrance::load(
+        game.remembrance = crate::mind::remembrance::Remembrance::load(
             &s.get_item(KEY_REMEMBRANCE).ok().flatten().unwrap_or_default(),
             js_sys::Date::now() / 1000.0,
         );

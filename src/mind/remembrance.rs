@@ -21,7 +21,7 @@
 //! question was answered), so no verb has to call it. Other code can still add a deed with
 //! `remember`.
 
-use crate::contact::Stage;
+use crate::mind::contact::Stage;
 use crate::game::{Game, Sound};
 use crate::math::*;
 use crate::progress::Discovery;

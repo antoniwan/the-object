@@ -8,7 +8,7 @@
 //! they should match exactly.
 
 use chaos_object::game::Game;
-use chaos_object::senses::{self, Leave, Retina};
+use chaos_object::input::senses::{self, Leave, Retina};
 use std::f32::consts::TAU;
 use std::hint::black_box;
 use std::time::Instant;

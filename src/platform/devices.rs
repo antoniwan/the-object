@@ -8,8 +8,8 @@
 //! the screen, used and dropped.
 
 use crate::math::v3;
-use crate::motion::Felt;
-use crate::senses::{self, Heard, Kind, Retina, Seen};
+use crate::input::motion::Felt;
+use crate::input::senses::{self, Heard, Kind, Retina, Seen};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;

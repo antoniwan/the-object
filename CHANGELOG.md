@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-10-29
+
+### Changed
+- The code that makes it is sorted into folders by what each part does: what it becomes, what reaches it, what it learns, and the browser. Nothing it does, looks like or sounds like has changed. (#61)
+
 ## [1.16.0] - 2026-10-29
 
 ### Fixed
@@ -309,7 +314,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/antoniwan/the-object/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/antoniwan/the-object/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/antoniwan/the-object/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/antoniwan/the-object/compare/v1.13.1...v1.14.0

@@ -16,7 +16,7 @@
 use crate::game::{Game, Sound};
 use crate::math::*;
 use crate::progress::Discovery;
-use crate::remembrance::Deed;
+use crate::mind::remembrance::Deed;
 
 /// The pointer id the spoken hand uses; real pointers are never negative.
 const HAND: i32 = -7;
@@ -280,7 +280,7 @@ pub fn answer(greeting: &str) -> String {
         seed
     };
     let len = 2 + next() % 3;
-    let mut word: String = (0..len).map(|_| crate::contact::SIGNS[(next() % 12) as usize]).collect();
+    let mut word: String = (0..len).map(|_| crate::mind::contact::SIGNS[(next() % 12) as usize]).collect();
     // Said twice, the second time a little shorter, the way a greeting is given back.
     let short: String = word.chars().take(len as usize - 1).collect();
     word.push(' ');
@@ -449,7 +449,7 @@ mod tests {
             assert_eq!(greeting(g), None, "{g}");
         }
         assert_eq!(answer("hola"), answer("hola"));
-        assert!(answer("hola").chars().all(|c| c == ' ' || crate::contact::SIGNS.contains(&c)));
+        assert!(answer("hola").chars().all(|c| c == ' ' || crate::mind::contact::SIGNS.contains(&c)));
     }
 
     #[test]

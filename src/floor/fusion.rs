@@ -8,7 +8,7 @@
 //! the shader blends those, so the melt and the spread never jump.
 
 use crate::math::*;
-use crate::mere::Mere;
+use crate::floor::mere::Mere;
 
 /// Height of the floor plane. The shader uses the same value.
 pub const FLOOR_Y: f32 = -1.45;

@@ -33,7 +33,7 @@ const GATHER_SELF_AFTER: f32 = 40.0;
 const BRUSH: f32 = 0.6;
 /// The dust is kept within this far of the middle of the room, where it can be seen.
 const REACH: f32 = 4.2;
-const FLOOR_Y: f32 = crate::fusion::FLOOR_Y;
+const FLOOR_Y: f32 = crate::floor::fusion::FLOOR_Y;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Clump {

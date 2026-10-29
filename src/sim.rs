@@ -7,8 +7,8 @@
 use crate::math::*;
 use crate::burst::Burst;
 use crate::forms::Forms;
-use crate::fusion::Fusion;
-use crate::meiosis::Division;
+use crate::floor::fusion::Fusion;
+use crate::division::meiosis::Division;
 use crate::other::Other;
 
 pub const MAX_HANDLES: usize = 4;

@@ -13,11 +13,11 @@
 //! and the wound are drawn on the body's own surface (`surfaceDisp`, `sceneColor` in the
 //! shader); the pieces' spikes are drawn in the drops' loop, so nothing adds a call to `scene()`.
 
-use crate::fusion::FLOOR_Y;
+use crate::floor::fusion::FLOOR_Y;
 use crate::game::Game;
 use crate::math::*;
 use crate::progress::Discovery;
-use crate::remembrance::Deed;
+use crate::mind::remembrance::Deed;
 use crate::sim::World;
 
 /// How many pieces fall out of an open wound.
@@ -377,7 +377,7 @@ mod tests {
         let mut g = Game::new();
         g.w = 800.0;
         g.h = 600.0;
-        g.remembrance = crate::remembrance::Remembrance::load("at=0;hurt=3,0;scar=0,0,1,0.35", 0.0);
+        g.remembrance = crate::mind::remembrance::Remembrance::load("at=0;hurt=3,0;scar=0,0,1,0.35", 0.0);
         g.update(1.0 / 60.0);
         g
     }

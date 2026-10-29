@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn keys_do_nothing_to_anything_but_the_ordinary_liquid() {
         let mut g = game();
-        g.world.division.phase = crate::meiosis::Phase::Two;
+        g.world.division.phase = crate::division::meiosis::Phase::Two;
         assert!(!g.world.ordinary());
         down(&mut g, "Space");
         down(&mut g, "ArrowRight");

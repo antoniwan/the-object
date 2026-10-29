@@ -9,8 +9,8 @@
 //! mixes continuously, so the shape and material never jump.
 
 use crate::math::*;
-use crate::morula::{self, Morula};
-use crate::nerve::Nerve;
+use crate::division::morula::{self, Morula};
+use crate::division::nerve::Nerve;
 
 /// 2^(-1/3): each of two cells holding half the volume.
 pub const CELL_SCALE: f32 = 0.7937;

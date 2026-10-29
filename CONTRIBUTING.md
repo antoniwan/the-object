@@ -53,50 +53,86 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 
 ## How a frame happens
 
-1. `web.rs` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`, and every other key into calls on `keys.rs`.
+1. `platform/web.rs` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`, and every other key into calls on `keys.rs`.
 2. `game.rs` turns raw pointer movement into verbs: poke, stretch, slice, stir, and so on. It owns the camera, the player's progress, and what the object has learned about them.
 3. The verbs act on `World` in `sim.rs`, which owns the body, its tendrils, ripples and free drops, plus one state machine per transformation.
-4. `render.rs` copies the world into shader uniforms, and `shader.frag` raymarches the scene.
-5. `web.rs` writes the object's color, agitation and screen position onto the page as CSS variables (computed in `aura.rs`); `web/glyph.js` uses them to tint and scatter the words.
-6. `audio.rs` plays whatever sounds the frame asked for.
+4. `platform/render.rs` copies the world into shader uniforms, and `shader.frag` raymarches the scene.
+5. `platform/web.rs` writes the object's color, agitation and screen position onto the page as CSS variables (computed in `aura.rs`); `web/glyph.js` uses them to tint and scatter the words.
+6. `platform/audio.rs` plays whatever sounds the frame asked for.
 
 ## Module map
 
+Each folder is a family of modules that use each other. A new verb or form goes into the folder of its family, or `src/forms/`, as its own file.
+
+### The core
+
+Pointer to verb, the liquid, and the small pieces everything shares.
+
 | File | What it holds |
 | --- | --- |
-| `src/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast, the count and its thoughts, saving to `localStorage`. |
 | `src/game.rs` | Pointer input to verbs. The header comment lists every gesture. |
-| `src/senses.rs` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers. Plain Rust, tested natively. |
-| `src/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
-| `src/words.rs` | Words, once it hears: a verb said is done by the same hand the pointer is, once for each time it is said; a greeting in any language is answered in signs, or not, by what it remembers (`remembrance.rs`). Plain Rust, tested natively. |
-| `src/speech.rs` | Browser side of the same (wasm only): the browser's speech recognition, on the device (`processLocally`) as soon as it hears where the browser can, otherwise only after the player taps `say something.`; the text goes to `words.rs` and is dropped. |
-| `src/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
-| `src/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/sim.rs` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `World::sdf` is mirrored by the shader. |
-| `src/meiosis.rs` | Slice it and it divides into two cells; squeeze them back into one. |
-| `src/nerve.rs` | What a cut does to it besides the cut: afraid at once, then, left alone, sure it is still there. Two eased values the shader draws the cells from (`uNerve`). |
-| `src/morula.rs` | Past two: every cell divides, then grain, the eye, cells dying, the stone. |
-| `src/fusion.rs` | Slam it into the floor and the floor turns liquid. |
-| `src/mere.rs` | What the liquid floor can become: mirror, ice, the deep, a fountain. |
-| `src/burst.rs` | Poke it to death and it bursts into twelve pieces. |
-| `src/landscape.rs` | What the twelve pieces do once they have landed. |
-| `src/kin.rs` | Which of the landed pieces hold on to which: groups made by setting them down close, followed when carried, loosed, cut apart, breathing together. |
-| `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); `fold`, where the universe stirred on gets out into the room; and `dust`, where the flower pinched comes apart over the floor, is swept and heaps into a mound; and `growth`, what roots in the mound and grows as far as it is tended. |
-| `src/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
-| `src/wound.rs` | An old hurt: hurt enough, ever, it scars where it is struck most (kept in `the-object.remembrance`); hurt again, the scar opens and four spiked pieces, drops it holds in place, lie around it turning through every color. Carried in green, one is taken and fills the wound; any other color is spat back out. Three and it closes, leaving the scar fainter. The seam and wound are on the body's surface in the shader (`scarAt()`), the spikes in the drops' loop (`caltrop()`, `uCaltrop` bits). |
-| `src/remembrance.rs` | What it remembers of how it was treated, after Lifesworn's Remembrance: a ledger of deeds (held, sung to, answered, returned to; hurt, broken) it notices by itself each frame, and how warm or wary it is, worked out from that ledger by a formula and never saved. Hurt fades in half the time care does. Once a visit, from regard on, it meets the first hand that comes near accordingly. Other code reads `kind()`, `wary()`, `warmth()` and `bond()`, and adds deeds with `remember()`. |
-| `src/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
-| `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. |
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 118 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
-| `src/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
+| `src/math.rs` | Small vector math, so the simulation has no dependencies. |
+| `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
+
+### What it becomes
+
+One folder per family of transformations; the files in a family use each other, and nothing outside it reaches in past its state machine.
+
+| File | What it holds |
+| --- | --- |
+| `src/division/meiosis.rs` | Slice it and it divides into two cells; squeeze them back into one. |
+| `src/division/nerve.rs` | What a cut does to it besides the cut: afraid at once, then, left alone, sure it is still there. Two eased values the shader draws the cells from (`uNerve`). |
+| `src/division/morula.rs` | Past two: every cell divides, then grain, the eye, cells dying, the stone. |
+| `src/floor/fusion.rs` | Slam it into the floor and the floor turns liquid. |
+| `src/floor/mere.rs` | What the liquid floor can become: mirror, ice, the deep, a fountain. |
+| `src/burst/mod.rs` | Poke it to death and it bursts into twelve pieces. |
+| `src/burst/landscape.rs` | What the twelve pieces do once they have landed. |
+| `src/burst/kin.rs` | Which of the landed pieces hold on to which: groups made by setting them down close, followed when carried, loosed, cut apart, breathing together. |
+| `src/burst/river.rs` | The twelve crowded together anywhere but the middle melt into the ground and run as a river: touched, columns stand out of it; raise enough and it beats, then drains, and the body gathers itself out of it. |
+| `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); `fold`, where the universe stirred on gets out into the room; and `dust`, where the flower pinched comes apart over the floor, is swept and heaps into a mound; and `growth`, what roots in the mound and grows as far as it is tended. |
+| `src/wound.rs` | An old hurt: hurt enough, ever, it scars where it is struck most (kept in `the-object.remembrance`); hurt again, the scar opens and four spiked pieces, drops it holds in place, lie around it turning through every color. Carried in green, one is taken and fills the wound; any other color is spat back out. Three and it closes, leaving the scar fainter. The seam and wound are on the body's surface in the shader (`scarAt()`), the spikes in the drops' loop (`caltrop()`, `uCaltrop` bits). |
+| `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. |
+
+### What reaches it (`src/input/`)
+
+Everything besides the pointer, as plain Rust tested natively. Their browser halves are in `src/platform/`.
+
+| File | What it holds |
+| --- | --- |
+| `src/input/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
+| `src/input/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
+| `src/input/words.rs` | Words, once it hears: a verb said is done by the same hand the pointer is, once for each time it is said; a greeting in any language is answered in signs, or not, by what it remembers (`remembrance.rs`). Plain Rust, tested natively. |
+| `src/input/senses.rs` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers. Plain Rust, tested natively. |
+
+### What it learns (`src/mind/`)
+
+| File | What it holds |
+| --- | --- |
+| `src/mind/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
+| `src/mind/remembrance.rs` | What it remembers of how it was treated, after Lifesworn's Remembrance: a ledger of deeds (held, sung to, answered, returned to; hurt, broken) it notices by itself each frame, and how warm or wary it is, worked out from that ledger by a formula and never saved. Hurt fades in half the time care does. Once a visit, from regard on, it meets the first hand that comes near accordingly. Other code reads `kind()`, `wary()`, `warmth()` and `bond()`, and adds deeds with `remember()`. |
+| `src/mind/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
+
+### The browser (`src/platform/`, wasm only)
+
+| File | What it holds |
+| --- | --- |
+| `src/platform/web.rs` | Browser glue: canvas, input, the frame loop, the hint, the toast, the count and its thoughts, saving to `localStorage`. |
+| `src/platform/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
+| `src/platform/audio.rs` | Synthesized sounds, no samples. |
+| `src/platform/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
+| `src/platform/speech.rs` | Browser side of the same (wasm only): the browser's speech recognition, on the device (`processLocally`) as soon as it hears where the browser can, otherwise only after the player taps `say something.`; the text goes to `words.rs` and is dropped. |
+
+### The shader, the build and the page
+
+| File | What it holds |
+| --- | --- |
+| `src/shader.frag` | The one fragment shader that draws everything. |
 | `build.rs` | Copies `shader.frag` into the build without its comments or indentation, keeping every line where it was, so a driver's error line still points at the source. |
 | `examples/frame_bench.rs` | Times the simulation scene by scene and prints a fingerprint of where each one ends up. A change made for speed should leave every fingerprint as it was. |
-| `src/shader.frag` | The one fragment shader that draws everything. |
-| `src/audio.rs` | Synthesized sounds, no samples. |
-| `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
-| `src/math.rs` | Small vector math, so the simulation has no dependencies. |
 | `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
