@@ -12,6 +12,15 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-29
+
+### Added
+- After it bursts, the twelve need not stay twelve, or one. Set close together they keep together, in as many groups as there are places to leave them. A group comes along when one of it is carried, unless it is pulled away faster than the rest can follow; a quick cut across the ground between them parts a group, each side stepping back. Touch one of a group and the rest feel it after, one by one. Each group breathes in its own time and slowly turns its faces inward. (#52)
+- Five more things to find. (#52)
+
+### Changed
+- Carried to the middle together, a group goes home together. Only all twelve crowded into one still run as a river. (#52)
+
 ## [1.8.5] - 2026-10-29
 
 ### Added
@@ -240,7 +249,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.8.5...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/antoniwan/the-object/compare/v1.8.5...v1.9.0
 [1.8.5]: https://github.com/antoniwan/the-object/compare/v1.8.4...v1.8.5
 [1.8.4]: https://github.com/antoniwan/the-object/compare/v1.8.3...v1.8.4
 [1.8.3]: https://github.com/antoniwan/the-object/compare/v1.8.2...v1.8.3
