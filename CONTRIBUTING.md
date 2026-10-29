@@ -39,9 +39,11 @@ Every merge to `main` deploys, so **every pull request is a release**: it bumps 
 ./scripts/version.sh 1.3.0         # moves it in Cargo.toml, Cargo.lock, web/index.html, web/llms.txt and CHANGELOG.md
 ```
 
-Then write what changed under the new heading, and a post for it in `devlog/`. `cargo test` fails if the page, `llms.txt` or the changelog disagree with `Cargo.toml` (`src/version.rs`), and CI fails a pull request whose version is not higher than its base. If another PR takes your number first, merge main and bump again.
+Then write what changed under the new heading. `cargo test` fails if the page, `llms.txt` or the changelog disagree with `Cargo.toml` (`src/version.rs`), and CI fails a pull request whose version is not higher than its base. If another PR takes your number first, merge main and bump again.
 
-After the merge, `.github/workflows/release.yml` tags `v<version>` on main and publishes a GitHub release with the changelog entry as its notes. The itch.io push names the build `<version>+<short commit>`. Every version also gets a post in `devlog/`, ready to paste into the itch.io devlog (its README says how they are written); `cargo test` fails when the current version has none.
+After the merge, `.github/workflows/release.yml` tags `v<version>` on main and publishes a GitHub release with the changelog entry as its notes. The itch.io push names the build `<version>+<short commit>`.
+
+The devlog is one post a day, not one a version: `devlog/YYYY-MM-DD.md`, written from that day's changelog entries, with GIFs of what a player can see filmed by `scripts/gif.mjs`, ready to paste into the itch.io devlog by the end of the day. `devlog/README.md` says how they are written and filmed. `cargo test` fails once a day has gone by without its post.
 
 ## Where it runs
 
@@ -137,6 +139,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/rating.js` | Sends the answer to the question asked after contact to `/api/rating`, and adds what all the answers come to to the page's structured data. Left out of the itch build. |
+| `scripts/gif.mjs`, `scripts/gif-scenes.mjs` | Films short looping GIFs of the built page for the daily devlog, from scripted scenes on a clock it moves itself (`devlog/README.md`). |
 | `scripts/shader-time.mjs` | Times how long the built page takes to be ready in headless Chromium at 48×32: the number to compare before and after a shader change. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
 | `web/llms.txt`, `robots.txt`, `sitemap.xml`, `og.png` | For crawlers and link previews. |
