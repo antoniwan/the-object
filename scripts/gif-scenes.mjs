@@ -140,6 +140,30 @@ export default {
       await t.wait(2.5);
     },
   },
+  cut: {
+    about: 'a cut runs through the whole room for a moment; cut again, the light runs the new way',
+    async play(t) {
+      await t.wait(1);
+      t.roll();
+      await t.wait(0.3);
+      await t.drag([[0.12, -0.47], [-0.06, 0.48]], 0.1);
+      await t.wait(4);
+      await t.drag([[-0.5, -0.1], [0.5, 0.05]], 0.1);
+      await t.wait(1.8);
+    },
+  },
+  burst: {
+    about: 'poked until it cannot hold any more: its heat on the floor, then every color at once, thrown out in rays',
+    async play(t) {
+      await t.wait(1);
+      t.roll();
+      for (let i = 0; i < 12; i++) {
+        await t.tap(0, 0);
+        await t.wait(0.2);
+      }
+      await t.wait(2.5);
+    },
+  },
   dust: {
     about: 'the flower, pinched, comes apart and settles as dust',
     async play(t) {

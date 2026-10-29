@@ -81,11 +81,11 @@ Every shock (whatever shakes the room: a cut, a slam, the burst, the lid, the sl
 | What happened | Wash | Hex |
 | --- | --- | --- |
 | a blow, a fall, anything else | cold | `#80a8ff` |
-| a cut | the seam's pink | `#ff4d9e` |
+| a cut | the seam's pink, and for a moment the room is cut too: a line of it across the whole screen along the cut, white-pink `#ffe0f2` at its core, its red, green and blue a hair apart | `#ff4d9e`, line `#ff59a6` |
 | the lid | the box's light | `#ffd173` |
 | the river's beat | blood | `#bf0a17` |
 | coming apart into dust | the dust | `#ccc7d4` |
-| the burst | every color at once, around it | spectrum by angle |
+| the burst | every color at once, around it, thrown out in eleven uneven rays as the white fades | spectrum by angle |
 | upset or wounded (no shock needed) | the edges bruise toward `#473859`, then `#8c1429` | at most 60%, less at night |
 
 ### The twelve
@@ -238,6 +238,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | wound | opens 1.2 s, closes 3 s, then rests 20 s | a scar hurt again opens; three green pieces fill it |
 | spat out | 4.5 out, 2.7 up, falling at 16, bouncing at 45%, 2.2 s | a piece of the wrong color, thrown back down to the floor |
 | shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
+| the cut's line | runs out from it at 14 screen heights / s, fading with the seam (`exp(-5 t)`, its core twice as fast), its colors parting as it fades | the room cut with it, inside the hit-stop and just after |
+| the burst's rays | reach out as the pop's white fades (`exp(-6 t)`), gone with it | |
 
 ### The page
 

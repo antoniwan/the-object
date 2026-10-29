@@ -35,7 +35,7 @@ uniform float uAgit;   // 0..1 how upset it is
 uniform float uNight;  // 0..1 day to night
 uniform vec4 uGaze;    // xyz direction it reaches toward, w amount
 // Slicing (meiosis.rs). Every value glides 0..1, so the shape never jumps.
-uniform vec4 uCut;     // xyz normal of the cut, w split: 0 one body, 1 two cells
+uniform vec4 uCut;     // xyz normal of the (newest) cut, w split: 0 one body, 1 two cells
 uniform vec3 uDiv;     // x flash of the fresh cut, y cleavage furrow, z cell material
 uniform vec2 uNerve;   // after a cut (nerve.rs): x how afraid, y how sure it is still alive
 // Past two (morula.rs): up to sixteen cells, then grain, then stone.
@@ -1645,6 +1645,20 @@ vec3 drama(vec3 col, vec2 uv, vec2 c, vec3 w) {
     col *= 1.0 + 0.45 * s * exp(-age * 16.0);
     col = mix(col, col * mix(vec3(1.0), w * 1.25, 0.6), 0.35 * s * exp(-age * 2.2));
   }
+  if (uDiv.x > 0.01) {
+    // a fresh cut: for a moment the room is cut too, along the same line, the seam's light
+    // running out from it to the edges, its colors a hair apart
+    vec2 nn = vec2(dot(uCut.xyz, uCamRight), dot(uCut.xyz, uCamUp));
+    nn /= max(length(nn), 1e-3);
+    float since = -0.2 * log(uDiv.x);
+    float along = abs(dot(d, vec2(-nn.y, nn.x)));
+    vec3 across = abs(dot(d, nn) + vec3(-1.5, 0.0, 1.5) * (1.0 + 30.0 * since) / uRes.y);
+    float reach = 1.0 - smoothstep(since * 14.0, since * 14.0 + 0.4, along);
+    vec3 core = exp(-across * uRes.y * 0.6) * uDiv.x * uDiv.x * reach;
+    float halo = exp(-across.y * 9.0) * uDiv.x * reach;
+    col = mix(col, vec3(1.0, 0.35, 0.65), clamp(halo * 0.5, 0.0, 1.0));
+    col = mix(col, vec3(1.0, 0.88, 0.95), clamp(core, 0.0, 1.0));
+  }
   // the room closes in around it
   float upset = max(uAgit, uBurst.z * (0.75 + 0.25 * sin(uTime * 7.5)));
   if (upset > 0.0 || s > 0.0) {
@@ -1821,6 +1835,12 @@ void main() {
   if (uBurst.y > 0.0) {
     col = mix(col, vec3(1.0), uBurst.y);
     col = mix(col, wash, uBurst.y * (1.0 - uBurst.y) * 1.4);
+    // and every color is thrown out from where it was, in uneven rays
+    vec2 d = uv - bc;
+    float a = atan(d.y, d.x);
+    float rays = pow(0.5 + 0.5 * cos(a * 11.0 + 2.5 * sin(a * 3.0 + 1.0)), 5.0);
+    float reach = 1.0 - smoothstep(0.2, 2.2, length(d) * (0.4 + 2.0 * uBurst.y));
+    col = mix(col, wash * 0.9, clamp(rays * reach * sqrt(uBurst.y) * (1.0 - uBurst.y) * 2.2, 0.0, 0.85));
   }
   col = pow(col, vec3(0.97));
   outColor = vec4(col, 1.0);
