@@ -15,9 +15,9 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.11.0] - 2026-10-29
 
 ### Added
-- Pinched once it has flowered, it does not close: it comes apart into a cloud of grain that settles over the floor in drifts. (#PR)
-- A finger drawn through the dust sweeps it along, and drifts pushed together become one. Gathered nearly all in one place, it heaps itself into a mound that settles, stands on the ground and breathes there. Left alone long enough, the dust drifts together on its own. (#PR)
-- Tapped, the mound answers low; held, light comes up through it and it rises back out of itself, floating again, and leaves nothing behind. Four new discoveries. (#PR)
+- Pinched once it has flowered, it does not close: it comes apart into a cloud of grain that settles over the floor in drifts. (#55)
+- A finger drawn through the dust sweeps it along, and drifts pushed together become one. Gathered nearly all in one place, it heaps itself into a mound that settles, stands on the ground and breathes there. Left alone long enough, the dust drifts together on its own. (#55)
+- Tapped, the mound answers low; held, light comes up through it and it rises back out of itself, floating again, and leaves nothing behind. Four new discoveries. (#55)
 
 ## [1.10.0] - 2026-10-29
 
