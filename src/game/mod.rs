@@ -9,7 +9,7 @@
 //! - tap empty space: call it; it reaches toward the place
 //! - a drop that touches the body runs back into it, mixing its color in; six drops free
 //!   at once and the world turns to night, until they have all come home
-//! - two-finger pinch or mouse wheel: squeeze
+//! - two-finger pinch, on the screen or a trackpad, or mouse wheel: squeeze (see pad.rs)
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
 //! - on two or more cells, swipe through again: every cell divides (see morula.rs);
@@ -152,6 +152,8 @@ pub struct Game {
     pub keys: crate::input::keys::Keys,
     /// What a phone in the hand is doing to the room (see motion.rs).
     pub motion: crate::input::motion::Motion,
+    /// Two fingers pinched on a trackpad (see pad.rs).
+    pub pad: crate::input::pad::Pad,
     /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
     pub remembrance: crate::mind::remembrance::Remembrance,
     /// Words it hears, and how it has been treated (see words.rs).
@@ -190,6 +192,7 @@ impl Game {
             thoughts: Thoughts::default(),
             keys: Default::default(),
             motion: Default::default(),
+            pad: Default::default(),
             remembrance: Default::default(),
             words: Default::default(),
         }
@@ -313,7 +316,15 @@ impl Game {
         };
 
         if !matches!(self.gesture, Gesture::Squeezing { .. }) {
-            self.wheel_squeeze = fade(self.wheel_squeeze, -2.5 * dt);
+            match self.pad.step(dt) {
+                Some(s) => {
+                    self.wheel_squeeze = s;
+                    if s.abs() > 0.3 {
+                        self.discover(Discovery::Squeeze);
+                    }
+                }
+                None => self.wheel_squeeze = fade(self.wheel_squeeze, -2.5 * dt),
+            }
             self.world.body.squeeze = self.wheel_squeeze;
         }
         crate::input::motion::step(self, dt);

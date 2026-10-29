@@ -362,7 +362,34 @@ pub fn start() -> Result<(), JsValue> {
         let app = app.clone();
         listen(target, "wheel", false, move |e: WheelEvent| {
             e.prevent_default();
-            app.borrow_mut().game.wheel(e.delta_y() as f32);
+            // Read in pixels; a browser that still counts lines or pages is turned into about as many.
+            let dy = e.delta_y() as f32
+                * match e.delta_mode() {
+                    WheelEvent::DOM_DELTA_LINE => 33.0,
+                    WheelEvent::DOM_DELTA_PAGE => 800.0,
+                    _ => 1.0,
+                };
+            // Two fingers pinched on a trackpad come as a wheel with ctrl held.
+            let game = &mut app.borrow_mut().game;
+            if e.ctrl_key() {
+                game.pad.wheel(dy);
+            } else {
+                game.wheel(dy);
+            }
+        })?;
+    }
+    // Safari tells a trackpad pinch as a gesture instead, and would zoom the page with it.
+    // On a phone the same gesture comes with fingers already on the screen; those squeeze by themselves.
+    for name in ["gesturestart", "gesturechange", "gestureend"] {
+        let app = app.clone();
+        listen(target, name, false, move |e: web_sys::Event| {
+            e.prevent_default();
+            let game = &mut app.borrow_mut().game;
+            if game.held() {
+                return;
+            }
+            let scale = js_sys::Reflect::get(&e, &JsValue::from_str("scale")).ok().and_then(|s| s.as_f64());
+            game.pad.gesture(if e.type_() == "gestureend" { None } else { scale.map(|s| s as f32) });
         })?;
     }
     {

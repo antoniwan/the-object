@@ -480,7 +480,7 @@ impl Game {
             Gesture::Squeezing { start_dist, since, least, on } if self.pointers.len() >= 2 => {
                 let ratio = self.pinch_dist() / start_dist;
                 self.gesture = Gesture::Squeezing { start_dist, since, least: least.min(ratio), on };
-                let s = ((ratio - 1.0) * 1.6).clamp(-1.0, 1.0);
+                let s = crate::input::pad::squeeze(ratio);
                 self.world.body.squeeze = s;
                 if s.abs() > 0.3 {
                     self.discover(Discovery::Squeeze);

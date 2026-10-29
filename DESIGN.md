@@ -180,6 +180,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s (`forms/bloom.rs`) |
 | `FINGERS_CLOSE` / `FINGERS_MAX_SECS` | 0.75 / 0.7 s | two fingers that both began on it, closed to this share of how far apart they began and let go this fast, pinch it between them (`forms/bloom.rs`) |
+| `REST_SECS` (pad) | 0.35 s | a trackpad pinch squeezes it as far as two fingers on a screen would, held while the fingers move and this long after; Safari's pinch holds until it ends (`input/pad.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
@@ -327,7 +328,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | press and hold still | the liquid | warm | color shift | `sim/` |
 | fast swipe through | the liquid | slice | two cells; again: many, then grain, an eye, stone | `meiosis.rs`, `morula.rs` |
 | flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
-| pinch or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
+| pinch (on the screen or a trackpad) or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim/` |
 | set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |

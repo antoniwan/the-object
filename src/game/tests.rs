@@ -236,6 +236,33 @@ fn a_third_finger_lifting_does_not_end_the_squeeze() {
 }
 
 #[test]
+fn two_fingers_pinched_on_a_trackpad_squeeze_it_as_far_as_on_a_screen() {
+    let mut g = game();
+    // told as a wheel with ctrl held, a little each frame, the way browsers tell it
+    for _ in 0..20 {
+        g.pad.wheel(4.0);
+        g.update(1.0 / 60.0);
+    }
+    assert!(g.progress.has(Discovery::Squeeze));
+    assert!(g.world.body.squeeze < -0.6, "{}", g.world.body.squeeze);
+    // once the fingers stop it lets go
+    wait(&mut g, 1.5);
+    assert!(g.world.body.squeeze.abs() < 0.1);
+}
+
+#[test]
+fn a_trackpad_pinch_held_still_in_safari_presses_two_cells_back_into_one() {
+    let mut g = game();
+    swipe_down(&mut g, 1, 400.0);
+    assert_eq!(g.world.division.phase, meiosis::Phase::Two);
+    g.pad.gesture(Some(0.5));
+    wait(&mut g, 1.5);
+    g.pad.gesture(None);
+    wait(&mut g, 3.0);
+    assert!(g.progress.has(Discovery::Rejoin));
+}
+
+#[test]
 fn holding_still_warms_instead_of_poking() {
     let mut g = game();
     g.pointer_down(1, 400.0, 300.0);
