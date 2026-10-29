@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.3] - 2026-10-29
+
+### Changed
+- The code that makes it says each small thing once: shared pieces of arithmetic live in one place, what only one part uses is kept inside that part, and every value handed to the drawing goes the same way. The browser's own libraries are only built for the browser. Nothing it does, looks like or sounds like has changed. (#63)
+
 ## [1.16.2] - 2026-10-29
 
 ### Changed
@@ -319,7 +324,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.2...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.3...HEAD
+[1.16.3]: https://github.com/antoniwan/the-object/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/antoniwan/the-object/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/antoniwan/the-object/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/antoniwan/the-object/compare/v1.15.0...v1.16.0
