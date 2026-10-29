@@ -44,6 +44,7 @@
 //!   the arrows (see keys.rs)
 //! - once it asks and is let (see senses.rs): speak, hum, whisper or blow at it; move, move
 //!   fast, or cover the camera
+//! - and, once it hears you, in words: say a verb and it is done; greet it (see words.rs)
 //! - and with a phone in the hand (see motion.rs): tip it to tip the room; shake it
 //!
 //! - late, once it has reached back (see other.rs), something else is in the room: tap it, carry
@@ -199,6 +200,8 @@ pub struct Game {
     pub motion: crate::motion::Motion,
     /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
     pub remembrance: crate::remembrance::Remembrance,
+    /// Words it hears, and how it has been treated (see words.rs).
+    pub words: crate::words::Words,
 }
 
 impl Game {
@@ -234,6 +237,7 @@ impl Game {
             keys: Default::default(),
             motion: Default::default(),
             remembrance: Default::default(),
+            words: Default::default(),
         }
     }
 
@@ -386,6 +390,16 @@ impl Game {
         let pos = self.world.body.pos;
         let f = &mut self.world.forms;
         f.filament.pluck(hit.pos, pos).is_some() || f.bloom.fold() || f.pandora.knock() || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
+    }
+
+    /// How many hands are on the canvas now.
+    pub(crate) fn hands(&self) -> usize {
+        self.pointers.len()
+    }
+
+    /// Where a point in the world lands on the canvas, in pixels.
+    pub(crate) fn screen_of(&self, p: V3) -> (f32, f32) {
+        self.screen(p)
     }
 
     /// Where a point in the world lands on the canvas, in pixels.
@@ -1194,6 +1208,7 @@ impl Game {
         }
         crate::motion::step(self, dt);
         crate::keys::step(self, dt);
+        crate::words::step(self, dt);
 
         let sub = 3;
         for _ in 0..sub {

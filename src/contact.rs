@@ -51,7 +51,7 @@ const ASK_WINDOW: f32 = 12.0;
 pub const KEEP_STEP: f32 = 1.1;
 pub const KEEP_STEPS: u8 = 5;
 /// The signs its reply is written in; all of them are in the glyph font (web/fonts).
-const SIGNS: [char; 12] = ['∴', '∵', '∷', '⊕', '⊗', '☉', '☽', '✶', '⟡', '⌬', '⍜', '⍟'];
+pub(crate) const SIGNS: [char; 12] = ['∴', '∵', '∷', '⊕', '⊗', '☉', '☽', '✶', '⟡', '⌬', '⍜', '⍟'];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stage {

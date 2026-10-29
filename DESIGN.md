@@ -116,7 +116,7 @@ Three free fonts from Fontsource, self-hosted in `web/fonts/` with their license
 | whisper | Cormorant Garamond italic 400 | 16px / 1.4 | 0.08em | lowercase | loader lines |
 | thought | Cormorant Garamond italic 400 | 15px / 1.4 | 0.1em | lowercase | what it is thinking (`thoughts.rs`) |
 | count | JetBrains Mono 400 | 10px / 1 | 0.3em | lowercase roman numerals | how many it has shown you (`aura.rs` `roman()`) |
-| system | JetBrains Mono 400 | 10px / 1.4 | normal | as is | errors only |
+| system | JetBrains Mono 400 | 10px / 1.4 | normal | as is | errors, and the one line under `say something.` that says where words go |
 | alien | Noto Sans Math, subset ("Glyphs") | inherits | 0.4em | n/a | its reply at contact, the kept-steps answer |
 
 Everything is lowercase. Numbers are spelled out or roman, never digits, except the slab's `1 : 4 : 9`, which is a ratio and looks like one.
@@ -175,6 +175,8 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `HUM_AFTER` | 0.45 s | a letter held this long starts to hum (`keys.rs`) |
 | `OFFER_WINDOW` | 9 s | its word (`speak.`, `show yourself.`) can be tapped this long (`senses.rs`) |
 | `OFFER_NOT_BEFORE` / `OFFER_IDLE` / `OFFER_GAP` | 20 s / 5 s / 40 s | it asks no sooner into a visit, only when untouched this long, and this far apart |
+| `GAP` (words) | 0.14 s | between one spoken verb and the next; at most eight wait (`words.rs`) |
+| `GREET_GAP` | 6 s | a greeting is answered at most this often |
 | `HELD_SECS` / `HUM_SECS` | 0.8 s / 2.4 s | a note held this steady comes back, for this long |
 | `FOLD_TURNS` / `UNFOLD_TURNS` | 3 / 2 turns | stirred on past the universe this far, the room folds; this far the other way, it folds back up (`forms/fold.rs`) |
 | `BACKWARD_SECS` | 0.6 s | held still this long in the fold, its time turns round |
@@ -253,7 +255,7 @@ Each discovery has a **name** (one or two words) and a **line** (`progress.rs`).
 - Let it feel slightly off: a fact that should not be true, said calmly.
 - Keep it under about 60 characters. The longest one today is 61.
 - Address the player as "you" sparingly, and only when it is about what they did.
-- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `hold the room.`, `speak.` and `show yourself.` when it asks to feel the phone, to hear and to see). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
+- **Never say how; rarely say what it wants.** No gesture, speed or tip, ever. But late in the contact arc it may ask, in its own voice: one bare imperative, a word or two, once a visit at most (`stay.` after its turn, `again.` after an echo; `hold the room.`, `speak.`, `show yourself.` and `say something.` when it asks to feel the phone, to hear, to see and to take words). Its asking is part of the curiosity becoming mutual, so it never asks before regard.
 
 **Examples from the game**
 
@@ -337,6 +339,11 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | move in front of it | seen | turns toward where you moved | `senses.rs` |
 | cover the camera | blind | the room goes dark until you uncover it | `senses.rs`, `sim.rs` `dim` |
 | be watched by the eye at eight cells | watched | the eye follows you | `senses.rs`, `morula.rs` |
+| say a verb (poke, cut, squeeze, hold, pull, tear, pinch, throw, come; English or Spanish) | word | the same hand the pointer is does it, once for each time it is said | `words.rs` |
+| greet it, in any language, having been gentle | greeting | turns to you, two rising notes, and answers in signs: the same signs for the same greeting | `words.rs` |
+| greet it, having hurt it lately | unanswered | draws back and says nothing; not sure of you yet, it only turns to listen | `words.rs` |
+
+**Words** come out of hearing and need nothing more where the browser can make them on the device: then they simply work once it hears you, and nothing leaves the page. Where the browser can only make words by sending the voice to its maker (Safari on the iPhone, some others), it asks for that separately, once it already hears you, with `say something.` and one plain line under it saying where the voice goes; only a tap on that allows it, and while it lasts the marks say so too. A no is answered (`it will listen to the sound of you instead.`) and kept. The text that comes back is read for its verbs and greetings and dropped. Whether it answers a greeting is decided by what it remembers (`remembrance.rs`), and being greeted is remembered as a small kindness.
 
 **A phone in the hand** is the room. Tipping it tips the room and shaking it shakes the room; the object is what stays behind. Most phones let the page feel this without asking, and then it simply works; where the browser must ask first (iOS), it asks once a visit from regard on, before anything else, in its voice: `hold the room.` A no is answered (`it will stay where it is put.`) and kept, like the others. Two angles and one push a frame, used and dropped. On a desk nothing arrives and it never asks.
 
@@ -349,7 +356,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 - Every form has a way back, and the way back is the verb's opposite or a gentle version of it (stir back, hold to wind, tap to fold, squeeze to rejoin, hold to thaw).
 - Forms start only from the ordinary liquid: gate the gesture on `World::ordinary()`. One form at a time.
 - The contact arc (`contact.rs`) watches all of this and unlocks by count: regard at 6 discoveries, echo at 14, its turn at 24, contact at 36. It acts only while the world is ordinary.
-- Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player.
+- Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, greeted, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player.
 
 ## 9. Adding a new form
 
@@ -374,5 +381,5 @@ These are in `CONTRIBUTING.md` in full. They are here because they limit what a 
 - **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`web.rs` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game.rs` and `sim.rs` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
-- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
+- **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`, and words where the player has tapped `say something.` under the line that says they go to the browser's maker. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.
 - **The site is the build.** `web/` is everything that is served; build output is never committed.
