@@ -25,18 +25,24 @@ Posts 01 to 36 are from before: one per version from 1.2.0, ranges before that. 
 
 ## Pictures
 
-A post carries a short looping GIF of each change a player can see, placed where the paragraph about it ends, as a line of its own: `[gif: dust.gif]`. When pasting into itch, upload the GIF at that line and delete the marker.
+A post carries a short looping GIF of each change a player can see, placed where the paragraph about it ends, as an image line of its own pointing at the GIF on GitHub, so nothing has to be uploaded by hand:
 
-The GIFs are filmed by `scripts/gif.mjs` from scenes in `scripts/gif-scenes.mjs`, and are not committed: they go to the project's shared folder next to the post (`devlog/YYYY-MM-DD/`), or are handed over with it.
+```
+![](https://raw.githubusercontent.com/antoniwan/the-object/main/devlog/2026-10-29/dust.gif)
+```
+
+The GIFs are committed next to the post, in `devlog/YYYY-MM-DD/`, in the same pull request, and are only served once it is merged. They are filmed by `scripts/gif.mjs` from scenes in `scripts/gif-scenes.mjs`. `cargo test` fails when a post points at a GIF that is not in the repository, or at anything but `main`. A copy of the post and its GIFs also goes to the project's shared folder.
+
+To post it: open the post on GitHub (`devlog/YYYY-MM-DD.md`), copy the rendered page from the title down, and paste it into the itch.io devlog editor; the pictures come with it, served from GitHub.
 
 ```
 ./build.sh                                            # the page has to be built first
 export NODE_PATH=$(npm root -g)                       # Playwright and its Chromium (npm i -g playwright), and ffmpeg
 node scripts/gif.mjs --list                           # the scenes there are
-node scripts/gif.mjs dust tree --out dist/gifs        # dist/gifs/dust.gif, dist/gifs/tree.gif
+node scripts/gif.mjs dust tree --out devlog/2026-10-30  # devlog/2026-10-30/dust.gif, .../tree.gif
 ```
 
-It plays each scene in headless Chromium on a clock that only moves when the scene moves it: every finger, key and wait lands on the same frame every run, and a slow software GPU still gives smooth frames. Only the frames that are kept are drawn, so getting somewhere costs almost nothing. The defaults (480 wide, 12 frames a second, 128 colors) keep a take of five or six seconds around one to two and a half MB; it warns over 3 MB. `--width`, `--fps` and `--colors` change them.
+It plays each scene in headless Chromium on a clock that only moves when the scene moves it: every finger, key and wait lands on the same frame every run, and a slow software GPU still gives smooth frames. Only the frames that are kept are drawn, so getting somewhere costs almost nothing. Every GIF stays in the repository for good, so keep them small: the defaults (400 wide, 12 frames a second, 112 colors) keep a take of five or six seconds around one to two MB; it warns over 2 MB. `--width`, `--fps` and `--colors` change them.
 
 A new change to show gets a scene. Read the top of `scripts/gif-scenes.mjs`; in short:
 
