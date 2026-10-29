@@ -216,6 +216,8 @@ impl Renderer {
         let loc = self.loc("uDiv");
         let flash = div.morula.as_ref().map_or(bl.flash, |m| m.look().flash);
         gl.uniform3f(loc.as_ref(), flash, bl.furrow, bl.cell);
+        let loc = self.loc("uNerve");
+        gl.uniform2f(loc.as_ref(), div.nerve.fear, div.nerve.power);
         self.draw_morula(world, r);
         self.v3("uBodyCol", body.color);
         self.f("uAgit", world.agitation);
