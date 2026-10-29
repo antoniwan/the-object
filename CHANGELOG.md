@@ -15,8 +15,8 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.13.0] - 2026-10-29
 
 ### Added
-- Once the mound has settled, something takes root in it. Tended, it grows: a shoot, a trunk, branches one after another, pale leaves, and at last the flower's pink again, in blossom along them. It sways a little once it is tall. (#PR)
-- Left untended, it slowly draws back down to a shoot. Held, the mound takes it back in as the liquid rises out. Three new discoveries. (#PR)
+- Once the mound has settled, something takes root in it. Tended, it grows: a shoot, a trunk, branches one after another, pale leaves, and at last the flower's pink again, in blossom along them. It sways a little once it is tall. (#59)
+- Left untended, it slowly draws back down to a shoot. Held, the mound takes it back in as the liquid rises out. Three new discoveries. (#59)
 
 ## [1.12.0] - 2026-10-29
 
