@@ -38,9 +38,9 @@ Every merge to `main` deploys, so **every pull request is a release**: it bumps 
 ./scripts/version.sh 1.3.0         # moves it in Cargo.toml, Cargo.lock, web/index.html, web/llms.txt and CHANGELOG.md
 ```
 
-Then write what changed under the new heading. `cargo test` fails if the page, `llms.txt` or the changelog disagree with `Cargo.toml` (`src/version.rs`), and CI fails a pull request whose version is not higher than its base. If another PR takes your number first, merge main and bump again.
+Then write what changed under the new heading, and a post for it in `devlog/`. `cargo test` fails if the page, `llms.txt` or the changelog disagree with `Cargo.toml` (`src/version.rs`), and CI fails a pull request whose version is not higher than its base. If another PR takes your number first, merge main and bump again.
 
-After the merge, `.github/workflows/release.yml` tags `v<version>` on main and publishes a GitHub release with the changelog entry as its notes. The itch.io push names the build `<version>+<short commit>`. A change worth telling players about also gets a post in `devlog/` (its README says how they are written).
+After the merge, `.github/workflows/release.yml` tags `v<version>` on main and publishes a GitHub release with the changelog entry as its notes. The itch.io push names the build `<version>+<short commit>`. Every version also gets a post in `devlog/`, ready to paste into the itch.io devlog (its README says how they are written); `cargo test` fails when the current version has none.
 
 ## Where it runs
 
