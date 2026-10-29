@@ -17,6 +17,9 @@ pub struct Camera {
     /// The last shock, for the shader's flash and ring: how hard (0..1) and seconds since.
     shock: (f32, f32),
     last_shake: f32,
+    /// The player asked for less motion: the room shakes a fifth as far, and the flash and
+    /// ring of a shock come at 40%.
+    pub still: bool,
 }
 
 pub struct Basis {
@@ -28,7 +31,7 @@ pub struct Basis {
 
 impl Camera {
     pub fn new() -> Camera {
-        Camera { yaw: 0.35, pitch: 0.22, dist: 5.2, yaw_vel: 0.0, pitch_vel: 0.0, shake: 0.0, shake_t: 0.0, shock: (0.0, 9.0), last_shake: 0.0 }
+        Camera { yaw: 0.35, pitch: 0.22, dist: 5.2, yaw_vel: 0.0, pitch_vel: 0.0, shake: 0.0, shake_t: 0.0, shock: (0.0, 9.0), last_shake: 0.0, still: false }
     }
 
     pub fn basis(&self) -> Basis {
@@ -38,13 +41,15 @@ impl Camera {
         let right = fwd.cross(V3::UP).norm();
         let up = right.cross(fwd);
         let t = self.shake_t;
-        let pos = pos + right * ((t * 71.0).sin() * self.shake) + up * ((t * 53.0).cos() * self.shake);
+        let shake = if self.still { self.shake * 0.2 } else { self.shake };
+        let pos = pos + right * ((t * 71.0).sin() * shake) + up * ((t * 53.0).cos() * shake);
         Basis { pos, right, up, fwd }
     }
 
     /// The last shock: how hard (0..1), fading over a second and a half, and seconds since it.
     pub fn shock(&self) -> (f32, f32) {
         let (amount, age) = self.shock;
+        let amount = if self.still { amount * 0.4 } else { amount };
         (amount * (1.0 - age / 1.5).max(0.0), age)
     }
 
@@ -104,5 +109,19 @@ mod tests {
             c.step(0.016, false);
         }
         assert_eq!(c.shock().0, 0.0);
+    }
+
+    #[test]
+    fn asked_for_less_motion_it_shakes_and_flashes_less() {
+        let (mut a, mut b) = (Camera::new(), Camera::new());
+        b.still = true;
+        for c in [&mut a, &mut b] {
+            c.shake = 0.09;
+            c.step(0.016, false);
+        }
+        let rest = Camera::new().basis().pos;
+        let moved = |c: &Camera| (c.basis().pos - rest).len();
+        assert!(moved(&b) < moved(&a) * 0.25 && moved(&b) > 0.0);
+        assert!(b.shock().0 < a.shock().0 * 0.5 && b.shock().0 > 0.0);
     }
 }

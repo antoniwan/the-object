@@ -255,6 +255,7 @@ pub fn start() -> Result<(), JsValue> {
         }
     }
 
+    game.cam.still = devices::still();
     game.senses.can_hear = devices::possible(Kind::Hear);
     game.senses.can_see = devices::possible(Kind::See);
     let tongues = speech::tongues();

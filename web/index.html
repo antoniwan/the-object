@@ -174,8 +174,15 @@
   body.failed #seed .ring, body.failed #seed .film, body.failed #whisper > span { display: none; }
   body.failed #seed .pearl { transform: scale(.6); filter: grayscale(1); opacity: .5; transition: all 3s; }
   body.failed #whisper .lost { display: block; opacity: 1; transition: opacity 2s; }
+  /* The page does not pull or zoom under a finger while it loads either. */
+  #veil { touch-action: none; }
   @media (prefers-reduced-motion: reduce) {
     #seed i { animation: none !important; }
+    /* Words fade in and out where they stand; the hint stops breathing. The room's own shake is
+       quieter too (camera.rs still). */
+    #hint { animation: none; opacity: .7; }
+    #toast, #toast.show { transform: none; }
+    #thought, #thought.show { transform: translate(-50%, 0); }
     #whisper > span:first-child { opacity: 1; }
     #toast .offer, #senses > span, #mic svg { animation: none !important; }
   }

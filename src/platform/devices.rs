@@ -95,8 +95,18 @@ pub fn feeling() -> Feeling {
 
 /// Whether the page is mostly touched by a finger.
 fn coarse(w: &web_sys::Window) -> bool {
+    matches(w, "(pointer: coarse)")
+}
+
+/// Whether the player asked their system for less motion.
+pub fn still() -> bool {
+    web_sys::window().is_some_and(|w| matches(&w, "(prefers-reduced-motion: reduce)"))
+}
+
+/// Whether a media query holds; false where it cannot be asked.
+fn matches(w: &web_sys::Window, query: &str) -> bool {
     let Ok(f) = get(w, "matchMedia").dyn_into::<js_sys::Function>() else { return false };
-    f.call1(w, &JsValue::from_str("(pointer: coarse)")).map(|m| get(&m, "matches").is_truthy()).unwrap_or(false)
+    f.call1(w, &JsValue::from_str(query)).map(|m| get(&m, "matches").is_truthy()).unwrap_or(false)
 }
 
 /// Asks the browser to let it feel the phone. Must be called inside the player's tap. Pushes
