@@ -29,6 +29,8 @@ const KEY_VISITS: &str = "the-object.visits";
 const KEY_CONTACT: &str = "the-object.contact";
 /// Whether the player ever told the browser no to the microphone or the camera (senses.rs).
 const KEY_SENSES: &str = "the-object.senses";
+/// What it remembers of what was done to it, and when you were last here (remembrance.rs).
+const KEY_REMEMBRANCE: &str = "the-object.remembrance";
 /// The question stays up while the drop is held out.
 const ASK_SECONDS: f64 = 7.0;
 /// Its reply stays up longer than anything else it says.
@@ -462,6 +464,12 @@ impl App {
                 let _ = s.set_item(KEY_SENSES, &self.game.senses.save());
             }
         }
+        if self.game.remembrance.dirty {
+            self.game.remembrance.dirty = false;
+            if let Some(s) = storage() {
+                let _ = s.set_item(KEY_REMEMBRANCE, &self.game.remembrance.save());
+            }
+        }
         for e in self.game.senses.drain_events() {
             match e {
                 senses::Event::Offer(k) => {
@@ -560,6 +568,10 @@ pub fn start() -> Result<(), JsValue> {
         game.progress = Progress::load(&found);
         game.contact = Contact::load(&s.get_item(KEY_CONTACT).ok().flatten().unwrap_or_default());
         game.senses = Senses::load(&s.get_item(KEY_SENSES).ok().flatten().unwrap_or_default());
+        game.remembrance = crate::remembrance::Remembrance::load(
+            &s.get_item(KEY_REMEMBRANCE).ok().flatten().unwrap_or_default(),
+            js_sys::Date::now() / 1000.0,
+        );
         hud.show_count(game.progress.count());
         if visits > 1 && game.progress.count() > 0 {
             game.discover(Discovery::Return);

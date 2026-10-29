@@ -48,6 +48,8 @@
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
 //! the more it follows, flinches, echoes, takes turns, and, once, replies.
+//! It also remembers how it was treated (see remembrance.rs): come back, and the first time
+//! a hand comes near it leans toward it, or away.
 //!
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
@@ -173,7 +175,7 @@ pub struct Game {
     /// Seconds since the pointer last did anything at all, pressed or not.
     still: f32,
     /// Where the pointer last pointed, on the plane through the body.
-    pointer_at: Option<V3>,
+    pub(crate) pointer_at: Option<V3>,
     /// Whether it may hear and see the player, and what it does with it (senses.rs).
     pub senses: Senses,
     /// After the river: the beat it kept. Seconds per beat, seconds into this one, beats left.
@@ -184,6 +186,8 @@ pub struct Game {
     pub keys: crate::keys::Keys,
     /// What a phone in the hand is doing to the room (see motion.rs).
     pub motion: crate::motion::Motion,
+    /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
+    pub remembrance: crate::remembrance::Remembrance,
 }
 
 impl Game {
@@ -218,6 +222,7 @@ impl Game {
             thoughts: Thoughts::default(),
             keys: Default::default(),
             motion: Default::default(),
+            remembrance: Default::default(),
         }
     }
 
@@ -1254,6 +1259,7 @@ impl Game {
                 Event::Closed => self.discover(Discovery::Close),
             }
         }
+        crate::remembrance::step(self, dt);
     }
 }
 

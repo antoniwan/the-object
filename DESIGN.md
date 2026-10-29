@@ -200,6 +200,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
+| remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |
+| remembered hurt | half-life 2 days | being upset or broken; it forgives faster than it forgets kindness |
 | shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
 
 ### The page
@@ -336,6 +338,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 - Every form has a way back, and the way back is the verb's opposite or a gentle version of it (stir back, hold to wind, tap to fold, squeeze to rejoin, hold to thaw).
 - Forms start only from the ordinary liquid: gate the gesture on `World::ordinary()`. One form at a time.
 - The contact arc (`contact.rs`) watches all of this and unlocks by count: regard at 6 discoveries, echo at 14, its turn at 24, contact at 36. It acts only while the world is ordinary.
+- Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player.
 
 ## 9. Adding a new form
 
