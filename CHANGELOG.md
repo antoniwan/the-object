@@ -12,6 +12,17 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-29
+
+### Added
+- The flower, pinched a little too slowly, flinches and opens again. (#73)
+
+### Changed
+- Pulled the other way, it stands a little taller, and settles. (#73)
+
+### Fixed
+- Two fingers pinching a bud no longer flatten all of it. (#73)
+
 ## [1.18.1] - 2026-10-29
 
 ### Fixed
@@ -386,7 +397,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.18.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/antoniwan/the-object/compare/v1.18.1...v1.19.0
 [1.18.1]: https://github.com/antoniwan/the-object/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/antoniwan/the-object/compare/v1.17.2...v1.18.0
 [1.17.2]: https://github.com/antoniwan/the-object/compare/v1.17.1...v1.17.2
