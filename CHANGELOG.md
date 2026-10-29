@@ -15,9 +15,9 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [1.20.1] - 2026-10-29
 
 ### Fixed
-- A screen saving power no longer leaves it drawn coarse, and when the detail does change it changes gradually. (#75)
-- Cut again, the light beneath it fades instead of going out. (#75)
-- Today's devlog reaches this version. (#75)
+- A screen saving power no longer leaves it drawn coarse, and when the detail does change it changes gradually. (#76)
+- Cut again, the light beneath it fades instead of going out. (#76)
+- Today's devlog reaches this version. (#76)
 
 ## [1.20.0] - 2026-10-29
 
