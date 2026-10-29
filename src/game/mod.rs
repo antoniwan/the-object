@@ -2,14 +2,14 @@
 //! pixels and has no browser types, so new gestures can be added and tested natively.
 //!
 //! Gestures today:
-//! - tap the liquid: poke
+//! - tap the liquid: poke (a quick tap the finger slid on a little is still one)
 //! - press and drag the liquid: stretch (pull far enough and it tears)
 //! - drag a drop: carry it; let go fast to fling it
 //! - drag empty space: look around
 //! - tap empty space: call it; it reaches toward the place
 //! - a drop that touches the body runs back into it, mixing its color in; six drops free
 //!   at once and the world turns to night, until they have all come home
-//! - two-finger pinch or mouse wheel: squeeze
+//! - two-finger pinch, on the screen or a trackpad, or mouse wheel: squeeze (see pad.rs)
 //! - swipe fast clean through it (starting off it): slice; it divides (see meiosis.rs)
 //! - on two cells, hold a squeeze: they rejoin
 //! - on two or more cells, swipe through again: every cell divides (see morula.rs);
@@ -25,7 +25,9 @@
 //!   of a mirror it comes up quicksilver, out of the deep it comes up ink
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
-//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs)
+//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs);
+//!   let go a little too late, a bud nearly rises and sinks back; a quick short tug is a pinch, never a throw
+//!   two fingers on it, pinched together and let go of at once, pinch it too, between them (and the flower)
 //! - pinch the flower: it comes apart into dust on the floor; drag through the dust to sweep it,
 //!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
 //!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)
@@ -88,6 +90,8 @@ pub use sound::Sound;
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
+/// A press let go of this soon (seconds), having pulled less than a pinch, was a tap the finger slid on.
+const SLID_TAP_SECS: f32 = 0.3;
 /// Holding a press this long (seconds) without moving turns it into warming.
 const HOLD: f32 = 0.55;
 /// Nobody touching it for this long (seconds) and it starts watching.
@@ -150,6 +154,8 @@ pub struct Game {
     pub keys: crate::input::keys::Keys,
     /// What a phone in the hand is doing to the room (see motion.rs).
     pub motion: crate::input::motion::Motion,
+    /// Two fingers pinched on a trackpad (see pad.rs).
+    pub pad: crate::input::pad::Pad,
     /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
     pub remembrance: crate::mind::remembrance::Remembrance,
     /// Words it hears, and how it has been treated (see words.rs).
@@ -188,6 +194,7 @@ impl Game {
             thoughts: Thoughts::default(),
             keys: Default::default(),
             motion: Default::default(),
+            pad: Default::default(),
             remembrance: Default::default(),
             words: Default::default(),
         }
@@ -311,7 +318,15 @@ impl Game {
         };
 
         if !matches!(self.gesture, Gesture::Squeezing { .. }) {
-            self.wheel_squeeze = fade(self.wheel_squeeze, -2.5 * dt);
+            match self.pad.step(dt) {
+                Some(s) => {
+                    self.wheel_squeeze = s;
+                    if s.abs() > 0.3 {
+                        self.discover(Discovery::Squeeze);
+                    }
+                }
+                None => self.wheel_squeeze = fade(self.wheel_squeeze, -2.5 * dt),
+            }
             self.world.body.squeeze = self.wheel_squeeze;
         }
         crate::input::motion::step(self, dt);

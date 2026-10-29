@@ -211,6 +211,7 @@ impl Audio {
                 .and_then(|_| self.pluck(Sine, 58.0, 42.0, 0.2, 0.3, 0.2)),
             Sound::Call => self.pluck(Sine, 146.8, 196.0, 0.08, 0.7, 0.0),
             Sound::Pinch => self.pluck(Sine, 1046.5, 1174.7, 0.05, 0.3, 0.0),
+            Sound::Almost => self.pluck(Sine, 1046.5, 880.0, 0.018, 0.25, 0.0),
             Sound::Bloom => self
                 .pluck(Sine, 523.3, 523.3, 0.05, 2.6, 0.0)
                 .and_then(|_| self.pluck(Sine, 659.3, 659.3, 0.04, 2.6, 0.18))

@@ -12,6 +12,17 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-29
+
+### Added
+- Let go of a little too late, a bud nearly rises, and sinks back. (#71)
+- Two fingers pinched together on it leave a bud between them. (#71)
+
+### Fixed
+- A quick short tug leaves a bud instead of throwing it. (#71)
+- A pinch on a trackpad squeezes it as far as fingers on a screen; in Safari it no longer zooms the page. (#71)
+- A quick tap that slides a little still touches it. (#71)
+
 ## [1.17.2] - 2026-10-29
 
 ### Changed
@@ -367,7 +378,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.17.2...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/antoniwan/the-object/compare/v1.17.2...v1.18.0
 [1.17.2]: https://github.com/antoniwan/the-object/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/antoniwan/the-object/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/antoniwan/the-object/compare/v1.16.7...v1.17.0

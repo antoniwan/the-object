@@ -19,6 +19,20 @@ fn tap_on_center_pokes() {
 }
 
 #[test]
+fn a_tap_the_finger_slid_on_a_little_still_pokes() {
+    let mut g = game();
+    // a finger lands and slides a few pixels before it lifts: past the slop, far short of a pinch
+    tug(&mut g, (400.0, 300.0), (0.6, 0.8), 6.0, 2, 1.0 / 60.0, 0.0);
+    assert!(g.progress.has(Discovery::Poke));
+    assert!(g.sounds.iter().any(|s| matches!(s, Sound::Poke { .. })));
+    assert!(!g.progress.has(Discovery::Pinch) && g.world.forms.bloom.near.is_none());
+    // the same slide held a while is not a tap
+    let mut g = game();
+    tug(&mut g, (400.0, 300.0), (0.6, 0.8), 6.0, 2, 1.0 / 60.0, 0.5);
+    assert!(!g.progress.has(Discovery::Poke));
+}
+
+#[test]
 fn drag_from_center_far_tears_and_keeps_holding_the_drop() {
     let mut g = game();
     g.pointer_down(1, 400.0, 300.0);
@@ -166,6 +180,7 @@ fn a_pinch_that_starts_on_empty_space_is_only_a_squeeze() {
     g.pointer_up(1);
     assert!(!g.progress.has(Discovery::Call), "the first finger was not a tap");
     assert_eq!(g.world.gaze, 0.0);
+    assert!(g.world.forms.bloom.buds.is_empty(), "nor a pinch");
 }
 
 #[test]
@@ -184,6 +199,45 @@ fn a_second_finger_on_a_fresh_stretch_does_not_pinch() {
     assert!(!g.progress.has(Discovery::Pinch));
 }
 
+/// Two fingers down at `a` and `b`, moved to `a2` and `b2` over six frames, held `hold` seconds, lifted.
+fn two_fingers(g: &mut Game, a: (f32, f32), b: (f32, f32), a2: (f32, f32), b2: (f32, f32), hold: f32) {
+    g.pointer_down(1, a.0, a.1);
+    g.pointer_down(2, b.0, b.1);
+    for k in 1..=6 {
+        let f = k as f32 / 6.0;
+        g.pointer_move(1, a.0 + (a2.0 - a.0) * f, a.1 + (a2.1 - a.1) * f, 1.0 / 60.0);
+        g.pointer_move(2, b.0 + (b2.0 - b.0) * f, b.1 + (b2.1 - b.1) * f, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+    }
+    wait(g, hold);
+    g.pointer_up(1);
+    g.pointer_up(2);
+    wait(g, 0.1);
+}
+
+#[test]
+fn two_fingers_pinched_together_on_it_and_let_go_leave_a_bud_between_them() {
+    let mut g = game();
+    two_fingers(&mut g, (420.0, 260.0), (480.0, 260.0), (440.0, 260.0), (460.0, 260.0), 0.0);
+    assert!(g.progress.has(Discovery::Pinch));
+    assert!(g.progress.has(Discovery::Squeeze), "a pinch is a squeeze too");
+    let buds = &g.world.forms.bloom.buds;
+    assert_eq!(buds.len(), 1);
+    let b = g.cam.basis();
+    assert!(buds[0].dir.dot(b.right) > 0.2 && buds[0].dir.dot(b.up) > 0.1, "it is up and to the right, where the fingers were");
+    assert!(!g.progress.has(Discovery::Poke) && !g.progress.has(Discovery::Stretch));
+
+    // held a while, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (390.0, 340.0), (350.0, 340.0), (370.0, 340.0), 1.0);
+    // spread apart, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (390.0, 340.0), (300.0, 340.0), (420.0, 340.0), 0.0);
+    // barely closed, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (390.0, 340.0), (335.0, 340.0), (385.0, 340.0), 0.0);
+    // one finger off it, it is only a squeeze
+    two_fingers(&mut g, (330.0, 340.0), (700.0, 340.0), (450.0, 340.0), (580.0, 340.0), 0.0);
+    assert_eq!(g.world.forms.bloom.buds.len(), 1);
+}
+
 #[test]
 fn a_third_finger_lifting_does_not_end_the_squeeze() {
     let mut g = game();
@@ -193,6 +247,33 @@ fn a_third_finger_lifting_does_not_end_the_squeeze() {
     g.pointer_up(3);
     g.pointer_move(2, 700.0, 300.0, 1.0 / 60.0);
     assert!(g.world.body.squeeze > 0.3);
+}
+
+#[test]
+fn two_fingers_pinched_on_a_trackpad_squeeze_it_as_far_as_on_a_screen() {
+    let mut g = game();
+    // told as a wheel with ctrl held, a little each frame, the way browsers tell it
+    for _ in 0..20 {
+        g.pad.wheel(4.0);
+        g.update(1.0 / 60.0);
+    }
+    assert!(g.progress.has(Discovery::Squeeze));
+    assert!(g.world.body.squeeze < -0.6, "{}", g.world.body.squeeze);
+    // once the fingers stop it lets go
+    wait(&mut g, 1.5);
+    assert!(g.world.body.squeeze.abs() < 0.1);
+}
+
+#[test]
+fn a_trackpad_pinch_held_still_in_safari_presses_two_cells_back_into_one() {
+    let mut g = game();
+    swipe_down(&mut g, 1, 400.0);
+    assert_eq!(g.world.division.phase, meiosis::Phase::Two);
+    g.pad.gesture(Some(0.5));
+    wait(&mut g, 1.5);
+    g.pad.gesture(None);
+    wait(&mut g, 3.0);
+    assert!(g.progress.has(Discovery::Rejoin));
 }
 
 #[test]
@@ -452,6 +533,49 @@ fn five_pinches_make_a_flower_and_a_tap_folds_it() {
     assert!(g.world.ordinary());
 }
 
+/// A tug outward from a point on it: `steps` moves of `px` canvas pixels, `dt` apart, then held for `hold` seconds.
+fn tug(g: &mut Game, (x0, y0): (f32, f32), (dx, dy): (f32, f32), px: f32, steps: usize, dt: f32, hold: f32) {
+    g.pointer_down(1, x0, y0);
+    for k in 1..=steps {
+        g.pointer_move(1, x0 + dx * px * k as f32, y0 + dy * px * k as f32, dt);
+        g.update(dt);
+    }
+    wait(g, hold);
+    g.pointer_up(1);
+}
+
+#[test]
+fn a_tug_let_go_a_little_too_late_nearly_leaves_a_bud() {
+    let mut g = game();
+    tug(&mut g, (450.0, 300.0), (1.0, 0.0), 14.0, 3, 1.0 / 60.0, 0.5);
+    assert!(!g.progress.has(Discovery::Pinch), "too late to be a pinch");
+    assert!(g.world.forms.bloom.buds.is_empty());
+    assert!(g.world.forms.bloom.near.is_some(), "but a bud nearly rose");
+    assert!(g.sounds.contains(&Sound::Almost));
+    wait(&mut g, 0.3);
+    assert!(g.world.forms.bloom.near_size() > 0.2);
+    wait(&mut g, 1.5);
+    assert!(g.world.forms.bloom.near.is_none(), "and sank back");
+    // held much longer, it was only a stretch
+    g.sounds.clear();
+    tug(&mut g, (350.0, 300.0), (-1.0, 0.0), 14.0, 3, 1.0 / 60.0, 1.5);
+    assert!(g.world.forms.bloom.near.is_none() && !g.sounds.contains(&Sound::Almost));
+}
+
+#[test]
+fn a_tug_flicked_off_fast_is_still_a_pinch_not_a_throw() {
+    let mut g = game();
+    // a finger leaves a short tug fast enough to be a flick
+    tug(&mut g, (450.0, 300.0), (1.0, 0.0), 24.0, 3, 1.0 / 120.0, 0.0);
+    wait(&mut g, 0.1);
+    assert!(g.progress.has(Discovery::Pinch));
+    assert!(!g.progress.has(Discovery::Throw));
+    assert_eq!(g.world.forms.bloom.buds.len(), 1);
+    // pulled further, the same flick throws it
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 40.0, 4, 1.0 / 120.0, 0.0);
+    assert!(g.progress.has(Discovery::Throw));
+}
+
 fn flower(g: &mut Game) {
     for i in 0..5 {
         let a = i as f32 * std::f32::consts::TAU / 5.0;
@@ -467,6 +591,15 @@ fn flower(g: &mut Game) {
     }
     wait(g, 4.0);
     assert!(g.progress.has(Discovery::Bloom));
+}
+
+#[test]
+fn two_fingers_pinched_together_on_the_flower_bring_it_to_dust() {
+    let mut g = game();
+    flower(&mut g);
+    let (x, y) = g.screen(g.world.body.pos);
+    two_fingers(&mut g, (x - 40.0, y), (x + 40.0, y), (x - 10.0, y), (x + 10.0, y), 0.0);
+    assert!(!g.world.forms.dust.whole(), "it comes apart");
 }
 
 #[test]

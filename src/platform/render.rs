@@ -331,6 +331,10 @@ impl Renderer {
         for b in bl.buds.iter().take(crate::forms::bloom::PETALS) {
             buds.extend([b.dir.x, b.dir.y, b.dir.z, bl.bud_size(b)]);
         }
+        // The shadow of a bud only comes while there is room for one more.
+        if let Some(b) = bl.near.filter(|_| buds.len() < 4 * crate::forms::bloom::PETALS) {
+            buds.extend([b.dir.x, b.dir.y, b.dir.z, bl.near_size()]);
+        }
         self.v4v("uBud", &buds);
         self.i("uNB", buds.len() / 4);
         let fi = &fo.filament;

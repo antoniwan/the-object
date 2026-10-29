@@ -173,11 +173,15 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | Token | Value | Meaning |
 | --- | --- | --- |
 | `TAP_SLOP` | 0.012 canvas heights | moved less than this, it was a tap |
+| `SLID_TAP_SECS` | 0.3 s | a press that slid past `TAP_SLOP` but pulled less than a pinch, let go this soon, is still a tap |
 | `HOLD` | 0.55 s | held still this long, it becomes warming |
 | `IDLE_WATCH` | 12 s | left alone this long, it starts watching the pointer |
 | `THROW_SPEED` | 2.2 canvas heights / s | a flick faster than this throws it |
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
+| `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s (`forms/bloom.rs`) |
+| `FINGERS_CLOSE` / `FINGERS_MAX_SECS` | 0.75 / 0.7 s | two fingers that both began on it, closed to this share of how far apart they began and let go this fast, pinch it between them (`forms/bloom.rs`) |
+| `REST_SECS` (pad) | 0.35 s | a trackpad pinch squeezes it as far as two fingers on a screen would, held while the fingers move and this long after; Safari's pinch holds until it ends (`input/pad.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
@@ -252,6 +256,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Away.** Left for another tab, it goes silent at once: the whole mix fades with a 12 ms time constant and the audio context is suspended 90 ms later, so nothing is cut mid-swing and clicks. Looked at again, it fades back in over the same 12 ms, as it was.
+- **Nearly.** A pinch that leaves a bud rises C6 → D6 (`Sound::Pinch`); one let go of a little too late falls C6 → A5, quieter (0.018), so the hand hears how close it came (`Sound::Almost`).
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
@@ -314,8 +319,8 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | tap | empty space | call | it reaches toward the place | `sim/` |
 | press and drag | the liquid | stretch | far enough: tear off a drop | `sim/` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
-| short tug, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
-| short tug, let go at once | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
+| short tug, let go at once; or two fingers closed together on it, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
+| short tug, let go at once; or two fingers closed together on it | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
 | tap, again and again | the mound | tend | it takes root by itself; tended, it grows into branches, leaves and blossom; left alone, it draws back | `forms/growth.rs` |
 | drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
@@ -324,7 +329,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | press and hold still | the liquid | warm | color shift | `sim/` |
 | fast swipe through | the liquid | slice | two cells; again: many, then grain, an eye, stone | `meiosis.rs`, `morula.rs` |
 | flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
-| pinch or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
+| pinch (on the screen or a trackpad) or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim/` |
 | set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |

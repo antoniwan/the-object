@@ -108,6 +108,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | --- | --- |
 | `src/input/keys.rs` | What the keyboard does that a hand cannot: letters land where their keys sit, a held letter hums, space breathes, the arrows tip the room. |
 | `src/input/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
+| `src/input/pad.rs` | Two fingers pinched on a trackpad: told as a ctrl-held wheel or as Safari's gesture, it squeezes as far as two fingers on a screen do, held while they move. |
 | `src/input/words.rs` | Words, once it hears: a verb said is done by the same hand the pointer is, once for each time it is said; a greeting in any language is answered in signs, or not, by what it remembers (`remembrance.rs`). Plain Rust, tested natively. |
 | `src/input/senses/` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers (`hearing.rs`, `sight.rs`). Plain Rust, tested natively. |
 

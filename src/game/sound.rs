@@ -11,6 +11,8 @@ pub enum Sound {
     Provoked,
     Call,
     Pinch,
+    /// A pinch let go of a little too late: the bud's note, falling, fainter.
+    Almost,
     Bloom,
     /// The thread rings; `harmonic` is which overtone of its one string.
     Pluck { harmonic: u32 },
