@@ -7,3 +7,5 @@ It can be cut. Until now, what it became afterwards looked too much like somethi
 Now it shows what the cut did to it. Just after, it is cold and pale, its lines fine and restless, and it shivers. Then nothing more happens to it, and slowly it seems to understand that it is still there. The lines slow down and thicken. It darkens, and the lines begin to burn, rising and falling with something like breath.
 
 Cut it again and it is afraid again. It gets over it again too.
+
+For a while today it did not come at all: a page was put together wrong and it stayed on the other side. That is mended in this one too.
