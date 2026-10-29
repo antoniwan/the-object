@@ -30,6 +30,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | `room-lights` | key `#ffffff` × 1.4, fill `#bfb3a8` × 1 | the two softboxes it reflects, hard-edged, `env()` |
 | `room-gels` | cold `#4d6b9e` low behind it, warm `#8c5c4d` low to its right | the only color the room has, and only in reflections, `env()` |
 | `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars; the page background and `theme-color` follow the room toward it, in 32 steps, as night or the fold comes (`platform/web/page.rs` `show_room`), so a phone's own bars darken with it |
+| `room-floor` | the room's white, polished: a soft copy of it lies on the floor below it, 24% of its color, up to 54% where the eye skims the floor, fainter and softer the higher it floats; only while it is round | `shader.frag` `floorLight()` |
 
 ### The object (its own palettes)
 
@@ -39,10 +40,11 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | pearl film | soap-film interference (film 0.2 – 0.7 µm, n 1.33): 5% across its face, up to 55% at the edges; thinner and brighter while it looks at you | it is never quite one color | `filmColor()`, `filmThickness()` |
 | bent light | the room through it, red, green and blue bent at 0.735 / 0.75 / 0.77; 16% looking straight through | it is not quite solid | `dispersed()` |
 | focus | its own color, a hot point in its shadow with a ring split red / green / blue outside it | light passes through it and gathers | `caustic()` |
+| its light | the floor around it multiplied toward `#ff9442` while its lines burn (in time with their swell), toward `#ff3852` while its wounds beat; at most 70%, under it like a lamp | what it gives off reaches the room | `floorLight()` |
 | heat | `#ff294d` from inside, brightest where it is thickest; beats at 1.2 Hz while wounded | upset, something shows through | `shadeLiquid()` `hurt` |
 | flush | `#c74c6b` (words), `#bf7380` multiplier (body) | upset: agitation, or the wounds before a burst | `aura.rs` `FLUSH`, `uAgit` |
 | warmth | a slow cosine cycle: `#ff8e8e` `#d966da` `#8c8bff` `#66d7d7` `#8cff8b` `#d9da66` | held still, it changes color through these | `sim/` `palette()` |
-| night lens | the sky seen through it, a rim of its own color | six drops free and the room goes dark | `shadeLiquid()` `uNight` |
+| night lens | the sky seen through it, a rim of its own color; around it on the sky a ring of split light, red inside, blue outside (1.36 – 1.52 times its size, 13%), and a little of its color between, as a cold night rings the moon | six drops free and the room goes dark | `shadeLiquid()`, `background()` `uNight` |
 | quicksilver | the environment × `#dbe0eb` | pulled out of a mirror | `uCoat.x` |
 | ink | `#050508` plus a little of its tint | pulled out of the deep | `uCoat.y` |
 | cell | ground `#f4f3f1`, lines `#212129` where a slow wave over each part is still; no center, nothing round drawn on it | divided; each part drawn, not filled | `shadeCell()`, `cellLines()` |
@@ -79,11 +81,11 @@ Every shock (whatever shakes the room: a cut, a slam, the burst, the lid, the sl
 | What happened | Wash | Hex |
 | --- | --- | --- |
 | a blow, a fall, anything else | cold | `#80a8ff` |
-| a cut | the seam's pink | `#ff4d9e` |
+| a cut | the seam's pink, and for a moment the room is cut too: a line of it across the whole screen along the cut, white-pink `#ffe0f2` at its core, its red, green and blue a hair apart | `#ff4d9e`, line `#ff59a6` |
 | the lid | the box's light | `#ffd173` |
 | the river's beat | blood | `#bf0a17` |
 | coming apart into dust | the dust | `#ccc7d4` |
-| the burst | every color at once, around it | spectrum by angle |
+| the burst | every color at once, around it, thrown out in eleven uneven rays as the white fades | spectrum by angle |
 | upset or wounded (no shock needed) | the edges bruise toward `#473859`, then `#8c1429` | at most 60%, less at night |
 
 ### The twelve
@@ -236,6 +238,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | wound | opens 1.2 s, closes 3 s, then rests 20 s | a scar hurt again opens; three green pieces fill it |
 | spat out | 4.5 out, 2.7 up, falling at 16, bouncing at 45%, 2.2 s | a piece of the wrong color, thrown back down to the floor |
 | shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
+| the cut's line | runs out from it at 14 screen heights / s, fading with the seam (`exp(-5 t)`, its core twice as fast), its colors parting as it fades | the room cut with it, inside the hit-stop and just after |
+| the burst's rays | reach out as the pop's white fades (`exp(-6 t)`), gone with it | |
 
 ### The page
 

@@ -220,7 +220,9 @@ impl Renderer {
     fn upload_division(&self, world: &World, r: f32) {
         let div = &world.division;
         let bl = div.blend();
-        self.v4("uCut", div.axis.x, div.axis.y, div.axis.z, bl.split);
+        // past two, the newest cut's plane: only the seam's glow reads it then
+        let axis = div.morula.as_ref().map_or(div.axis, |m| m.axis);
+        self.v4("uCut", axis.x, axis.y, axis.z, bl.split);
         let flash = div.morula.as_ref().map_or(bl.flash, |m| m.look().flash);
         self.v3("uDiv", crate::math::v3(flash, bl.furrow, bl.cell));
         self.v2("uNerve", div.nerve.fear, div.nerve.power);
