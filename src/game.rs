@@ -266,6 +266,11 @@ impl Game {
         ro + rd * t
     }
 
+    /// A finger or a button is down somewhere.
+    pub fn held(&self) -> bool {
+        !self.pointers.is_empty()
+    }
+
     pub fn hovering_liquid(&self, x: f32, y: f32) -> bool {
         let (ro, rd) = self.cam.ray(x, y, self.w, self.h);
         self.pointers.is_empty() && (self.pick(x, y).is_some() || self.world.other.pick(ro, rd).is_some())

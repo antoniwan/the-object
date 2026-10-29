@@ -123,7 +123,7 @@ The page also guards against slow machines: the loader stays up while the shader
 
 ## Words on screen
 
-Every visible line (`#hint`, `#toast`, `#count`, `#thought`) carries `data-glyph`. The Rust side only sets text and classes; `web/glyph.js` watches those elements and decodes each letter through circles, shapes, signs and markup before it settles. New on-screen text should carry `data-glyph` too.
+Every visible line (`#hint`, `#toast`, `#count`, `#thought`, `#senses`) carries `data-glyph`. `#toast` and `#thought` are `aria-hidden`; `web.rs` writes the same words in plain letters into `#said`, a visually hidden live region, so a screen reader never reads the decoding. The Rust side only sets text and classes; `web/glyph.js` watches those elements and decodes each letter through circles, shapes, signs and markup before it settles. New on-screen text should carry `data-glyph` too.
 
 Fonts are self-hosted from Fontsource. The math font is cut down to just the glyphs `glyph.js` uses, so if you add a glyph there, subset the font again (`web/fonts/README.md` says how).
 
