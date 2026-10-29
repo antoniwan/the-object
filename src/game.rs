@@ -267,6 +267,11 @@ impl Game {
         ro + rd * t
     }
 
+    /// A finger or a button is down somewhere.
+    pub fn held(&self) -> bool {
+        !self.pointers.is_empty()
+    }
+
     /// The drop in the player's hand, if one is.
     pub fn carried_drop(&self) -> Option<u32> {
         match self.gesture {

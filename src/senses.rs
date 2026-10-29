@@ -428,6 +428,26 @@ impl Senses {
         }
     }
 
+    /// Asked this visit and not taken up (the word went by, or it was stopped since), and never
+    /// told no: the mark waits in the corner, faint, and a tap on it is the same as on the word.
+    /// Only hearing and sight; words need the line under them, and feeling has no mark.
+    pub fn waiting(&self, kind: Kind) -> bool {
+        match kind {
+            Kind::Hear => self.can_hear && self.offered_hear && self.hear == Leave::Closed,
+            Kind::See => self.can_see && self.offered_see && self.see == Leave::Closed,
+            Kind::Feel | Kind::Words => false,
+        }
+    }
+
+    /// The player tapped a waiting mark. True if the browser should now ask.
+    pub fn accept_waiting(&mut self, kind: Kind) -> bool {
+        if !self.waiting(kind) {
+            return false;
+        }
+        *self.leave(kind) = Leave::Opening;
+        true
+    }
+
     /// The browser gave it what it asked for.
     pub fn opened(&mut self, kind: Kind) {
         let l = self.leave(kind);
@@ -847,6 +867,27 @@ mod tests {
         assert!(s.accept(Kind::See));
         run(&mut s, &mut w, &look(Stage::Initiative, 30.0), 200.0, |_| {});
         assert!(s.drain_events().is_empty(), "once a visit");
+    }
+
+    #[test]
+    fn a_word_that_went_by_waits_as_a_mark() {
+        let mut w = World::new();
+        let mut s = Senses { can_hear: true, can_see: true, ..Default::default() };
+        assert!(!s.waiting(Kind::Hear), "nothing waits before it has asked");
+        run(&mut s, &mut w, &look(Stage::Echo, 30.0), 21.0, |_| {});
+        assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Hear)]);
+        assert!(!s.waiting(Kind::Hear), "not while the word itself is up");
+        run(&mut s, &mut w, &look(Stage::Echo, 30.0), OFFER_WINDOW + 1.0, |_| {});
+        assert!(s.waiting(Kind::Hear) && !s.waiting(Kind::See));
+        assert!(s.accept_waiting(Kind::Hear));
+        assert_eq!(s.hear, Leave::Opening);
+        s.opened(Kind::Hear);
+        assert!(!s.waiting(Kind::Hear), "not while it hears");
+        s.close(Kind::Hear);
+        assert!(s.waiting(Kind::Hear), "stopped, it can be let hear again");
+        assert!(s.accept_waiting(Kind::Hear));
+        s.refused(Kind::Hear, true);
+        assert!(!s.waiting(Kind::Hear) && !s.accept_waiting(Kind::Hear), "a no is kept");
     }
 
     #[test]
