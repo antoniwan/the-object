@@ -33,6 +33,8 @@ pub const THAW_HOLD_SECS: f32 = 2.2;
 /// Pokes on one cell that kill it.
 pub const WOUNDS_TO_DIE: u32 = 3;
 const DIE_SECS: f32 = 2.6;
+/// How fast the eye shuts when its cell is killed (per second).
+const EYE_SHUT: f32 = 7.0;
 /// The eye appears once there are this many living cells.
 const EYE_AT: usize = 8;
 /// Holding a squeeze on many cells this long compacts them.
@@ -279,9 +281,6 @@ impl Morula {
         c.vel -= (at - c.off).norm() * 0.6;
         if c.wounds >= WOUNDS_TO_DIE {
             c.death = Some(0.0);
-            if self.eye == Some(i) {
-                self.eye_open = 0.0;
-            }
             self.events.push(Event::Died);
             return true;
         }
@@ -433,7 +432,9 @@ impl Morula {
             None => false,
         };
         let goal = if alive && !self.is_stone() { 1.0 } else { 0.0 };
-        self.eye_open = ease(self.eye_open, goal, -0.8 * dt);
+        // Its cell dying, it shuts quickly, well before the cell is shed; otherwise slowly.
+        let rate = if self.eye.is_some() && !alive { EYE_SHUT } else { 0.8 };
+        self.eye_open = ease(self.eye_open, goal, -rate * dt);
         if !alive || self.is_stone() {
             return;
         }
@@ -548,6 +549,26 @@ mod tests {
             m.step(1.0 / 120.0, 0.0, watch);
         }
         assert!(m.eye_dir.dot(watch) > 0.95, "{:?}", m.eye_dir);
+    }
+
+    #[test]
+    fn its_cell_killed_the_eye_shuts_quickly_but_not_at_once() {
+        let mut m = Morula::from_two(v3(1.0, 0.0, 0.0), 0.95, v3(0.0, 1.0, 0.0));
+        settle(&mut m, 3.0);
+        m.cleave(v3(0.0, 0.0, 1.0));
+        settle(&mut m, 6.0);
+        let e = m.eye.unwrap();
+        assert!(m.eye_open > 0.9);
+        let at = m.cells[e].off * 1.5;
+        while !m.wound(at) {}
+        let mut last = m.eye_open;
+        assert!(last > 0.9, "shut in the same moment it was killed");
+        for _ in 0..60 {
+            m.step(1.0 / 120.0, 0.0, v3(0.0, 0.0, 1.0));
+            assert!(last - m.eye_open < 0.1, "it shut {} in one frame", last - m.eye_open);
+            last = m.eye_open;
+        }
+        assert!(m.eye_open < 0.05, "still open {} half a second later", m.eye_open);
     }
 
     #[test]

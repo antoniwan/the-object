@@ -247,13 +247,15 @@ impl Renderer {
         self.v4v("uStone", &[look.stone, look.slab, look.thaw, m.slab_yaw]);
         let c = morula::slab_center(world.body.pos, r);
         self.v4v("uSlab", &[c.x, c.y, c.z, m.join() * r]);
-        // The eye sits on its cell until the cells have become grain, then on the grain body.
+        // The eye sits on its cell until the cells have become grain, then on the grain body,
+        // moving across as the shader blends one into the other.
         let e = m.eye_dir;
-        let ec = match m.eye {
-            Some(i) if look.grain < 0.5 => Some([m.cells[i].off.x * r, m.cells[i].off.y * r, m.cells[i].off.z * r, m.cells[i].r * r]),
-            Some(_) => Some([0.0, 0.0, 0.0, m.grain_radius() * r]),
-            None => None,
-        };
+        let ec = m.eye.map(|i| {
+            let k = crate::math::smoothstep(0.3, 0.7, look.grain);
+            let c = &m.cells[i];
+            let (off, cr) = (c.off * (1.0 - k), c.r + (m.grain_radius() - c.r) * k);
+            [off.x * r, off.y * r, off.z * r, cr * r]
+        });
         self.v4v("uEye", &[e.x, e.y, e.z, if ec.is_some() { m.eye_open } else { 0.0 }]);
         let ec = ec.unwrap_or([0.0, 0.0, 0.0, r]);
         self.v4v("uEyeC", &ec);
