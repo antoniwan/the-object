@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.16.7] - 2026-10-29
+
+### Fixed
+- It wakes again in Safari, on the iPhone and the Mac. Since 1.12.1 the page stopped on load there with "Array.from requires an array-like object", before anything appeared. Every change is now loaded in a few browsers, a first visit and a return, before it goes live.
+
 ## [1.16.6] - 2026-10-29
 
 ### Added
@@ -341,7 +346,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.6...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.16.7...HEAD
+[1.16.7]: https://github.com/antoniwan/the-object/compare/v1.16.6...v1.16.7
 [1.16.6]: https://github.com/antoniwan/the-object/compare/v1.16.5...v1.16.6
 [1.16.5]: https://github.com/antoniwan/the-object/compare/v1.16.4...v1.16.5
 [1.16.4]: https://github.com/antoniwan/the-object/compare/v1.16.3...v1.16.4

@@ -69,8 +69,12 @@ fn local_options(lang: &str) -> JsValue {
 pub fn can() -> Can {
     let Some(r) = recognizer() else { return Can::Nothing };
     let Some(w) = web_sys::window() else { return Can::Nothing };
+    // Safari has a recognizer but no `userAgentData`, and `Array.from(undefined)` throws there,
+    // which took the whole page down on load: only a real array is read.
     let brands = get(&get(&w.navigator(), "userAgentData"), "brands");
-    let chrome = js_sys::Array::from(&brands).iter().any(|b| get(&b, "brand").as_string().as_deref() == Some("Google Chrome"));
+    let chrome = brands
+        .dyn_ref::<js_sys::Array>()
+        .is_some_and(|a| a.iter().any(|b| get(&b, "brand").as_string().as_deref() == Some("Google Chrome")));
     if chrome && get(&r, "install").is_function() {
         Can::Perhaps
     } else {

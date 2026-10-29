@@ -141,6 +141,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `web/rating.js` | Sends the answer to the question asked after contact to `/api/rating`, and adds what all the answers come to to the page's structured data. Left out of the itch build. |
 | `scripts/gif.mjs`, `scripts/gif-scenes.mjs` | Films short looping GIFs of the built page for the daily devlog, from scripted scenes on a clock it moves itself (`devlog/README.md`). |
 | `scripts/shader-time.mjs` | Times how long the built page takes to be ready in headless Chromium at 48×32: the number to compare before and after a shader change. |
+| `scripts/load-check.mjs` | Loads the built page in headless Chromium dressed as Chromium, Safari and Firefox, a first visit and a return, and fails if any throws or never wakes. CI runs it. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
 | `web/llms.txt`, `robots.txt`, `sitemap.xml`, `og.png` | For crawlers and link previews. |
 

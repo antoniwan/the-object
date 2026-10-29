@@ -51,3 +51,8 @@ jobs:
       - run: npm ci && npm test
       - run: ./build.sh
       - run: ./scripts/itch.sh
+      - name: The page wakes in each browser, first visit and return
+        run: |
+          npm i -g playwright@1.63.0
+          playwright install --with-deps chromium
+          NODE_PATH=$(npm root -g) node scripts/load-check.mjs
