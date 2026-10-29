@@ -139,8 +139,12 @@ impl Game {
                 self.world.other.release((b.right * vx - b.up * vy) * 3.0);
             }
             Gesture::Tug { since, .. } => {
-                if self.clock - since < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
+                let secs = self.clock - since;
+                if secs < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
                     self.world.add_ripple(V3::UP, 0.5);
+                } else if secs < bloom::NEAR_MAX_SECS && self.world.forms.bloom.flinch() {
+                    // A little too slow: its petals only flinch in.
+                    self.sounds.push(Sound::Almost);
                 }
             }
             Gesture::Dust { mound: true, moved: false, .. } => {

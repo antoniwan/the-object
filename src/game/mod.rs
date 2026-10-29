@@ -28,7 +28,7 @@
 //! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs);
 //!   let go a little too late, a bud nearly rises and sinks back; a quick short tug is a pinch, never a throw
 //!   two fingers on it, pinched together and let go of at once, pinch it too, between them (and the flower)
-//! - pinch the flower: it comes apart into dust on the floor; drag through the dust to sweep it,
+//! - pinch the flower: it comes apart into dust on the floor (too slowly, its petals only flinch); drag through the dust to sweep it,
 //!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
 //!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back

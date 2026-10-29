@@ -603,6 +603,23 @@ fn two_fingers_pinched_together_on_the_flower_bring_it_to_dust() {
 }
 
 #[test]
+fn the_flower_tugged_a_little_too_slowly_only_flinches() {
+    let mut g = game();
+    flower(&mut g);
+    g.sounds.clear();
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 9.0, 3, 1.0 / 60.0, 0.5);
+    assert!(g.world.forms.dust.whole(), "it did not come apart");
+    assert!(g.sounds.contains(&Sound::Almost));
+    wait(&mut g, 0.3);
+    assert!(g.world.forms.bloom.open() < 0.9, "its petals drew in");
+    wait(&mut g, 1.5);
+    assert_eq!(g.world.forms.bloom.open(), 1.0);
+    // let go at once, the same tug brings it to dust
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 9.0, 3, 1.0 / 60.0, 0.0);
+    assert!(!g.world.forms.dust.whole());
+}
+
+#[test]
 fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
     let mut g = game();
     flower(&mut g);

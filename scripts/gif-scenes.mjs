@@ -123,6 +123,23 @@ export default {
       await t.wait(2.5);
     },
   },
+  flinch: {
+    about: 'the flower, pinched a little too slowly, only flinches; pinched at once, it comes apart',
+    async play(t) {
+      await t.wait(1);
+      await flower(t);
+      t.roll();
+      await t.wait(0.5);
+      await t.drag([[0, 0], [0, 0.042]], 0.06, 1, { lift: false });
+      await t.wait(0.5);
+      await t.up(1, 0, 0.042);
+      await t.wait(0.3);
+      await t.snap('flinch');
+      await t.wait(1.6);
+      await t.drag([[0, 0], [0, 0.042]], 0.04);
+      await t.wait(2.5);
+    },
+  },
   dust: {
     about: 'the flower, pinched, comes apart and settles as dust',
     async play(t) {

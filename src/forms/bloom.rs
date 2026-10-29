@@ -5,7 +5,8 @@
 //! Five buds and it opens:
 //! the body becomes a flower facing up, its petals unfolding from where the
 //! buds were. Tap the flower and it folds back into the body. Pinch the flower
-//! and it comes apart instead (dust.rs).
+//! and it comes apart instead (dust.rs); pinch it a little too slowly and its petals
+//! only flinch in, and open again.
 
 use super::Event;
 use crate::math::*;
@@ -26,6 +27,9 @@ pub const FINGERS_CLOSE: f32 = 0.75;
 pub const FINGERS_MAX_SECS: f32 = 0.7;
 /// On the flower, which does not stretch, a pull this short (canvas heights) let go of at once is a pinch.
 pub const TUG_MAX: f32 = 0.12;
+/// The flower pinched a little too slowly: its petals draw in this much, and open again over `FLINCH_SECS`.
+const FLINCH: f32 = 0.18;
+const FLINCH_SECS: f32 = 1.4;
 const GROW_SECS: f32 = 0.5;
 /// Buds left alone this long sink back in.
 const BUD_LIFE_SECS: f32 = 45.0;
@@ -52,6 +56,8 @@ pub struct Bloom {
     pub buds: Vec<Bud>,
     /// A pinch let go of too late: a bud that rises a little and sinks back.
     pub near: Option<Bud>,
+    /// Seconds since the flower last flinched, if it is still opening again.
+    flinched: Option<f32>,
     /// Where around the stem the first petal points.
     pub angle: f32,
     pub(super) events: Vec<Event>,
@@ -59,7 +65,7 @@ pub struct Bloom {
 
 impl Default for Bloom {
     fn default() -> Self {
-        Bloom { phase: Phase::Buds, buds: Vec::new(), near: None, angle: 0.0, events: Vec::new() }
+        Bloom { phase: Phase::Buds, buds: Vec::new(), near: None, flinched: None, angle: 0.0, events: Vec::new() }
     }
 }
 
@@ -73,7 +79,7 @@ impl Bloom {
         match self.phase {
             Phase::Buds => 0.0,
             Phase::Opening { t } => smoothstep(0.0, OPEN_SECS, t),
-            Phase::Flower => 1.0,
+            Phase::Flower => 1.0 - self.flinched.map_or(0.0, |t| FLINCH * smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.25, FLINCH_SECS, t))),
             Phase::Folding { t } => 1.0 - smoothstep(0.0, FOLD_SECS, t),
         }
     }
@@ -128,6 +134,15 @@ impl Bloom {
         true
     }
 
+    /// The flower pinched a little too slowly: it flinches. Returns true if it did.
+    pub fn flinch(&mut self) -> bool {
+        if self.phase != Phase::Flower {
+            return false;
+        }
+        self.flinched = Some(0.0);
+        true
+    }
+
     /// Tap the flower and it closes.
     pub fn fold(&mut self) -> bool {
         if self.phase != Phase::Flower {
@@ -149,6 +164,7 @@ impl Bloom {
             b.age += dt;
         }
         self.near = self.near.filter(|b| b.age < NEAR_SECS && self.phase == Phase::Buds);
+        self.flinched = self.flinched.map(|t| t + dt).filter(|t| *t < FLINCH_SECS && self.phase == Phase::Flower);
         self.phase = match self.phase {
             Phase::Buds => {
                 self.buds.retain(|b| b.age < BUD_LIFE_SECS);
@@ -231,6 +247,18 @@ mod tests {
         // where a bud already is, nothing nearly rises
         b.pinch(V3::UP);
         assert!(!b.almost(V3::UP));
+    }
+
+    #[test]
+    fn the_flower_pinched_too_slowly_flinches_and_opens_again() {
+        let mut b = Bloom { phase: Phase::Flower, ..Bloom::default() };
+        assert!(b.flinch());
+        b.step(0.3);
+        assert!(b.open() < 1.0 - FLINCH * 0.9 && b.open() >= 1.0 - FLINCH);
+        b.step(1.2);
+        assert_eq!(b.open(), 1.0);
+        assert_eq!(b.phase, Phase::Flower);
+        assert!(!Bloom::default().flinch(), "only a flower flinches");
     }
 
     #[test]
