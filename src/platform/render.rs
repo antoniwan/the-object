@@ -133,13 +133,13 @@ impl Renderer {
         self.gl.uniform4fv_with_f32_array(loc.as_ref(), data);
     }
 
-    /// `quality` is the page's adaptive resolution, 0.4..1; below 0.75 the finest light is left out.
-    pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32, quality: f32) {
+    /// `fine` is how much of the finest light is drawn, 0..1, eased by the page as frames slow (pace.rs).
+    pub fn draw(&self, world: &World, cam: &Camera, w: u32, h: u32, fine: f32) {
         let gl = &self.gl;
         gl.viewport(0, 0, w as i32, h as i32);
         gl.use_program(Some(&self.program));
 
-        self.upload_view(world, cam, w, h, quality);
+        self.upload_view(world, cam, w, h, fine);
         let body = &world.body;
         let r = body.radius();
         // It swells as the wounds add up, right before it bursts.
@@ -162,7 +162,7 @@ impl Renderer {
     }
 
     /// The canvas, the clock, the camera and its shake.
-    fn upload_view(&self, world: &World, cam: &Camera, w: u32, h: u32, quality: f32) {
+    fn upload_view(&self, world: &World, cam: &Camera, w: u32, h: u32, fine: f32) {
         self.v2("uRes", w as f32, h as f32);
         self.f("uTime", world.time);
         let b = cam.basis();
@@ -173,7 +173,7 @@ impl Renderer {
         self.f("uFocal", FOCAL);
         let (shock, since) = cam.shock();
         self.v2("uShock", shock, since);
-        self.f("uFine", if quality < 0.75 { 0.0 } else { 1.0 });
+        self.f("uFine", fine);
     }
 
     /// The body, its tendrils, its ripples and its drops.

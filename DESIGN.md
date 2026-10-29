@@ -244,6 +244,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
 | loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
+| resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; the finest light follows at rate 1.2 / s (`pace.rs`) |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
 `prefers-reduced-motion` stops the loader's animation and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.
@@ -403,7 +404,7 @@ A checklist. Most of it is enforced by review, some of it by tests.
 These are in `CONTRIBUTING.md` in full. They are here because they limit what a design may ask for.
 
 - **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
-- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`platform/web/` `quality`), the bent light and the focus are left out (`uFine`); the film and the moment stay. A design may not depend on them being there.
+- **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`pace.rs`), the bent light and the focus fade out (`uFine`, eased, never switched); the film and the moment stay. A design may not depend on them being there.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game/` and `sim/` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
 - **Nothing leaves the browser** except the one answer described in `CONTRIBUTING.md`, and words where the player has tapped `say something.` under the line that says they go to the browser's maker. Microphone and camera are reduced to a few numbers each frame and dropped. The object's memory of the player is `localStorage`.

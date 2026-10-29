@@ -90,7 +90,7 @@ uniform vec4 uClump[8];  // each drift of dust: x, z, how wide, its share of the
 uniform vec4 uHeap;      // the mound: x, z, how wide, how high (0: none)
 uniform vec4 uHeapB;     // x grains→settled 0..1, y answering a tap, z pressed 0..1, w what grows from it 0..4
 uniform vec2 uShock;     // x how hard the last shock was 0..1, y seconds since it (camera.rs)
-uniform float uFine;     // 1 while frames keep up; 0 leaves out the light bent through it and focused under it
+uniform float uFine;     // 1 while frames keep up, easing to 0 when they don't: the light bent through it and focused under it
 
 // ---- the other one (other.rs): its shape -------------------------------------
 uniform vec4 uOther;     // xyz where it is, w its size (0: not in the room)
@@ -1553,7 +1553,7 @@ vec3 dispersed(vec3 rd, vec3 n) {
 // Light focused through the body onto the floor at p: a hot point inside its shadow
 // with a ring of split color around it, wavering with the surface.
 vec3 caustic(vec3 p) {
-  if (uFine < 0.5 || uBurst.x > 0.5 || uNC > 0 || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
+  if (uFine <= 0.0 || uBurst.x > 0.5 || uNC > 0 || uBox.x > 0.5 || uDust.y > 0.5) return vec3(0.0);
   float h = max(uBody.y - FLOOR_Y, 0.0);
   vec2 o = (p.xz - uBody.xz) / (uBody.w * (0.8 + 0.25 * h));
   o += 0.06 * vec2(sin(o.y * 5.0 + uTime * 1.3), sin(o.x * 4.0 - uTime * 1.1));
@@ -1563,7 +1563,7 @@ vec3 caustic(vec3 p) {
   float core = exp(-r * r * 7.0);
   vec3 light = normalize(uBodyCol + 0.05) * 1.73;
   float clear = (1.0 - uCoat.y) * (1.0 - uCosmos.x) * (1.0 - uNight) * exp(-h * 0.35);
-  return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit);
+  return (light * core * 0.45 + ring * light * 0.3) * clear * (1.0 + 0.8 * uAgit) * uFine;
 }
 
 // Where the body is on screen, in the same units as uv.
@@ -1631,7 +1631,7 @@ vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db, vec3 er) {
 
   // The room seen through it, each color bent its own amount: faint, and only
   // where it looks straight through.
-  if (uFine > 0.5) col = mix(col, dispersed(rd, n) * tint, 0.16 * ndv * ndv * (1.0 - uAgit));
+  if (uFine > 0.0) col = mix(col, dispersed(rd, n) * tint, 0.16 * uFine * ndv * ndv * (1.0 - uAgit));
 
   // A thin film over all of it: faint across its face, whole colors at the edges.
   float film = 1.0 - ndv;
