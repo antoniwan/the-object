@@ -89,7 +89,8 @@ fn a_pull_past_the_most_stumps_lets_go_of_the_one_nearest_settled() {
     }
     run(&mut w, 0.15);
     assert_eq!(w.handles.len(), MAX_HANDLES);
-    let before: Vec<(u32, f32, f32)> = w.handles.iter().map(|h| (h.id, (h.tip - h.rest(&w.body)).len(), h.vel.len())).collect();
+    let before: Vec<(u32, f32, f32)> =
+        w.handles.iter().map(|h| (h.id, (h.tip - h.rest(&w.body)).len(), h.vel.len())).collect();
     w.begin_stretch(w.body.pos + dir(MAX_HANDLES) * r).unwrap();
     assert!(before.iter().all(|b| w.handles.iter().any(|h| h.id == b.0)), "a stump vanished in one frame");
     let going: Vec<u32> = w.handles.iter().filter(|h| h.fade > 0.0).map(|h| h.id).collect();

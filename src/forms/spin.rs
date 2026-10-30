@@ -73,9 +73,13 @@ const SPIRAL: f32 = 0.35;
 pub enum Phase {
     Calm,
     /// Turned left past dizzy.
-    Ropes { t: f32 },
+    Ropes {
+        t: f32,
+    },
     /// Turned right past dizzy.
-    Whirl { t: f32 },
+    Whirl {
+        t: f32,
+    },
 }
 
 pub struct Spin {
@@ -217,7 +221,13 @@ impl Spin {
     fn ropes(&mut self, t: f32, dt: f32) -> Phase {
         let t2 = t + dt;
         // winding faster and faster, then the other way as the ropes come undone
-        let goal = if t2 < WIND_SECS { 4.0 + 12.0 * smoothstep(0.0, WIND_SECS, t2) } else if t2 < LAID_DOWN { -5.0 } else { 0.0 };
+        let goal = if t2 < WIND_SECS {
+            4.0 + 12.0 * smoothstep(0.0, WIND_SECS, t2)
+        } else if t2 < LAID_DOWN {
+            -5.0
+        } else {
+            0.0
+        };
         self.vel = ease(self.vel, goal, -1.6 * dt);
         self.dizzy = fade(self.dizzy, -1.2 * dt);
         if t < WIND_SECS && t2 >= WIND_SECS {
@@ -238,7 +248,13 @@ impl Spin {
     fn whirl(&mut self, t: f32, dt: f32) -> Phase {
         let t2 = t + dt;
         let down = DESCEND_AT;
-        let goal = if t2 < down { -11.0 } else if t2 < down + DESCEND_SECS { -11.0 + 7.5 * smoothstep(down, down + DESCEND_SECS, t2) } else { 0.0 };
+        let goal = if t2 < down {
+            -11.0
+        } else if t2 < down + DESCEND_SECS {
+            -11.0 + 7.5 * smoothstep(down, down + DESCEND_SECS, t2)
+        } else {
+            0.0
+        };
         self.vel = ease(self.vel, goal, -1.1 * dt);
         self.dizzy = fade(self.dizzy, -1.2 * dt);
         let off = FLAT_SECS + 0.3 * RISE_SECS;
@@ -272,8 +288,11 @@ impl Spin {
     pub fn offset(&self) -> V3 {
         let Phase::Whirl { t } = self.phase else { return V3::ZERO };
         let down = DESCEND_AT;
-        let lift = LIFT * smoothstep(FLAT_SECS, FLAT_SECS + RISE_SECS, t) * (1.0 - smoothstep(down, down + DESCEND_SECS, t));
-        let wide = SPIRAL * smoothstep(down - 0.5, down + 1.5, t) * (1.0 - smoothstep(down + 0.5 * DESCEND_SECS, down + DESCEND_SECS, t));
+        let lift =
+            LIFT * smoothstep(FLAT_SECS, FLAT_SECS + RISE_SECS, t) * (1.0 - smoothstep(down, down + DESCEND_SECS, t));
+        let wide = SPIRAL
+            * smoothstep(down - 0.5, down + 1.5, t)
+            * (1.0 - smoothstep(down + 0.5 * DESCEND_SECS, down + DESCEND_SECS, t));
         v3(wide * self.round.cos(), lift, wide * self.round.sin())
     }
 

@@ -1,9 +1,9 @@
 //! WebGL2: one full-screen triangle and a raymarching fragment shader.
 
 use crate::camera::{Camera, FOCAL};
+use crate::division::morula;
 use crate::math::V3;
 use crate::sim::{World, K_DROP, K_HANDLE, MAX_DROPS, MAX_HANDLES, MAX_RIPPLES};
-use crate::division::morula;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use wasm_bindgen::JsValue;

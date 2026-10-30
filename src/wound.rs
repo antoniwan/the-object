@@ -17,8 +17,8 @@
 use crate::floor::fusion::FLOOR_Y;
 use crate::game::Game;
 use crate::math::*;
-use crate::progress::Discovery;
 use crate::mind::remembrance::Deed;
+use crate::progress::Discovery;
 use crate::sim::World;
 
 /// How many pieces fall out of an open wound.
@@ -114,7 +114,18 @@ pub struct Wound {
 
 impl Default for Wound {
     fn default() -> Self {
-        Wound { dir: V3::UP, scar: 0.0, phase: Phase::Closed { rest: 0.0 }, fill: 0.0, color: RAW, drip: 0.0, shown: 1.0, caltrops: Vec::new(), taken: Vec::new(), time: 0.0 }
+        Wound {
+            dir: V3::UP,
+            scar: 0.0,
+            phase: Phase::Closed { rest: 0.0 },
+            fill: 0.0,
+            color: RAW,
+            drip: 0.0,
+            shown: 1.0,
+            caltrops: Vec::new(),
+            taken: Vec::new(),
+            time: 0.0,
+        }
     }
 }
 
@@ -190,7 +201,17 @@ impl Wound {
             if let Some(d) = w.drop_mut(id) {
                 d.target = Some(rest);
             }
-            self.caltrops.push(Caltrop { id, rest, phase, free: 0.0, carried: false, flung: 0.0, last_pos: from, last_hue: phase, old: false });
+            self.caltrops.push(Caltrop {
+                id,
+                rest,
+                phase,
+                free: 0.0,
+                carried: false,
+                flung: 0.0,
+                last_pos: from,
+                last_hue: phase,
+                old: false,
+            });
         }
     }
 }
@@ -287,7 +308,12 @@ pub fn step(g: &mut Game, dt: f32) {
                 let at = (c.last_pos - body).norm();
                 // Taken in while it is something else, even green, it is kept and given back once
                 // it is itself again: a wound that does not show neither heals nor spits.
-                if ordinary && into_body && at.dot(wound.dir) > NEAR_WOUND && is_green(c.last_hue) && wound.phase == Phase::Open {
+                if ordinary
+                    && into_body
+                    && at.dot(wound.dir) > NEAR_WOUND
+                    && is_green(c.last_hue)
+                    && wound.phase == Phase::Open
+                {
                     went.push((Went::Healed, c));
                 } else {
                     went.push((Went::Back, c));
@@ -357,7 +383,15 @@ impl Wound {
             return false;
         }
         let id = w.drops.last().map_or(0, |d| d.id);
-        self.caltrops.push(Caltrop { id, free: 0.0, carried: false, flung: FLUNG_SECS, last_pos: from, old: false, ..c });
+        self.caltrops.push(Caltrop {
+            id,
+            free: 0.0,
+            carried: false,
+            flung: FLUNG_SECS,
+            last_pos: from,
+            old: false,
+            ..c
+        });
         w.add_ripple(self.dir, 0.7);
         w.body.vel -= out * 0.8;
         w.body.squash_vel -= 1.5;
@@ -502,7 +536,9 @@ mod tests {
         for _ in 0..90 {
             run(&mut g, 1.0 / 60.0);
             for d in &g.world.drops {
-                if g.world.wound.is_caltrop(d.id) && g.world.wound.caltrops.iter().any(|c| c.id == d.id && c.flung > 0.0) {
+                if g.world.wound.is_caltrop(d.id)
+                    && g.world.wound.caltrops.iter().any(|c| c.id == d.id && c.flung > 0.0)
+                {
                     highest = highest.max(d.pos.y);
                 }
             }
@@ -676,7 +712,11 @@ mod tests {
         let spat = tears(&mut g, 1.0);
         send_in(&mut g, GREEN);
         run(&mut g, 3.0);
-        assert!(spat == 0 && !g.progress.has(Discovery::Tend), "spat {spat}, tended {}", g.progress.has(Discovery::Tend));
+        assert!(
+            spat == 0 && !g.progress.has(Discovery::Tend),
+            "spat {spat}, tended {}",
+            g.progress.has(Discovery::Tend)
+        );
     }
 
     #[test]

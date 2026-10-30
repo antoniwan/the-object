@@ -8,9 +8,9 @@
 //! from: each phase only drives a few 0..1 values (`Blend`) that the shader
 //! mixes continuously, so the shape and material never jump.
 
-use crate::math::*;
 use crate::division::morula::{self, Morula};
 use crate::division::nerve::Nerve;
+use crate::math::*;
 
 /// 2^(-1/3): each of two cells holding half the volume.
 pub const CELL_SCALE: f32 = 0.7937;
@@ -32,9 +32,13 @@ const REJOIN_SQUEEZE_SECS: f32 = 0.9;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
     Whole,
-    Dividing { t: f32 },
+    Dividing {
+        t: f32,
+    },
     Two,
-    Rejoining { t: f32 },
+    Rejoining {
+        t: f32,
+    },
     /// More than two; morula.rs has the rest.
     Many,
 }
@@ -85,7 +89,14 @@ pub struct Division {
 
 impl Default for Division {
     fn default() -> Self {
-        Division { phase: Phase::Whole, axis: v3(1.0, 0.0, 0.0), squeezed_for: 0.0, events: Vec::new(), morula: None, nerve: Nerve::default() }
+        Division {
+            phase: Phase::Whole,
+            axis: v3(1.0, 0.0, 0.0),
+            squeezed_for: 0.0,
+            events: Vec::new(),
+            morula: None,
+            nerve: Nerve::default(),
+        }
     }
 }
 
@@ -256,7 +267,11 @@ impl Division {
         let ([a, b], rc) = self.cells(pos, r);
         let surface = rc + K_JOIN * r * 0.25 * (1.0 - self.blend().split);
         let (da, db) = ((p - a).len(), (p - b).len());
-        if da <= db { (da - surface, a) } else { (db - surface, b) }
+        if da <= db {
+            (da - surface, a)
+        } else {
+            (db - surface, b)
+        }
     }
 }
 

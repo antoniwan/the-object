@@ -98,7 +98,8 @@ impl Filament {
     pub fn ringing(&self) -> f32 {
         let t = self.since_pluck;
         let w = 7.0 + 2.2 * self.harmonic as f32;
-        let rung = PLUCK_AMP * (-PLUCK_DECAY * t).exp() * (w * t).cos() * smoothstep(0.0, 0.03, t) / (self.harmonic as f32).sqrt();
+        let rung = PLUCK_AMP * (-PLUCK_DECAY * t).exp() * (w * t).cos() * smoothstep(0.0, 0.03, t)
+            / (self.harmonic as f32).sqrt();
         rung + self.from_swing * (1.0 - smoothstep(0.0, REPLUCK_SECS, t))
     }
 

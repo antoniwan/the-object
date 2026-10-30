@@ -41,9 +41,18 @@ const REACH: f32 = 26.0;
 
 /// Each piece's color, matching TCOL in the shader. The body takes on the last one home.
 pub const TINTS: [V3; SHARDS] = [
-    v3(0.95, 0.94, 0.97), v3(0.80, 0.82, 0.86), v3(0.86, 0.96, 0.98), v3(0.93, 0.22, 0.45),
-    v3(0.62, 0.58, 0.53), v3(0.96, 0.60, 0.14), v3(0.16, 0.19, 0.56), v3(0.96, 0.90, 0.78),
-    v3(0.80, 0.91, 1.00), v3(0.95, 0.36, 0.16), v3(0.05, 0.05, 0.07), v3(0.36, 0.55, 0.26),
+    v3(0.95, 0.94, 0.97),
+    v3(0.80, 0.82, 0.86),
+    v3(0.86, 0.96, 0.98),
+    v3(0.93, 0.22, 0.45),
+    v3(0.62, 0.58, 0.53),
+    v3(0.96, 0.60, 0.14),
+    v3(0.16, 0.19, 0.56),
+    v3(0.96, 0.90, 0.78),
+    v3(0.80, 0.91, 1.00),
+    v3(0.95, 0.36, 0.16),
+    v3(0.05, 0.05, 0.07),
+    v3(0.36, 0.55, 0.26),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -56,7 +65,9 @@ pub enum Event {
     /// The weather has finished; they roll home.
     Eroded,
     /// The last of the twelve was carried home; `last` decides the color.
-    Mended { last: usize },
+    Mended {
+        last: usize,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -101,9 +112,18 @@ pub fn bead(i: usize, blob: f32) -> V3 {
     #[allow(clippy::approx_constant)]
     const P: f32 = 1.618_034;
     const ICO: [(f32, f32, f32); SHARDS] = [
-        (0.0, 1.0, P), (0.0, 1.0, -P), (0.0, -1.0, P), (0.0, -1.0, -P),
-        (1.0, P, 0.0), (-1.0, P, 0.0), (1.0, -P, 0.0), (-1.0, -P, 0.0),
-        (P, 0.0, 1.0), (-P, 0.0, 1.0), (P, 0.0, -1.0), (-P, 0.0, -1.0),
+        (0.0, 1.0, P),
+        (0.0, 1.0, -P),
+        (0.0, -1.0, P),
+        (0.0, -1.0, -P),
+        (1.0, P, 0.0),
+        (-1.0, P, 0.0),
+        (1.0, -P, 0.0),
+        (-1.0, -P, 0.0),
+        (P, 0.0, 1.0),
+        (-P, 0.0, 1.0),
+        (P, 0.0, -1.0),
+        (-P, 0.0, -1.0),
     ];
     let (x, y, z) = ICO[i];
     v3(x, y, z).norm() * (blob * 1.25) - V3::UP * blob

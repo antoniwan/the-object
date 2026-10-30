@@ -60,14 +60,23 @@ pub const COLD: V3 = v3(0.62, 0.64, 0.96);
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
     Absent,
-    Arriving { t: f32 },
+    Arriving {
+        t: f32,
+    },
     Here,
     /// Being taken into the soft one.
-    Taking { t: f32 },
+    Taking {
+        t: f32,
+    },
     Inside,
     /// Being given back; `asked` if a squeeze did it, not the soft one changing. `began` is the
     /// `t` it started from and `was` how far inside it was then, so neither jumps.
-    Giving { t: f32, asked: bool, began: f32, was: f32 },
+    Giving {
+        t: f32,
+        asked: bool,
+        began: f32,
+        was: f32,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -248,7 +257,8 @@ pub fn strike(w: &mut World) {
 pub fn step(w: &mut World, dt: f32, look: &Look) {
     let plain = w.ordinary();
     // Not here and not yet due: only its clock runs.
-    if w.other.phase == Phase::Absent && !(look.due && plain && look.visit > ARRIVE_AFTER && look.still > ARRIVE_STILL) {
+    if w.other.phase == Phase::Absent && !(look.due && plain && look.visit > ARRIVE_AFTER && look.still > ARRIVE_STILL)
+    {
         w.other.time += dt;
         return;
     }
@@ -297,7 +307,8 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
     o.edge = ease(o.edge, sharp, -2.0 * dt);
 
     // Left alone together, they circle, and the soft one watches it instead of you.
-    let circling = o.here() && plain && o.guard <= 0.0 && o.carried.is_none() && !look.busy && look.still > CIRCLE_AFTER;
+    let circling =
+        o.here() && plain && o.guard <= 0.0 && o.carried.is_none() && !look.busy && look.still > CIRCLE_AFTER;
     if circling {
         o.orbit += CIRCLE_SPEED * dt;
         o.circled += CIRCLE_SPEED * dt;

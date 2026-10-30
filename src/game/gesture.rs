@@ -4,37 +4,99 @@ use super::*;
 
 pub(super) enum Gesture {
     Idle,
-    Pending { start: (f32, f32), hit: Hit, since: f32 },
-    Warming { start: (f32, f32), hit: Hit, since: f32 },
+    Pending {
+        start: (f32, f32),
+        hit: Hit,
+        since: f32,
+    },
+    Warming {
+        start: (f32, f32),
+        hit: Hit,
+        since: f32,
+    },
     /// `since` when it started (real time), `reach` the furthest pull so far in body radii,
     /// `taut` seconds held nearly tearing, `angle` where it was last around the body, for stirring;
     /// `hit` where and `pressed` when (real time) it was first touched, for a tap that slid a little.
-    Stretching { handle: u32, plane: V3, since: f32, reach: f32, taut: f32, angle: Option<f32>, hit: Hit, pressed: f32 },
-    Dragging { drop: u32, plane: V3, offset: V3 },
-    Orbiting { start: (f32, f32), last: (f32, f32) },
+    Stretching {
+        handle: u32,
+        plane: V3,
+        since: f32,
+        reach: f32,
+        taut: f32,
+        angle: Option<f32>,
+        hit: Hit,
+        pressed: f32,
+    },
+    Dragging {
+        drop: u32,
+        plane: V3,
+        offset: V3,
+    },
+    Orbiting {
+        start: (f32, f32),
+        last: (f32, f32),
+    },
     /// Two fingers: `since` they began (real time), `least` the closest they have come, as a share of
     /// `start_dist`, and `on` where on the body they began, if they both did.
-    Squeezing { start_dist: f32, since: f32, least: f32, on: Option<V3> },
+    Squeezing {
+        start_dist: f32,
+        since: f32,
+        least: f32,
+        on: Option<V3>,
+    },
     /// Touching the liquid floor; `at` is where, on the floor. Held still, it freezes.
-    Lake { start: (f32, f32), at: (f32, f32), since: f32, moved: bool },
+    Lake {
+        start: (f32, f32),
+        at: (f32, f32),
+        since: f32,
+        moved: bool,
+    },
     /// Pressing the empty ground of the landscape; held still long enough, it gathers.
-    Ground { start: (f32, f32), since: f32 },
+    Ground {
+        start: (f32, f32),
+        since: f32,
+    },
     /// Swept fast off the empty ground of the landscape: it cuts, and does not look around.
-    Cutting { last: (f32, f32) },
+    Cutting {
+        last: (f32, f32),
+    },
     /// Pressing one of the twelve: a tap pokes it, a drag carries it, holding still plants it.
-    Shard { i: usize, start: (f32, f32), since: f32, carried: bool },
+    Shard {
+        i: usize,
+        start: (f32, f32),
+        since: f32,
+        carried: bool,
+    },
     /// Touching the river: every column under the pointer stands up.
     River,
     /// Pressing the other one (other.rs): a tap strikes it, a drag carries it.
-    Other { start: (f32, f32), plane: V3, offset: V3, carried: bool },
+    Other {
+        start: (f32, f32),
+        plane: V3,
+        offset: V3,
+        carried: bool,
+    },
     /// A short pull on the flower, which would not stretch: let go at once, it is a pinch.
-    Tug { start: (f32, f32), since: f32 },
+    Tug {
+        start: (f32, f32),
+        since: f32,
+    },
     /// Round and round the flower (forms/spin.rs): `last` the angle the pointer was at around it on
     /// screen, `turned` how far round it has gone, in turns.
-    Spin { start: (f32, f32), last: f32, turned: f32 },
+    Spin {
+        start: (f32, f32),
+        last: f32,
+        turned: f32,
+    },
     /// On the floor while it is dust (forms/dust.rs): dragging sweeps it from `last`;
     /// pressing the mound and holding still brings it back up.
-    Dust { start: (f32, f32), last: (f32, f32), since: f32, mound: bool, moved: bool },
+    Dust {
+        start: (f32, f32),
+        last: (f32, f32),
+        since: f32,
+        mound: bool,
+        moved: bool,
+    },
 }
 
 impl Game {
@@ -107,7 +169,10 @@ impl Game {
                 let path: f32 = trace.windows(2).map(|w| dist(w[0], w[1])).sum();
                 let moved = (dist(start, last) / self.h).max(path);
                 let (cx, cy) = self.screen_of(self.world.body.pos);
-                if moved >= TAP_SLOP && self.world.ordinary() && pandora::is_square(&trace, (cx / self.h, cy / self.h), 1.0) {
+                if moved >= TAP_SLOP
+                    && self.world.ordinary()
+                    && pandora::is_square(&trace, (cx / self.h, cy / self.h), 1.0)
+                {
                     // The camera went round with the drawing; it drifts back to where it was.
                     self.cam.yaw_vel = 0.0;
                     self.cam.pitch_vel = 0.0;
@@ -145,7 +210,10 @@ impl Game {
                 let secs = self.clock - since;
                 if secs < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
                     self.world.add_ripple(V3::UP, 0.5);
-                } else if secs < bloom::NEAR_MAX_SECS && self.world.forms.spin.whole() && self.world.forms.bloom.flinch() {
+                } else if secs < bloom::NEAR_MAX_SECS
+                    && self.world.forms.spin.whole()
+                    && self.world.forms.bloom.flinch()
+                {
                     // A little too slow: its petals only flinch in.
                     self.sounds.push(Sound::Almost);
                 }
@@ -156,7 +224,11 @@ impl Game {
                 }
             }
             Gesture::Dust { .. } => {}
-            Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Spin { .. } | Gesture::Idle => {}
+            Gesture::Ground { .. }
+            | Gesture::Cutting { .. }
+            | Gesture::River
+            | Gesture::Spin { .. }
+            | Gesture::Idle => {}
         }
     }
 
@@ -196,7 +268,10 @@ impl Game {
     pub(super) fn tap_form(&mut self, hit: Hit) -> bool {
         let pos = self.world.body.pos;
         let f = &mut self.world.forms;
-        f.filament.pluck(hit.pos, pos).is_some() || (f.spin.whole() && f.bloom.fold()) || f.pandora.knock() || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
+        f.filament.pluck(hit.pos, pos).is_some()
+            || (f.spin.whole() && f.bloom.fold())
+            || f.pandora.knock()
+            || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
     }
 
     /// Stand up the column of the river under the pointer. Returns true if the river is there.
@@ -348,12 +423,22 @@ impl Game {
                     self.world.warming = false;
                     // Cells (and flowers, threads, boxes) don't stretch into tendrils; dragging them just looks around.
                     let f = &self.world.forms;
-                    let stretchy = self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
+                    let stretchy =
+                        self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
                     let flower = f.bloom.phase == bloom::Phase::Flower;
                     let stretch = if stretchy { self.world.begin_stretch(hit.pos) } else { None };
                     let pressed = self.clock - (self.world.time - since);
                     self.gesture = match stretch {
-                        Some(handle) => Gesture::Stretching { handle, plane: hit.pos, since: self.clock, reach: 0.0, taut: 0.0, angle: None, hit, pressed },
+                        Some(handle) => Gesture::Stretching {
+                            handle,
+                            plane: hit.pos,
+                            since: self.clock,
+                            reach: 0.0,
+                            taut: 0.0,
+                            angle: None,
+                            hit,
+                            pressed,
+                        },
                         None if flower => Gesture::Tug { start, since: pressed },
                         None => Gesture::Orbiting { start, last: (x, y) },
                     };
@@ -377,7 +462,8 @@ impl Game {
                     self.world.forms.stir(wrap_angle(now - last) / (2.0 * std::f32::consts::PI));
                 }
                 let reach = reach.max((to - plane).len() / r);
-                self.gesture = Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now), hit, pressed };
+                self.gesture =
+                    Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now), hit, pressed };
             }
             Gesture::Dragging { drop, plane, offset } => {
                 let to = self.plane_point(x, y, plane) + offset;
@@ -447,8 +533,11 @@ impl Game {
                 let moved = dist(start, (x, y)) / self.h;
                 if moved > TAP_SLOP {
                     // off fast where pieces hold on to each other, it cuts between them; otherwise it looks around
-                    let fast = dt > 0.0 && moved / dt > crate::burst::kin::CUT_SPEED && !self.world.burst.kin.groups().is_empty();
-                    self.gesture = if fast { Gesture::Cutting { last: start } } else { Gesture::Orbiting { start, last: start } };
+                    let fast = dt > 0.0
+                        && moved / dt > crate::burst::kin::CUT_SPEED
+                        && !self.world.burst.kin.groups().is_empty();
+                    self.gesture =
+                        if fast { Gesture::Cutting { last: start } } else { Gesture::Orbiting { start, last: start } };
                     self.pointer_move(id, x, y, dt);
                 }
             }
@@ -490,7 +579,8 @@ impl Game {
                         }
                         self.gesture = Gesture::Idle;
                     }
-                } else if up < -0.12 && self.world.fusion.phase == fusion::Phase::Fused && self.world.fusion.mere.sink() {
+                } else if up < -0.12 && self.world.fusion.phase == fusion::Phase::Fused && self.world.fusion.mere.sink()
+                {
                     // Push down and it goes deeper.
                     self.discover(Discovery::Deep);
                     self.gesture = Gesture::Idle;
@@ -552,7 +642,11 @@ impl Game {
 
     /// Sample the drag segment finely, so a fast flick can't jump over the body.
     pub(super) fn track_swipe(&mut self, from: (f32, f32), to: (f32, f32)) {
-        if !self.world.division.can_slice() || !self.world.fusion.whole() || !self.world.burst.whole() || !self.world.forms.whole() {
+        if !self.world.division.can_slice()
+            || !self.world.fusion.whole()
+            || !self.world.burst.whole()
+            || !self.world.forms.whole()
+        {
             return;
         }
         let len = dist(from, to);
@@ -574,7 +668,9 @@ impl Game {
         if bu.phase != burst::Phase::Landscape || bu.river.active {
             return;
         }
-        let at: Vec<(f32, f32)> = (0..burst::SHARDS).map(|i| self.screen_of(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3))).collect();
+        let at: Vec<(f32, f32)> = (0..burst::SHARDS)
+            .map(|i| self.screen_of(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3)))
+            .collect();
         let cuts: Vec<(usize, usize)> = (0..burst::SHARDS)
             .flat_map(|a| (a + 1..burst::SHARDS).map(move |b| (a, b)))
             .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::burst::kin::crosses(from, to, at[a], at[b]))

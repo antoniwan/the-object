@@ -12,7 +12,11 @@ impl World {
         let r = b.radius();
         let s = b.scale();
         // Once it has burst, or gone to dust, there is no body to touch.
-        let mut d = if self.burst.body_gone() || self.forms.dust.body_gone() { 1e3 } else { self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s)) };
+        let mut d = if self.burst.body_gone() || self.forms.dust.body_gone() {
+            1e3
+        } else {
+            self.forms.shape(p, b.pos, r, self.division.body_sdf(p, b.pos, r, s))
+        };
         for h in &self.handles {
             d = smin(d, h.sdf(b, p), K_HANDLE * r);
         }

@@ -45,31 +45,62 @@ pub enum Verb {
 /// Words that are the hand, by language. Accents are taken off before comparing, and a Spanish
 /// word with a pronoun on the end ("córtalo", "tócala") is the word without it (`verb`).
 const VERBS: [(Verb, &[&str]); 9] = [
-    (Verb::Poke, &[
-        "poke", "pokes", "poked", "poking", "prod", "boop", "tap", "touch", "nudge", "jab",
-        "toca", "tocar", "toco", "toque", "pica", "picar", "pique", "puya", "puyar", "puyo", "puyalo",
-    ]),
-    (Verb::Cut, &[
-        "cut", "slice", "split", "chop", "halve", "cleave",
-        "corta", "cortar", "corto", "corte", "parte", "partir", "divide", "dividir", "rebana", "rebanar",
-    ]),
-    (Verb::Squeeze, &[
-        "squeeze", "squish", "squash", "crush", "press", "compress",
-        "aprieta", "apretar", "apreta", "exprime", "estruja", "estrujar", "apachurra", "apachurrar",
-        "espachurra", "espachurrar", "aplasta", "aplastar", "presiona", "presionar",
-    ]),
-    (Verb::Hold, &[
-        "hold", "warm", "hug", "cuddle",
-        "aguanta", "aguantar", "sosten", "sostener", "sujeta", "abraza", "abrazar", "calienta", "calentar",
-        "agarra", "agarrar",
-    ]),
+    (
+        Verb::Poke,
+        &[
+            "poke", "pokes", "poked", "poking", "prod", "boop", "tap", "touch", "nudge", "jab", "toca", "tocar",
+            "toco", "toque", "pica", "picar", "pique", "puya", "puyar", "puyo", "puyalo",
+        ],
+    ),
+    (
+        Verb::Cut,
+        &[
+            "cut", "slice", "split", "chop", "halve", "cleave", "corta", "cortar", "corto", "corte", "parte", "partir",
+            "divide", "dividir", "rebana", "rebanar",
+        ],
+    ),
+    (
+        Verb::Squeeze,
+        &[
+            "squeeze",
+            "squish",
+            "squash",
+            "crush",
+            "press",
+            "compress",
+            "aprieta",
+            "apretar",
+            "apreta",
+            "exprime",
+            "estruja",
+            "estrujar",
+            "apachurra",
+            "apachurrar",
+            "espachurra",
+            "espachurrar",
+            "aplasta",
+            "aplastar",
+            "presiona",
+            "presionar",
+        ],
+    ),
+    (
+        Verb::Hold,
+        &[
+            "hold", "warm", "hug", "cuddle", "aguanta", "aguantar", "sosten", "sostener", "sujeta", "abraza",
+            "abrazar", "calienta", "calentar", "agarra", "agarrar",
+        ],
+    ),
     (Verb::Pull, &["pull", "stretch", "drag", "tug", "estira", "estirar", "jala", "jalar", "hala", "halar"]),
     (Verb::Tear, &["tear", "rip", "break", "arranca", "arrancar", "rompe", "romper", "rasga", "rasgar", "desgarra"]),
     (Verb::Pinch, &["pinch", "nip", "pellizca", "pellizcar", "pellizco", "pellizque"]),
-    (Verb::Throw, &[
-        "throw", "slam", "drop", "toss", "fling",
-        "lanza", "lanzar", "tira", "tirar", "bota", "botar", "avienta", "aventar", "arroja", "arrojar", "estrella",
-    ]),
+    (
+        Verb::Throw,
+        &[
+            "throw", "slam", "drop", "toss", "fling", "lanza", "lanzar", "tira", "tirar", "bota", "botar", "avienta",
+            "aventar", "arroja", "arrojar", "estrella",
+        ],
+    ),
     (Verb::Come, &["come", "closer", "ven", "venga", "vente", "acercate", "acercar", "aca", "aqui"]),
 ];
 
@@ -78,36 +109,129 @@ const ENCLITICS: [&str; 7] = ["selo", "sela", "los", "las", "lo", "la", "le"];
 
 fn verb(word: &str) -> Option<Verb> {
     let find = |w: &str| VERBS.iter().find(|(_, words)| words.contains(&w)).map(|(v, _)| *v);
-    find(word).or_else(|| {
-        ENCLITICS.iter().find_map(|e| word.strip_suffix(e).filter(|stem| stem.len() >= 2).and_then(find))
-    })
+    find(word)
+        .or_else(|| ENCLITICS.iter().find_map(|e| word.strip_suffix(e).filter(|stem| stem.len() >= 2).and_then(find)))
 }
 
 /// Greetings, written as they come back from the browser (lowercase, accents off). The ones in
 /// scripts without spaces are found anywhere in what was said; the rest only as whole words.
 const GREETINGS: &[&str] = &[
     // english
-    "hi", "hello", "hey", "hiya", "howdy", "greetings", "good morning", "good afternoon",
-    "good evening", "good day", "morning", "hey there", "hullo",
+    "hi",
+    "hello",
+    "hey",
+    "hiya",
+    "howdy",
+    "greetings",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "good day",
+    "morning",
+    "hey there",
+    "hullo",
     // spanish
-    "hola", "buenos dias", "buen dia", "buenas tardes", "buenas noches", "buenas", "saludos",
-    "que tal", "wepa", "alo", "jelou",
+    "hola",
+    "buenos dias",
+    "buen dia",
+    "buenas tardes",
+    "buenas noches",
+    "buenas",
+    "saludos",
+    "que tal",
+    "wepa",
+    "alo",
+    "jelou",
     // and others
-    "bonjour", "bonsoir", "salut", "ciao", "buongiorno", "buonasera", "salve", "hallo",
-    "guten morgen", "guten tag", "guten abend", "servus", "moin", "ola", "oi", "bom dia",
-    "boa tarde", "boa noite", "hej", "hei", "god morgen", "goedemorgen", "goedendag", "ahoj",
-    "czesc", "dzien dobry", "szia", "merhaba", "gunaydin", "salam", "salaam", "marhaba",
-    "shalom", "namaste", "namaskar", "aloha", "jambo", "habari", "sawubona", "kia ora",
-    "konnichiwa", "ohayo", "ohayou", "annyeong", "annyeonghaseyo", "ni hao", "nihao", "xin chao",
-    "sawasdee", "kamusta", "kumusta", "selamat pagi", "privet", "zdravstvuyte", "yassou", "geia",
-    "terve", "moi", "tere", "labas", "sveiki", "zdravo", "bok", "dobar dan",
+    "bonjour",
+    "bonsoir",
+    "salut",
+    "ciao",
+    "buongiorno",
+    "buonasera",
+    "salve",
+    "hallo",
+    "guten morgen",
+    "guten tag",
+    "guten abend",
+    "servus",
+    "moin",
+    "ola",
+    "oi",
+    "bom dia",
+    "boa tarde",
+    "boa noite",
+    "hej",
+    "hei",
+    "god morgen",
+    "goedemorgen",
+    "goedendag",
+    "ahoj",
+    "czesc",
+    "dzien dobry",
+    "szia",
+    "merhaba",
+    "gunaydin",
+    "salam",
+    "salaam",
+    "marhaba",
+    "shalom",
+    "namaste",
+    "namaskar",
+    "aloha",
+    "jambo",
+    "habari",
+    "sawubona",
+    "kia ora",
+    "konnichiwa",
+    "ohayo",
+    "ohayou",
+    "annyeong",
+    "annyeonghaseyo",
+    "ni hao",
+    "nihao",
+    "xin chao",
+    "sawasdee",
+    "kamusta",
+    "kumusta",
+    "selamat pagi",
+    "privet",
+    "zdravstvuyte",
+    "yassou",
+    "geia",
+    "terve",
+    "moi",
+    "tere",
+    "labas",
+    "sveiki",
+    "zdravo",
+    "bok",
+    "dobar dan",
 ];
 
 /// Greetings in scripts that do not put spaces between words.
 const GREETINGS_ANYWHERE: &[&str] = &[
-    "こんにちは", "おはよう", "こんばんは", "你好", "您好", "早上好", "안녕", "привет", "здравствуй",
-    "доброе утро", "добрый день", "γεια", "καλημέρα", "مرحبا", "السلام عليكم", "صباح الخير", "שלום",
-    "नमस्ते", "नमस्कार", "สวัสดี", "xin chào",
+    "こんにちは",
+    "おはよう",
+    "こんばんは",
+    "你好",
+    "您好",
+    "早上好",
+    "안녕",
+    "привет",
+    "здравствуй",
+    "доброе утро",
+    "добрый день",
+    "γεια",
+    "καλημέρα",
+    "مرحبا",
+    "السلام عليكم",
+    "صباح الخير",
+    "שלום",
+    "नमस्ते",
+    "नमस्कार",
+    "สวัสดี",
+    "xin chào",
 ];
 
 /// Lowercase, accents off, everything that is not a letter or a digit made a space.
@@ -220,7 +344,13 @@ impl Doing {
             Verb::Hold => c,
             // Out from just inside the edge, held a moment, then let back slowly.
             Verb::Pull => {
-                let k = if t < 0.6 { ease(t / 0.6) } else if t < 1.0 { 1.0 } else { 1.0 - ease((t - 1.0) / 0.5) * 0.8 };
+                let k = if t < 0.6 {
+                    ease(t / 0.6)
+                } else if t < 1.0 {
+                    1.0
+                } else {
+                    1.0 - ease((t - 1.0) / 0.5) * 0.8
+                };
                 along(0.5 + 1.1 * k)
             }
             Verb::Tear => along(0.5 + 4.5 * ease(t / 0.55)),
@@ -508,7 +638,9 @@ mod tests {
 
     #[test]
     fn it_knows_a_greeting_in_many_languages() {
-        for g in ["hi", "Good morning!", "hola", "Buenos días", "bonjour", "おはようございます", "你好", "привет", "Wepa"] {
+        for g in
+            ["hi", "Good morning!", "hola", "Buenos días", "bonjour", "おはようございます", "你好", "привет", "Wepa"]
+        {
             assert!(greeting(g).is_some(), "{g}");
         }
         for g in ["this", "high", "yo quiero", "chill"] {

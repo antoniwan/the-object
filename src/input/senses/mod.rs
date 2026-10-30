@@ -33,8 +33,8 @@ mod sight;
 mod tests;
 
 pub use hearing::{hear, Heard};
-pub use sight::{Retina, Seen};
 use hearing::{hum_pitch, pitch_height};
+pub use sight::{Retina, Seen};
 
 /// How long it waits, from the start of a visit, before it may ask anything (seconds).
 const OFFER_NOT_BEFORE: f32 = 20.0;
@@ -439,11 +439,7 @@ impl Senses {
         } else if self.can_see && !self.offered_see && self.see == Leave::Closed && look.stage >= Stage::Initiative {
             self.offered_see = true;
             Kind::See
-        } else if self.can_words
-            && !self.offered_words
-            && self.words == Leave::Closed
-            && self.hear == Leave::Open
-        {
+        } else if self.can_words && !self.offered_words && self.words == Leave::Closed && self.hear == Leave::Open {
             // Only once it already hears you, however early that was: words are more than sound.
             self.offered_words = true;
             Kind::Words

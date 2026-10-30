@@ -127,7 +127,13 @@ pub struct Forms {
 impl Forms {
     /// True while it is still the liquid it started as (buds alone don't change what it is).
     pub fn whole(&self) -> bool {
-        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole() && self.fold.whole() && self.dust.whole() && self.spin.whole()
+        self.bloom.whole()
+            && self.filament.whole()
+            && self.cosmos.whole()
+            && self.pandora.whole()
+            && self.fold.whole()
+            && self.dust.whole()
+            && self.spin.whole()
     }
 
     pub fn step(&mut self, dt: f32) {
@@ -154,7 +160,9 @@ impl Forms {
 
     /// A pinch on the flower: it comes apart over the floor under `pos`.
     pub fn pinch_flower(&mut self, pos: V3) -> bool {
-        self.bloom.phase == bloom::Phase::Flower && self.spin.whole() && self.dust.crumble(pos.x, pos.z, self.bloom.angle)
+        self.bloom.phase == bloom::Phase::Flower
+            && self.spin.whole()
+            && self.dust.crumble(pos.x, pos.z, self.bloom.angle)
     }
 
     /// A stir (in turns, counterclockwise on screen positive): the fold takes it while there

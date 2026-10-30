@@ -38,8 +38,19 @@ pub fn aura(world: &World, cam: &Camera, w: f32, h: f32) -> Aura {
 /// How many things it has shown you, counted the old way: 7 is "vii".
 pub fn roman(mut n: usize) -> String {
     const NUMERALS: [(usize, &str); 13] = [
-        (1000, "m"), (900, "cm"), (500, "d"), (400, "cd"), (100, "c"), (90, "xc"), (50, "l"),
-        (40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i"),
+        (1000, "m"),
+        (900, "cm"),
+        (500, "d"),
+        (400, "cd"),
+        (100, "c"),
+        (90, "xc"),
+        (50, "l"),
+        (40, "xl"),
+        (10, "x"),
+        (9, "ix"),
+        (5, "v"),
+        (4, "iv"),
+        (1, "i"),
     ];
     let mut out = String::new();
     for (v, s) in NUMERALS {

@@ -237,7 +237,9 @@ pub fn bond_of(ledger: &Ledger) -> f32 {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Greeting {
     /// Not yet: still waiting for a hand to come near.
-    Due { warmth: f32 },
+    Due {
+        warmth: f32,
+    },
     Done,
 }
 
@@ -312,7 +314,8 @@ impl Remembrance {
                 "seen" => m.seen = num.unwrap_or(now).min(now),
                 "at" => m.ledger.at = num.unwrap_or(now).min(now),
                 "scar" => {
-                    let n: Vec<f32> = v.split(',').filter_map(|x| x.parse::<f32>().ok()).filter(|x| x.is_finite()).collect();
+                    let n: Vec<f32> =
+                        v.split(',').filter_map(|x| x.parse::<f32>().ok()).filter(|x| x.is_finite()).collect();
                     if let [x, y, z, k] = n[..] {
                         let dir = v3(x, y, z);
                         if dir.len() > 0.5 {
@@ -323,7 +326,16 @@ impl Remembrance {
                 "spun" => {
                     if let Some((n, s)) = v.split_once(',') {
                         if let (Ok(n), Ok(s)) = (n.parse::<u32>(), s.parse::<f32>()) {
-                            m.spun = (n.min(99), if s > 0.0 { 1.0 } else if s < 0.0 { -1.0 } else { 0.0 });
+                            m.spun = (
+                                n.min(99),
+                                if s > 0.0 {
+                                    1.0
+                                } else if s < 0.0 {
+                                    -1.0
+                                } else {
+                                    0.0
+                                },
+                            );
                         }
                     }
                 }
@@ -356,7 +368,8 @@ impl Remembrance {
     pub fn save(&mut self) -> String {
         self.ledger.settle(self.now);
         self.seen = self.now;
-        let mut s = format!("v={};f={};born={:.0};seen={:.0};at={:.0}", FILE, FORMULA, self.born, self.seen, self.ledger.at);
+        let mut s =
+            format!("v={};f={};born={:.0};seen={:.0};at={:.0}", FILE, FORMULA, self.born, self.seen, self.ledger.at);
         for d in Deed::ALL {
             let t = self.ledger.get(d);
             if t.count > 0 {

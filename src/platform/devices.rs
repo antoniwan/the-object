@@ -15,7 +15,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{AnalyserNode, AudioContext, CanvasRenderingContext2d, HtmlCanvasElement, HtmlVideoElement, MediaStream, MediaStreamConstraints};
+use web_sys::{
+    AnalyserNode, AudioContext, CanvasRenderingContext2d, HtmlCanvasElement, HtmlVideoElement, MediaStream,
+    MediaStreamConstraints,
+};
 
 /// How small it looks.
 const SIGHT_W: u32 = 32;
@@ -138,10 +141,7 @@ fn number(target: &JsValue, key: &str) -> Option<f32> {
 /// Which way the screen is turned, in degrees: 0, 90, 180 or 270.
 fn turn(w: &web_sys::Window) -> f32 {
     let screen = get(w, "screen");
-    number(&get(&screen, "orientation"), "angle")
-        .or_else(|| number(w, "orientation"))
-        .unwrap_or(0.0)
-        .rem_euclid(360.0)
+    number(&get(&screen, "orientation"), "angle").or_else(|| number(w, "orientation")).unwrap_or(0.0).rem_euclid(360.0)
 }
 
 /// Starts feeling how the phone is held and moved. Each reading lands in `felt`, which the
@@ -223,7 +223,8 @@ pub fn ask(kind: Kind, answers: Rc<RefCell<Vec<Answer>>>) {
         return;
     };
     let yes = answers.clone();
-    let ok = Closure::once(move |s: JsValue| yes.borrow_mut().push((kind, s.dyn_into::<MediaStream>().map_err(|_| false))));
+    let ok =
+        Closure::once(move |s: JsValue| yes.borrow_mut().push((kind, s.dyn_into::<MediaStream>().map_err(|_| false))));
     let err = Closure::once(move |e: JsValue| {
         let name = get(&e, "name").as_string().unwrap_or_default();
         answers.borrow_mut().push((kind, Err(name == "NotAllowedError" || name == "SecurityError")));

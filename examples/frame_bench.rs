@@ -91,7 +91,8 @@ fn fingerprint(g: &Game) -> u64 {
         mix(v.y);
         mix(v.z);
     }
-    for x in [w.time, w.agitation, w.night, w.gaze, w.regard, w.dim, w.body.squash, g.cam.dist, g.cam.pitch, g.cam.yaw] {
+    for x in [w.time, w.agitation, w.night, w.gaze, w.regard, w.dim, w.body.squash, g.cam.dist, g.cam.pitch, g.cam.yaw]
+    {
         mix(x);
     }
     for d in &w.drops {

@@ -86,7 +86,10 @@ impl Audio {
         b.start()?;
         let hum = Self::voice(&ctx, &master, OscillatorType::Sine, 130.8)?;
         let echo = Self::voice(&ctx, &master, OscillatorType::Sine, 110.0)?;
-        let glides = |(osc, g): (OscillatorNode, GainNode)| Voice { freq: Glide::new(osc.frequency()), gain: Glide::new(g.gain()) };
+        let glides = |(osc, g): (OscillatorNode, GainNode)| Voice {
+            freq: Glide::new(osc.frequency()),
+            gain: Glide::new(g.gain()),
+        };
         Ok(Audio {
             master,
             warm: glides(warm),
@@ -100,7 +103,12 @@ impl Audio {
     }
 
     /// A continuously running oscillator behind a silent gain.
-    fn voice(ctx: &AudioContext, out: &GainNode, kind: OscillatorType, freq: f32) -> Result<(OscillatorNode, GainNode), JsValue> {
+    fn voice(
+        ctx: &AudioContext,
+        out: &GainNode,
+        kind: OscillatorType,
+        freq: f32,
+    ) -> Result<(OscillatorNode, GainNode), JsValue> {
         let osc = ctx.create_oscillator()?;
         osc.set_type(kind);
         osc.frequency().set_value(freq);
@@ -148,7 +156,8 @@ impl Audio {
                 let _ = ctx.suspend();
             }
         });
-        let sent = web_sys::window().map(|w| w.set_timeout_with_callback_and_timeout_and_arguments_0(later.unchecked_ref(), FADE_MS));
+        let sent = web_sys::window()
+            .map(|w| w.set_timeout_with_callback_and_timeout_and_arguments_0(later.unchecked_ref(), FADE_MS));
         if !matches!(sent, Some(Ok(_))) {
             let _ = self.ctx.suspend();
         }
@@ -211,12 +220,13 @@ impl Audio {
             Sound::Column { slot } => {
                 let row = slot / crate::burst::river::LANES;
                 let f = 196.0 * 2f32.powf(SCALE[row % SCALE.len()] / 12.0);
-                self.pluck(Sine, f * 0.5, f, 0.06, 0.6, 0.0).and_then(|_| self.pluck(Triangle, f * 2.0, f * 2.0, 0.015, 0.9, 0.05))
+                self.pluck(Sine, f * 0.5, f, 0.06, 0.6, 0.0)
+                    .and_then(|_| self.pluck(Triangle, f * 2.0, f * 2.0, 0.015, 0.9, 0.05))
             }
             // two low thumps, the second softer
-            Sound::Beat => self
-                .pluck(Sine, 62.0, 44.0, 0.32, 0.35, 0.0)
-                .and_then(|_| self.pluck(Sine, 58.0, 42.0, 0.2, 0.3, 0.2)),
+            Sound::Beat => {
+                self.pluck(Sine, 62.0, 44.0, 0.32, 0.35, 0.0).and_then(|_| self.pluck(Sine, 58.0, 42.0, 0.2, 0.3, 0.2))
+            }
             Sound::Call => self.pluck(Sine, 146.8, 196.0, 0.08, 0.7, 0.0),
             Sound::Pinch => self.pluck(Sine, 1046.5, 1174.7, 0.05, 0.3, 0.0),
             Sound::Almost => self.pluck(Sine, 1046.5, 880.0, 0.018, 0.25, 0.0),
@@ -228,7 +238,8 @@ impl Audio {
             // Every pluck is an overtone of the same low string.
             Sound::Pluck { harmonic } => {
                 let f = 98.0 * harmonic as f32;
-                self.pluck(Triangle, f, f, 0.16, 3.2, 0.0).and_then(|_| self.pluck(Sine, f * 2.0, f * 2.0, 0.04, 1.6, 0.0))
+                self.pluck(Triangle, f, f, 0.16, 3.2, 0.0)
+                    .and_then(|_| self.pluck(Sine, f * 2.0, f * 2.0, 0.04, 1.6, 0.0))
             }
             Sound::Stir => self.pluck(Sine, 110.0, 220.0, 0.08, 1.4, 0.0),
             // A knock, and a moment later the knock from inside.
@@ -240,9 +251,9 @@ impl Audio {
                 .and_then(|_| self.pluck(Sine, 293.7, 293.7, 0.06, 3.0, 0.25))
                 .and_then(|_| self.pluck(Sine, 392.0, 392.0, 0.05, 3.2, 0.5))
                 .and_then(|_| self.pluck(Sine, 587.3, 587.3, 0.04, 3.4, 0.75)),
-            Sound::Become => self
-                .pluck(Sine, 65.4, 65.4, 0.14, 3.0, 0.0)
-                .and_then(|_| self.pluck(Sine, 98.0, 98.0, 0.08, 3.0, 0.1)),
+            Sound::Become => {
+                self.pluck(Sine, 65.4, 65.4, 0.14, 3.0, 0.0).and_then(|_| self.pluck(Sine, 98.0, 98.0, 0.08, 3.0, 0.1))
+            }
             // The other one: hard, so a triangle, with a bell's partial over it; high struck, low arriving.
             Sound::Ring { pitch } => {
                 let f = 329.6 * 2f32.powf(step(pitch) / 12.0);

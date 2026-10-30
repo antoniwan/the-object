@@ -43,7 +43,18 @@ pub struct Cosmos {
 
 impl Default for Cosmos {
     fn default() -> Self {
-        Cosmos { phase: Phase::Whole, sense: 1.0, spin: 0.0, spin_vel: 0.0, stirred: 0.0, quiet: 0.0, told: false, flare: 0.0, pace: 1.0, events: Vec::new() }
+        Cosmos {
+            phase: Phase::Whole,
+            sense: 1.0,
+            spin: 0.0,
+            spin_vel: 0.0,
+            stirred: 0.0,
+            quiet: 0.0,
+            told: false,
+            flare: 0.0,
+            pace: 1.0,
+            events: Vec::new(),
+        }
     }
 }
 

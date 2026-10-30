@@ -47,9 +47,7 @@ fn set(target: &JsValue, key: &str, v: JsValue) {
 
 fn recognizer() -> Option<js_sys::Function> {
     let w: JsValue = web_sys::window()?.into();
-    ["SpeechRecognition", "webkitSpeechRecognition"]
-        .iter()
-        .find_map(|k| get(&w, k).dyn_into::<js_sys::Function>().ok())
+    ["SpeechRecognition", "webkitSpeechRecognition"].iter().find_map(|k| get(&w, k).dyn_into::<js_sys::Function>().ok())
 }
 
 /// The languages it listens in: the player's own, as the browser has it, and then English or
@@ -58,9 +56,8 @@ fn recognizer() -> Option<js_sys::Function> {
 pub fn tongues() -> Vec<String> {
     let nav = web_sys::window().map(|w| w.navigator());
     let first = nav.as_ref().and_then(|n| n.language()).unwrap_or_else(|| "en-US".into());
-    let kept: Vec<String> = nav
-        .map(|n| n.languages().iter().filter_map(|l| l.as_string()).collect())
-        .unwrap_or_default();
+    let kept: Vec<String> =
+        nav.map(|n| n.languages().iter().filter_map(|l| l.as_string()).collect()).unwrap_or_default();
     let family = |l: &str| l.split(['-', '_']).next().unwrap_or("").to_ascii_lowercase();
     let other = if family(&first) == "en" { "es" } else { "en" };
     let fallback = if other == "es" { "es-US" } else { "en-US" };

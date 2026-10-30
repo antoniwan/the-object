@@ -142,10 +142,7 @@ impl River {
     pub fn crowded(homes: &[V3]) -> Option<V3> {
         let n = homes.len() as f32;
         let c = homes.iter().fold(V3::ZERO, |a, &h| a + h) * (1.0 / n);
-        homes
-            .iter()
-            .all(|h| (h.x - c.x).hypot(h.z - c.z) < GROUP_RADIUS)
-            .then_some(c)
+        homes.iter().all(|h| (h.x - c.x).hypot(h.z - c.z) < GROUP_RADIUS).then_some(c)
     }
 
     /// The pieces have crowded together at `at`; it runs across the view from there.

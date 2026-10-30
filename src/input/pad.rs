@@ -30,7 +30,11 @@ const FINGERS_HALF: f32 = 0.25;
 pub fn fingers(start: f32, now: f32, h: f32) -> f32 {
     let by_ratio = squeeze(now / start.max(1e-3));
     let by_reach = squeeze(1.0 + (now - start) / h.max(1.0) * 0.5 / FINGERS_HALF);
-    if by_ratio.abs() < by_reach.abs() { by_ratio } else { by_reach }
+    if by_ratio.abs() < by_reach.abs() {
+        by_ratio
+    } else {
+        by_reach
+    }
 }
 
 #[derive(Default)]
