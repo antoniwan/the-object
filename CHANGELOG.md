@@ -12,10 +12,15 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-30
+
+### Added
+- Its shadow falls long and soft away from the light, longer the higher it floats; the room shows where its floor meets its wall; it draws out as it falls and lands flattened. Gradients in the room no longer band
+
 ## [1.23.1] - 2026-10-30
 
 ### Changed
-- On a phone the screen stays lit while someone is there, and goes dark three minutes after they leave. Where the phone must be asked before it can be held, `hold the room.` comes early in any visit. What is sung back comes from the speaker, and at rest the ringer switch silences it
+- On a phone the screen stays lit while someone is there, and goes dark three minutes after they leave. Where the phone must be asked before it can be held, `hold the room.` comes early in any visit. What is sung back comes from the speaker, and at rest the ringer switch silences it (#110)
 
 ## [1.23.0] - 2026-10-30
 
@@ -587,7 +592,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.23.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.24.0...HEAD
+[1.24.0]: https://github.com/antoniwan/the-object/compare/v1.23.1...v1.24.0
 [1.23.1]: https://github.com/antoniwan/the-object/compare/v1.23.0...v1.23.1
 [1.23.0]: https://github.com/antoniwan/the-object/compare/v1.22.27...v1.23.0
 [1.22.27]: https://github.com/antoniwan/the-object/compare/v1.22.26...v1.22.27
