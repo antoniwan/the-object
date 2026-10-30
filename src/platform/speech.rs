@@ -224,9 +224,10 @@ impl Speech {
         set(&rec, "onresult", on_result.as_ref().clone());
         set(&rec, "onerror", on_error.as_ref().clone());
         set(&rec, "onend", on_end.as_ref().clone());
-        let start = get(&rec, "start").dyn_into::<js_sys::Function>().ok()?;
-        start.call0(&rec).ok()?;
-        Some(Speech { rec, want, tongues, turn, _handlers: vec![on_result, on_error, on_end] })
+        let started = get(&rec, "start").dyn_into::<js_sys::Function>().is_ok_and(|s| s.call0(&rec).is_ok());
+        let speech = Speech { rec, want, tongues, turn, _handlers: vec![on_result, on_error, on_end] };
+        // Not started: dropping it takes the handlers off the recognizer before they are freed.
+        started.then_some(speech)
     }
 
     /// Whether there is another language to listen in.
@@ -245,7 +246,14 @@ impl Speech {
         }
     }
 
-    pub fn stop(self) {
+    /// Stops listening; letting go of it does the same (`Drop`).
+    pub fn stop(self) {}
+}
+
+impl Drop for Speech {
+    /// However it is let go of, the handlers come off the recognizer before they are freed, so a
+    /// late event from it never calls a closure that is gone.
+    fn drop(&mut self) {
         self.want.set(false);
         // Let go of the handlers first: the browser still says it ended, after they are gone.
         for k in ["onresult", "onerror", "onend"] {
