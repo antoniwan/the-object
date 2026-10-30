@@ -154,6 +154,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `scripts/gif.mjs`, `scripts/gif-scenes.mjs` | Films short looping GIFs of the built page for the daily devlog, from scripted scenes on a clock it moves itself (`devlog/README.md`). |
 | `scripts/shader-time.mjs` | Times how long the built page takes to be ready in headless Chromium at 48×32: the number to compare before and after a shader change. |
 | `scripts/load-check.mjs` | Loads the built page in headless Chromium dressed as Chromium, Safari and Firefox, a first visit and a return, and fails if any throws or never wakes. CI runs it. |
+| `scripts/web-server.mjs` | What those three share: a small server for `web/`, finding Playwright and its Chromium, and the software-GPU flags. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
 | `web/llms.txt`, `robots.txt`, `sitemap.xml`, `og.png` | For crawlers and link previews. |
 | `web/site.webmanifest`, `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` | The tab and home-screen icons. |
@@ -176,6 +177,7 @@ On 2026-10-28 the live site crashed a desktop browser. The shader had grown to t
 - **Never blend a huge sentinel arithmetically.** Where a bound is "nothing" (`1e9`, `-1e9`) or a value, choose with `pick()`, which is a select. `a * (1 - m) + b * m` and `mix()` are free for a fast-math compiler to rewrite as `a + (b - a) * m`, which loses `b` entirely when `a` is `1e9`; Safari on the iPhone does that, and the body's span collapsed to nothing.
 - **Grow `marchSpan()` with the scene.** Rays are marched only between the bounds it builds (spheres around the body, its drops, tendrils and the other one, and a layer over the floor). A new shape that reaches past them is cut off; give it its own bound there. On real GPUs a branch on a uniform skips its code; SwiftShader runs it anyway, so fewer `scene()` calls is the only speedup that shows there.
 - **Measure before and after** any shader change: `./build.sh && node scripts/shader-time.mjs` loads the page in headless Chromium at a tiny viewport (48×32), a fresh browser each run, and times how long until it is ready. If it gets noticeably slower, find out why before merging.
+- **Uniform space is nearly full.** WebGL2 promises only 224 vectors of fragment uniforms. Counting each uniform and each array element as one vector, the shader declares 225 (they pack to about 192 rows, which is why it still links). Before adding a uniform, put the value in an unused `.w` (`uSplash[i].w`, `uMere.w`, `uIce.w`, `uWound.w`, `uFold2.w` are free) or pack it beside another; never add an array without counting.
 - On-screen effects that don't need the shader belong in the page (CSS, `glyph.js`), not in `shader.frag`.
 
 The page also guards against slow machines: the loader stays up while the shader compiles in the background (`KHR_parallel_shader_compile`), large screens render at most about 1.6 million pixels and scale up, slow frames lower the resolution until they keep up and quick ones raise it again (`pace.rs`), and a lost WebGL context is recovered.
