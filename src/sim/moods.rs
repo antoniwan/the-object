@@ -27,10 +27,11 @@ impl World {
         self.gaze = ease(self.gaze, goal, -rate * dt);
 
         // Opening: enough of it free at once and the world turns to night.
-        if !self.opened && self.drops.len() >= OPEN_AT {
+        let loose = self.loose();
+        if !self.opened && loose >= OPEN_AT {
             self.opened = true;
             self.events.push(Event::Opened);
-        } else if self.opened && self.drops.is_empty() {
+        } else if self.opened && loose == 0 {
             self.opened = false;
             self.events.push(Event::Closed);
         }

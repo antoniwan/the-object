@@ -147,6 +147,11 @@ impl World {
         self.drops.iter_mut().find(|d| d.id == id)
     }
 
+    /// How many drops are free: the wound's pieces are held in their places, and do not count (wound.rs).
+    pub fn loose(&self) -> usize {
+        self.drops.iter().filter(|d| !self.wound.is_caltrop(d.id)).count()
+    }
+
     /// Still the plain liquid: not divided, fused, burst, or turned into any other form.
     pub fn ordinary(&self) -> bool {
         self.division.whole() && self.fusion.whole() && self.burst.whole() && self.forms.whole()

@@ -72,12 +72,27 @@ pub struct Dust {
     pub press: f32,
     /// What grows out of the mound once it has settled.
     pub growth: Growth,
+    /// The mound as it stands, following the fullest drift (`heap`).
+    mound: Mound,
     pub(super) events: Vec<Event>,
 }
 
+/// Which drift the mound stands on, where, and how far it has grown, 0..1. When another drift
+/// becomes the fullest, the mound sinks where it is before it rises there, so it never jumps.
+#[derive(Clone, Copy, Debug, Default)]
+struct Mound {
+    on: usize,
+    x: f32,
+    z: f32,
+    grown: f32,
+}
+
+/// How fast the mound can grow or sink, of its full height a second.
+const MOUND_RATE: f32 = 2.0;
+
 impl Default for Dust {
     fn default() -> Self {
-        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, growth: Growth::default(), events: Vec::new() }
+        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, growth: Growth::default(), mound: Mound::default(), events: Vec::new() }
     }
 }
 
@@ -172,15 +187,34 @@ impl Dust {
     /// The mound: where it stands (x, z), how wide, how high. It rises out of the
     /// fullest drift as the dust is swept into it, so it never appears from nowhere.
     pub fn heap(&self) -> (f32, f32, f32, f32) {
-        let c = self.clumps[self.biggest()];
-        let grown = match self.phase {
+        let m = self.mound;
+        (m.x, m.z, 0.6 + 1.0 * m.grown.sqrt(), 1.0 * m.grown)
+    }
+
+    /// How far the mound would have grown on drift `k`, by now.
+    fn grown(&self, k: usize) -> f32 {
+        match self.phase {
             Phase::Whole | Phase::Scattering { .. } => 0.0,
-            Phase::Dust => 0.7 * smoothstep(0.2, HEAP_AT, c.amount),
+            Phase::Dust => 0.7 * smoothstep(0.2, HEAP_AT, self.clumps[k].amount),
             Phase::Heaping { t } => 0.7 + 0.3 * smoothstep(0.0, HEAP_SECS, t),
             Phase::Mound => 1.0,
             Phase::Rising { t } => 1.0 - smoothstep(0.0, RISE_SECS * 0.85, t),
-        };
-        (c.x, c.z, 0.6 + 1.0 * grown.sqrt(), 1.0 * grown)
+        }
+    }
+
+    /// The mound follows the fullest drift; another drift fuller, it sinks first, then moves.
+    fn step_mound(&mut self, dt: f32) {
+        let k = self.biggest();
+        // Not standing at all, it is wherever the fullest drift is.
+        if self.mound.grown <= 0.0 {
+            self.mound = Mound { on: k, x: self.clumps[k].x, z: self.clumps[k].z, grown: 0.0 };
+        }
+        let goal = if self.mound.on == k { self.grown(k) } else { 0.0 };
+        let c = self.clumps[self.mound.on];
+        let m = &mut self.mound;
+        m.grown += (goal - m.grown).clamp(-MOUND_RATE * dt, MOUND_RATE * dt);
+        m.x = ease(m.x, c.x, -12.0 * dt);
+        m.z = ease(m.z, c.z, -12.0 * dt);
     }
 
     /// How settled the mound is: grains at 0, one firm thing at 1.
@@ -377,6 +411,7 @@ impl Dust {
                 Phase::Rising { t: t + dt }
             }
         };
+        self.step_mound(dt);
     }
 }
 
@@ -457,5 +492,29 @@ mod tests {
             d.sweep((0.0, 0.0), (6.0, 0.0));
         }
         assert!(d.clumps.iter().all(|c| c.x.hypot(c.z) <= REACH + 1e-3));
+    }
+
+    #[test]
+    fn when_another_drift_becomes_the_fullest_the_mound_sinks_before_it_rises_there() {
+        let mut d = Dust { phase: Phase::Dust, ..Default::default() };
+        d.clumps[0] = Clump { x: -2.0, z: 0.0, amount: 0.45 };
+        d.clumps[1] = Clump { x: 1.5, z: 0.0, amount: 0.30 };
+        d.clumps[2] = Clump { x: 2.6, z: 0.0, amount: 0.25 };
+        run(&mut d, 1.0);
+        let mut was = d.heap();
+        assert!(was.0 < -1.9 && was.3 > 0.2, "on the fullest: {was:?}");
+        // the two smaller drifts swept into one, now the fullest
+        d.sweep((3.2, 0.0), (1.6, 0.0));
+        assert_eq!(d.biggest(), 1);
+        for _ in 0..120 {
+            d.step(1.0 / 60.0);
+            let now = d.heap();
+            assert!((now.3 - was.3).abs() < 0.05, "height jumped: {was:?} -> {now:?}");
+            let moved = (now.0 - was.0).hypot(now.1 - was.1);
+            assert!(moved < 0.05 || was.3 < 0.01, "moved while it stood: {was:?} -> {now:?}");
+            was = now;
+        }
+        let k = d.biggest();
+        assert!((was.0 - d.clumps[k].x).abs() < 1e-4 && was.3 > 0.3, "risen on the new one: {was:?}");
     }
 }

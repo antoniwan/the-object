@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.14] - 2026-10-30
+
+### Fixed
+- The box comes round and night ends while the wound's pieces lie out, and the wound opens only when there is room for enough pieces to fill it; contact cut short comes again that visit and its question is not lost; the other one comes back out where it was; the mound sinks before it moves to another drift. (#94)
+
 ## [1.22.13] - 2026-10-30
 
 ### Fixed
@@ -504,7 +509,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.13...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.14...HEAD
+[1.22.14]: https://github.com/antoniwan/the-object/compare/v1.22.13...v1.22.14
 [1.22.13]: https://github.com/antoniwan/the-object/compare/v1.22.12...v1.22.13
 [1.22.12]: https://github.com/antoniwan/the-object/compare/v1.22.11...v1.22.12
 [1.22.11]: https://github.com/antoniwan/the-object/compare/v1.22.10...v1.22.11

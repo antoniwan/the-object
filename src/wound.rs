@@ -103,12 +103,14 @@ pub struct Wound {
     /// 0..1, how much of it shows: it is on the plain liquid only, and fades while it is anything else.
     pub shown: f32,
     caltrops: Vec<Caltrop>,
+    /// Pieces of the wrong color taken in, waiting for room to be spat back out.
+    taken: Vec<Caltrop>,
     time: f32,
 }
 
 impl Default for Wound {
     fn default() -> Self {
-        Wound { dir: V3::UP, scar: 0.0, phase: Phase::Closed { rest: 0.0 }, fill: 0.0, color: RAW, drip: 0.0, shown: 1.0, caltrops: Vec::new(), time: 0.0 }
+        Wound { dir: V3::UP, scar: 0.0, phase: Phase::Closed { rest: 0.0 }, fill: 0.0, color: RAW, drip: 0.0, shown: 1.0, caltrops: Vec::new(), taken: Vec::new(), time: 0.0 }
     }
 }
 
@@ -138,15 +140,26 @@ impl Wound {
         if self.scar <= 0.0 || !matches!(self.phase, Phase::Closed { rest } if rest <= 0.0) {
             return false;
         }
+        let out = v3(self.dir.x, 0.0, self.dir.z).norm();
+        let out = if out.len() < 0.5 { v3(1.0, 0.0, 0.0) } else { out };
+        // Pieces of the last one may still be drifting home.
+        let before = self.caltrops.len();
+        for k in 0..CALTROPS {
+            self.spill(w, out, k as f32 / CALTROPS as f32);
+        }
+        if self.caltrops.len() - before < TO_HEAL as usize {
+            // Not room enough for it to be filled: what got out is let go of, and it stays shut.
+            for c in self.caltrops.drain(before..) {
+                if let Some(d) = w.drop_mut(c.id) {
+                    d.target = None;
+                }
+            }
+            return false;
+        }
         self.phase = Phase::Opening { t: 0.0 };
         self.scar = 1.0;
         self.fill = 0.0;
         self.color = RAW;
-        let out = v3(self.dir.x, 0.0, self.dir.z).norm();
-        let out = if out.len() < 0.5 { v3(1.0, 0.0, 0.0) } else { out };
-        for k in 0..CALTROPS {
-            self.spill(w, out, k as f32 / CALTROPS as f32);
-        }
         w.add_ripple(self.dir, 0.9);
         true
     }
@@ -288,35 +301,48 @@ pub fn step(g: &mut Game, dt: f32) {
                     g.discover(Discovery::Heal);
                 }
             }
-            Went::Back => {
-                if matches!(wound.phase, Phase::Opening { .. } | Phase::Open) {
-                    let mut w = std::mem::take(&mut g.world.wound);
-                    w.spill_again(&mut g.world, c);
-                    g.world.wound = w;
-                    g.sounds.push(crate::game::Sound::Tear);
-                    g.cam.shake = g.cam.shake.max(0.03);
-                }
-            }
+            Went::Back => wound.taken.push(c),
         }
     }
+    // What it has taken in to give back comes out as soon as there is room for it.
+    let wound = &mut g.world.wound;
+    if !matches!(wound.phase, Phase::Opening { .. } | Phase::Open) {
+        wound.taken.clear();
+    }
+    if wound.taken.is_empty() {
+        return;
+    }
+    let mut w = std::mem::take(&mut g.world.wound);
+    for c in std::mem::take(&mut w.taken) {
+        if w.spill_again(&mut g.world, c) {
+            g.sounds.push(crate::game::Sound::Tear);
+            g.cam.shake = g.cam.shake.max(0.03);
+        } else {
+            w.taken.push(c);
+        }
+    }
+    g.world.wound = w;
 }
 
 impl Wound {
     /// The same piece, spat back out of the wound: up and away, hard, and down to the floor.
-    fn spill_again(&mut self, w: &mut World, c: Caltrop) {
+    /// False when there is no room for it yet.
+    fn spill_again(&mut self, w: &mut World, c: Caltrop) -> bool {
         let from = w.body.pos + self.dir * (w.body.radius() * 1.3);
         let out = v3(self.dir.x, 0.0, self.dir.z);
         let out = if out.len() < 0.3 { (c.rest - w.body.pos).norm() } else { out.norm() };
         let h = c.phase + self.time / CYCLE_SECS;
         // Each its own way, a little, so they do not all land in one place.
         let side = V3::UP.cross(out).norm() * ((c.phase.rem_euclid(1.0) - 0.5) * SPIT);
-        if w.spill(from, out * SPIT + side + V3::UP * (SPIT * 0.6), RADIUS, hue(h)) {
-            let id = w.drops.last().map_or(0, |d| d.id);
-            self.caltrops.push(Caltrop { id, free: 0.0, carried: false, flung: FLUNG_SECS, last_pos: from, ..c });
-            w.add_ripple(self.dir, 0.7);
-            w.body.vel -= out * 0.8;
-            w.body.squash_vel -= 1.5;
+        if !w.spill(from, out * SPIT + side + V3::UP * (SPIT * 0.6), RADIUS, hue(h)) {
+            return false;
         }
+        let id = w.drops.last().map_or(0, |d| d.id);
+        self.caltrops.push(Caltrop { id, free: 0.0, carried: false, flung: FLUNG_SECS, last_pos: from, ..c });
+        w.add_ripple(self.dir, 0.7);
+        w.body.vel -= out * 0.8;
+        w.body.squash_vel -= 1.5;
+        true
     }
 }
 
@@ -484,5 +510,86 @@ mod tests {
         assert!(g.progress.has(Discovery::Scar));
         assert_eq!(g.world.wound.scar, 1.0);
         assert!(g.remembrance.save().contains("scar="));
+    }
+
+    #[test]
+    fn the_box_comes_round_while_the_pieces_lie_out() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        assert!(g.world.ordinary());
+        assert!(g.world.forms.pandora.corner(0.0));
+        run(&mut g, 3.0);
+        for _ in 0..3 {
+            g.world.forms.pandora.knock();
+        }
+        run(&mut g, 60.0);
+        assert!(g.world.wound.is_open());
+        assert!(g.world.forms.pandora.whole(), "{:?}, {} drops", g.world.forms.pandora.phase, g.world.drops.len());
+    }
+
+    #[test]
+    fn the_pieces_neither_bring_night_nor_keep_it() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        let (p, c) = (g.world.body.pos, g.world.body.color);
+        g.world.spill(p + v3(1.5, 0.5, 0.0), V3::ZERO, 0.15, c);
+        g.world.spill(p + v3(-1.5, 0.5, 0.0), V3::ZERO, 0.15, c);
+        run(&mut g, 0.1);
+        assert!(!g.world.opened, "two free and the four pieces are not enough");
+        let ids: Vec<u32> = g.world.drops.iter().filter(|d| !g.world.wound.is_caltrop(d.id)).map(|d| d.id).collect();
+        for id in ids {
+            let i = g.world.drops.iter().position(|d| d.id == id).unwrap();
+            let d = g.world.drops.remove(i);
+            g.world.body.volume += d.r * d.r * d.r;
+        }
+        g.world.opened = true;
+        run(&mut g, 0.1);
+        assert!(g.world.wound.is_open());
+        assert!(!g.world.opened, "only the pieces are out, and night ends");
+    }
+
+    /// Fills the world with small free drops, leaving `room` for more.
+    fn crowd(g: &mut Game, room: usize) {
+        let (p, c) = (g.world.body.pos, g.world.body.color);
+        let mut k = 0.0f32;
+        while g.world.drops.len() < crate::sim::MAX_DROPS - room {
+            g.world.spill(p + v3(2.5 * k.cos(), 0.5, 2.5 * k.sin()), V3::ZERO, 0.05, c);
+            k += 1.0;
+        }
+    }
+
+    #[test]
+    fn with_no_room_for_enough_pieces_it_stays_closed() {
+        let mut g = scarred();
+        crowd(&mut g, TO_HEAL as usize - 1);
+        hurt(&mut g);
+        run(&mut g, 2.0);
+        assert!(!g.world.wound.is_open(), "{} pieces", g.world.wound.caltrops.len());
+        assert!(g.world.wound.caltrops.is_empty());
+        assert!(g.world.drops.iter().all(|d| d.target.is_none()), "the few that got out are let go of");
+    }
+
+    #[test]
+    fn a_piece_spat_out_with_no_room_comes_out_later() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        crowd(&mut g, 0);
+        // One piece goes into the body, and a free drop takes its room the same frame.
+        let id = g.world.wound.caltrops[0].id;
+        let i = g.world.drops.iter().position(|d| d.id == id).unwrap();
+        let d = g.world.drops.remove(i);
+        g.world.body.volume += d.r * d.r * d.r;
+        let (p, c) = (g.world.body.pos, g.world.body.color);
+        assert!(g.world.spill(p + v3(0.0, 0.5, 2.5), V3::ZERO, 0.05, c));
+        run(&mut g, 0.5);
+        assert_eq!(g.world.wound.caltrops.len(), CALTROPS - 1, "no room yet");
+        let free = g.world.drops.iter().position(|d| !g.world.wound.is_caltrop(d.id)).unwrap();
+        let d = g.world.drops.remove(free);
+        g.world.body.volume += d.r * d.r * d.r;
+        run(&mut g, 0.5);
+        assert_eq!(g.world.wound.caltrops.len(), CALTROPS, "it came back out");
     }
 }
