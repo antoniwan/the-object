@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.7] - 2026-10-30
+
+### Changed
+- The scripts that film, time and load the page share one small server and one way to start the browser, comments in the page point at the files as they are now, and CI keeps its downloads between runs. The page is the same. (#87)
+
 ## [1.22.6] - 2026-10-30
 
 ### Changed
@@ -469,7 +474,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.6...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.7...HEAD
+[1.22.7]: https://github.com/antoniwan/the-object/compare/v1.22.6...v1.22.7
 [1.22.6]: https://github.com/antoniwan/the-object/compare/v1.22.5...v1.22.6
 [1.22.5]: https://github.com/antoniwan/the-object/compare/v1.22.4...v1.22.5
 [1.22.4]: https://github.com/antoniwan/the-object/compare/v1.22.3...v1.22.4
