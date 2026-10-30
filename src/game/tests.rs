@@ -349,7 +349,8 @@ fn holding_still_warms_instead_of_poking() {
     assert!(g.world.body.color != crate::sim::PEARL);
     g.pointer_up(1);
     assert!(!g.world.warming);
-    assert!(g.world.ripples.is_empty());
+    // only the give of the press, no poke
+    assert!(g.world.ripples.iter().all(|r| r.amp <= PRESS) && !g.progress.has(Discovery::Poke));
     assert!(g.progress.has(Discovery::Warm));
 }
 
@@ -685,7 +686,8 @@ fn a_cancelled_touch_finishes_nothing() {
     wait(&mut g, 0.2);
     g.drop_hand(1);
     wait(&mut g, 0.6);
-    assert!(!g.progress.has(Discovery::Poke) && g.world.ripples.is_empty());
+    // it gave under the finger, and no more
+    assert!(!g.progress.has(Discovery::Poke) && g.world.ripples.iter().all(|r| r.amp <= PRESS));
     assert!(g.pointers.is_empty() && matches!(g.gesture, Gesture::Idle));
     // a short tug taken away: not a pinch
     tug_cancelled(&mut g, (450.0, 300.0), (1.0, 0.0), 24.0, 3, 1.0 / 120.0);
@@ -1417,4 +1419,110 @@ fn held_taut_the_tendril_sinks_back_as_it_becomes_the_thread() {
         }
         last = Some(shown);
     }
+}
+
+#[test]
+fn a_flick_stopped_and_held_before_letting_go_is_not_a_throw() {
+    // pulled fast, then held still a moment before the finger lifts: the hand has stopped
+    let mut g = game();
+    tug(&mut g, (400.0, 300.0), (1.0, 0.0), 40.0, 4, 1.0 / 120.0, 0.4);
+    wait(&mut g, 0.1);
+    assert!(!g.progress.has(Discovery::Throw));
+    assert!(g.world.body.vel.len() < 2.0, "it hardly moves: {:?}", g.world.body.vel);
+    // the same pull let go while still moving throws it
+    let mut g = game();
+    tug(&mut g, (400.0, 300.0), (1.0, 0.0), 40.0, 4, 1.0 / 120.0, 0.0);
+    assert!(g.progress.has(Discovery::Throw));
+}
+
+#[test]
+fn it_gives_under_the_finger_at_once_and_the_tap_gives_the_rest() {
+    let mut g = game();
+    g.pointer_down(1, 400.0, 300.0);
+    // before anything is let go, it has already given
+    assert_eq!(g.world.ripples.len(), 1);
+    assert!((g.world.ripples[0].amp - PRESS).abs() < 1e-6);
+    assert!(g.world.body.squash_vel < 0.0 && g.world.body.vel.len() > 0.0);
+    assert!(!g.progress.has(Discovery::Poke));
+    wait(&mut g, 0.1);
+    g.pointer_up(1);
+    // let go, it is one poke, as hard as ever, in one ripple
+    assert!(g.progress.has(Discovery::Poke));
+    assert_eq!(g.world.ripples.len(), 1);
+    assert!((g.world.ripples[0].amp - 1.0).abs() < 1e-5, "{}", g.world.ripples[0].amp);
+}
+
+#[test]
+fn a_press_held_and_let_go_counts_as_nothing() {
+    let mut g = game();
+    // pressed and held, again and again, past the twelve pokes that would burst it
+    for _ in 0..14 {
+        g.pointer_down(1, 400.0, 300.0);
+        wait(&mut g, HOLD + 0.1);
+        g.pointer_up(1);
+        wait(&mut g, 0.05);
+    }
+    assert!(!g.progress.has(Discovery::Poke) && !g.progress.has(Discovery::Provoke));
+    assert_eq!(g.world.burst.wounds, 0.0);
+    assert!(g.world.agitation < 1e-6 && g.world.burst.whole());
+    assert!(g.world.ripples.len() <= crate::sim::MAX_RIPPLES);
+}
+
+#[test]
+fn held_on_it_it_rises_into_the_finger_and_sinks_back_when_let_go() {
+    let mut g = game();
+    wait(&mut g, 0.2);
+    g.pointer_down(1, 430.0, 280.0);
+    let dir = g.press.expect("it gave");
+    let mut last = g.world.gaze;
+    for i in 0..60 {
+        g.update(1.0 / 60.0);
+        let now = g.world.gaze;
+        assert!(now >= last - 1e-6 && now - last < 0.03, "it rises without a jump at {i}: {last} -> {now}");
+        last = now;
+    }
+    assert!(last > 0.1 && last <= PALM + 1e-4, "{last}");
+    assert!(g.world.gaze_dir.dot(dir) > 0.95, "toward the finger");
+    // it warms on top of it, after the hold
+    assert!(g.world.warming);
+    g.pointer_up(1);
+    let mut was = g.world.gaze;
+    for _ in 0..90 {
+        g.update(1.0 / 60.0);
+        assert!(g.world.gaze <= was && was - g.world.gaze < 0.03, "it sinks back without a jump");
+        was = g.world.gaze;
+    }
+    assert!(was < 0.02);
+}
+
+#[test]
+fn a_tap_let_go_after_it_began_to_rise_does_not_drop_it() {
+    let mut g = game();
+    g.pointer_down(1, 400.0, 300.0);
+    wait(&mut g, 0.4);
+    let before = g.world.gaze;
+    assert!(before > 0.05);
+    g.pointer_up(1);
+    assert!(g.progress.has(Discovery::Poke));
+    assert!(g.world.gaze >= before - 1e-6, "{before} -> {}", g.world.gaze);
+}
+
+#[test]
+fn a_flick_not_quite_a_throw_only_lurches_it() {
+    let mut g = game();
+    // to the right, about nine tenths as fast as a throw
+    tug(&mut g, (400.0, 300.0), (1.0, 0.0), 10.0, 16, 1.0 / 120.0, 0.0);
+    assert!(!g.progress.has(Discovery::Throw));
+    let right = g.cam.basis().right;
+    assert!(g.world.body.vel.dot(right) > 1.5, "{:?}", g.world.body.vel);
+    // far slower, it does not
+    let mut g = game();
+    tug(&mut g, (400.0, 300.0), (1.0, 0.0), 2.0, 80, 1.0 / 120.0, 0.0);
+    assert!(g.world.body.vel.dot(right) < 1.0, "{:?}", g.world.body.vel);
+    // and straight down, just short of a throw, it never reaches the floor hard enough to slam
+    let mut g = game();
+    tug(&mut g, (400.0, 300.0), (0.0, 1.0), 10.5, 16, 1.0 / 120.0, 0.0);
+    wait(&mut g, 2.0);
+    assert!(!g.progress.has(Discovery::Throw) && !g.progress.has(Discovery::Slam));
+    assert!(g.world.fusion.whole());
 }

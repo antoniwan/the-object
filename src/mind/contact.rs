@@ -339,12 +339,13 @@ impl Contact {
         }
     }
 
-    /// The player pressed on the body (before it is known whether this is a poke).
-    pub fn touched(&mut self, dir: V3, stage: Stage, world: &mut World) {
+    /// The player pressed on the body (before it is known whether this is a poke). Returns
+    /// true if it pulled away from the hand.
+    pub fn touched(&mut self, dir: V3, stage: Stage, world: &mut World) -> bool {
         if let Some((Await::Touch, _)) = self.awaiting {
             self.answer();
         }
-        self.approach(dir, stage, world);
+        self.approach(dir, stage, world)
     }
 
     /// The pointer is over the body at `dir`, nothing pressed; or `None`, over nothing.
@@ -363,20 +364,21 @@ impl Contact {
         }
     }
 
-    /// A hand coming toward the place it is always touched: it pulls away first.
-    fn approach(&mut self, dir: V3, stage: Stage, world: &mut World) {
+    /// A hand coming toward the place it is always touched: it pulls away first. Returns true if it did.
+    fn approach(&mut self, dir: V3, stage: Stage, world: &mut World) -> bool {
         let sure = self.habits[0] >= 4 && self.spot.len() > 2.0;
         if stage < Stage::Regard || !sure || self.flinch_wait > 0.0 || !world.ordinary() || self.acting() {
-            return;
+            return false;
         }
         if dir.dot(self.spot.norm()) < 0.75 {
-            return;
+            return false;
         }
         self.flinch_wait = 3.0;
         world.body.vel -= dir * 1.6;
         world.body.squash_vel -= 1.5;
         world.add_ripple(-dir, 0.25);
         self.events.push(Event::Flinched);
+        true
     }
 
     fn answer(&mut self) {

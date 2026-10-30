@@ -177,9 +177,13 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | --- | --- | --- |
 | `TAP_SLOP` | 0.012 canvas heights | moved less than this, it was a tap |
 | `SLID_TAP_SECS` | 0.3 s | a press that slid past `TAP_SLOP` but pulled less than a pinch, let go this soon, is still a tap |
+| `PRESS` | 0.3 of a poke | a press on it gives at once, a dent and a small give, before anything is let go; the tap, let go, gives the other 0.7, in the same ripple if the dent is under 0.25 s old (`PRESS_FOLD_SECS`). The press alone is never counted: not a poke, a wound, an upset or a discovery. A flinch from the hand takes its place |
+| `PALM` / `PALM_RISE` | 0.18 / 0.5 s | a finger held on it: it rises toward the finger (the swell of watching, turning to it at rate 6 / s), up to this much, under regard's 0.22, from the moment it is pressed; let go, it sinks back at the swell's own rate, and the tap does not startle it out of it |
 | `HOLD` | 0.55 s | held still this long, it becomes warming |
 | `IDLE_WATCH` | 12 s | left alone this long, it starts watching the pointer |
 | `THROW_SPEED` | 2.2 canvas heights / s | a flick faster than this throws it |
+| `LURCH_FROM` / `LURCH_PUSH` | 0.5 of `THROW_SPEED` / 4 units / s | a stretch let go with a flick slower than a throw but at least this fast lurches it that way, by as much as the flick came near, at most this hard and never down hard enough to slam; not a throw, and a pinch still wins |
+| `STOPPED_SECS` / `STOPPED_RATE` | 0.05 s / 12 / s | a hand that stops moving loses its speed after this long, at this rate: a flick stopped and held before letting go is not a flick |
 | `SLICE_MAX_SECS` | 0.35 s | a swipe must cross it this fast to cut |
 | `PINCH_MAX_SECS` | 0.4 s | a tug let go this fast is a pinch |
 | `NEAR_MAX_SECS` | 1.1 s | the same tug let go later than a pinch but sooner than this: a bud nearly rises and sinks back over 1.3 s; on the flower, its petals flinch in by 0.18 of how open it is and open again over 1.4 s (`forms/bloom.rs`) |
@@ -249,7 +253,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | scar | hurt 8 times ever (a break counts twice) | it scars where it is struck most (`wound.rs`) |
 | wound | opens 1.2 s, closes 3 s, then rests 20 s | a scar hurt again opens; three green pieces fill it |
 | spat out | 4.5 out, 2.7 up, falling at 16, bouncing at 45%, 2.2 s | a piece of the wrong color, thrown back down to the floor |
-| shock | flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)`, gone at 1.5 s | the moment after anything shakes the room |
+| shake | `exp(-4 t)`, toward 0.003 under nothing so it ends | the room shaken by a burst (0.12) is still in under a second, by a slam (0.09) in about 0.9 s (`camera.rs`) |
+| shock | `exp(-3 t)`, reaching nothing at 1.5 s; flash `exp(-16 t)`, wash `exp(-2.2 t)`, ring 2.4 screen heights / s fading `exp(-1.8 t)` | the moment after anything shakes the room |
 | the cut's line | runs out from it at 14 screen heights / s, fading with the seam (`exp(-5 t)`, its core twice as fast), its colors parting as it fades | the room cut with it, inside the hit-stop and just after |
 | the burst's rays | reach out as the pop's white fades (`exp(-6 t)`), gone with it | |
 
@@ -336,7 +341,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 
 | Gesture | On | Verb | If pushed further, it becomes | Module |
 | --- | --- | --- | --- | --- |
-| tap | the liquid | poke | twelve pokes unhealed: burst into the twelve | `burst/mod.rs` |
+| tap | the liquid | poke (it gives under the finger as it lands; the tap is let go) | twelve pokes unhealed: burst into the twelve | `burst/mod.rs` |
 | tap | empty space | call | it reaches toward the place | `sim/` |
 | press and drag | the liquid | stretch | far enough: tear off a drop | `sim/` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
@@ -348,9 +353,9 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
 | keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |
 | draw a square | around it | (corners) | a box; knock three times | `forms/pandora.rs` |
-| press and hold still | the liquid | warm | color shift | `sim/` |
+| press and hold still | the liquid | warm (it rises into the finger at once; the color comes after `HOLD`) | color shift | `sim/` |
 | fast swipe through | the liquid | slice | two cells; again: many, then grain, an eye, stone | `meiosis.rs`, `morula.rs` |
-| flick hard downward | the liquid | throw / slam | it fuses with the floor | `fusion.rs`, `mere.rs` |
+| flick hard downward | the liquid | throw / slam (a flick not quite fast enough only lurches it) | it fuses with the floor | `fusion.rs`, `mere.rs` |
 | pinch (on the screen or a trackpad) or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim/` |
 | set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |

@@ -4,6 +4,13 @@ use crate::math::*;
 
 /// Focal length used by both the picker and the shader.
 pub const FOCAL: f32 = 1.9;
+/// The shake dies away at this rate a second, toward a little under nothing (`SHAKE_UNDER`, world
+/// units) so that it ends: the hardest (a burst, 0.12) in under a second, a slam in about 0.9 s.
+const SHAKE_RATE: f32 = 4.0;
+const SHAKE_UNDER: f32 = 0.003;
+/// A shock fades at this rate a second, reaching nothing at `SHOCK_SECS`.
+const SHOCK_RATE: f32 = 3.0;
+const SHOCK_SECS: f32 = 1.5;
 
 pub struct Camera {
     pub yaw: f32,
@@ -57,11 +64,13 @@ impl Camera {
         Basis { pos, right, up, fwd }
     }
 
-    /// The last shock: how hard (0..1), fading over a second and a half, and seconds since it.
+    /// The last shock: how hard (0..1), fading exponentially to nothing over a second and a
+    /// half, and seconds since it.
     pub fn shock(&self) -> (f32, f32) {
         let (amount, age) = self.shock;
         let amount = if self.still { amount * 0.4 } else { amount };
-        (amount * (1.0 - age / 1.5).max(0.0), age)
+        let end = (-SHOCK_RATE * SHOCK_SECS).exp();
+        (amount * (((-SHOCK_RATE * age).exp() - end) / (1.0 - end)).max(0.0), age)
     }
 
     /// Ray through a pixel, with (0,0) at the top-left of a `w` x `h` canvas.
@@ -96,7 +105,9 @@ impl Camera {
         } else {
             self.shock.1 += dt;
         }
-        self.shake = (self.shake - dt * 0.12).max(0.0);
+        if self.shake > 0.0 {
+            self.shake = ((self.shake + SHAKE_UNDER) * (-SHAKE_RATE * dt).exp() - SHAKE_UNDER).max(0.0);
+        }
         self.last_shake = self.shake;
         if !held {
             self.orbit(self.yaw_vel * dt, self.pitch_vel * dt);
@@ -126,10 +137,37 @@ mod tests {
         c.step(0.016, false);
         let (amount, age) = c.shock();
         assert!(amount > 0.95 && age < 0.02);
+        // it dies away as everything does: most of it at once, the rest slowly
+        let mut seen = vec![c.shock().0];
         for _ in 0..120 {
             c.step(0.016, false);
+            seen.push(c.shock().0);
         }
         assert_eq!(c.shock().0, 0.0);
+        assert_eq!(c.shake, 0.0);
+        let at = |t: f32| seen[(t / 0.016) as usize];
+        assert!(at(0.375) < 0.4, "gone fastest at first: {}", at(0.375));
+        assert!(at(0.75) > 0.0 && at(1.45) > 0.0 && at(1.45) < 0.01, "and slowly to nothing");
+        assert!(seen.windows(2).all(|w| w[1] <= w[0]), "it never comes back");
+    }
+
+    #[test]
+    fn the_shake_dies_away_rather_than_running_down() {
+        let mut c = Camera::new();
+        c.shake = 0.12;
+        let mut t = 0.0;
+        let mut half = None;
+        while c.shake > 0.0 {
+            c.step(0.016, false);
+            t += 0.016;
+            if half.is_none() && c.shake < 0.06 {
+                half = Some(t);
+            }
+        }
+        // a straight line would take half the time to lose half
+        let half = half.unwrap();
+        assert!(half < 0.3 * t, "half gone in {half} of {t} s");
+        assert!((0.6..1.1).contains(&t), "about as long as it always took: {t} s");
     }
 
     #[test]
