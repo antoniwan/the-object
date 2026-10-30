@@ -209,7 +209,8 @@ impl Kin {
         if g.count_ones() < 2 {
             return;
         }
-        self.passing.clear();
+        // a touch already running through another group goes on
+        self.passing.retain(|&(j, _)| g & (1 << j) == 0);
         let mut reached: Group = 1 << i;
         let mut front: Group = 1 << i;
         let mut hop = 0.0;
@@ -454,6 +455,30 @@ mod tests {
             }
         }
         assert_eq!(felt, vec![1, 2]);
+    }
+
+    #[test]
+    fn a_touch_on_one_group_leaves_another_groups_touch_running() {
+        let land = Land::default();
+        let mut k = Kin::default();
+        let mut s = shards(row(&[0.0, 3.0, 6.0, 40.0, 43.0]));
+        let homes = s.map(|s| s.home);
+        settle(&mut k, &homes, 5);
+        assert_eq!(k.groups(), vec![0b00111, 0b11000]);
+        k.drain_events();
+        k.touch(0);
+        k.touch(3);
+        let mut felt = Vec::new();
+        for _ in 0..60 {
+            k.step(1.0 / 60.0, &mut s, &SIZES, &land, |_| false);
+            for e in k.drain_events() {
+                if let Event::Felt { i } = e {
+                    felt.push(i);
+                }
+            }
+        }
+        felt.sort();
+        assert_eq!(felt, vec![1, 2, 4]);
     }
 
     #[test]

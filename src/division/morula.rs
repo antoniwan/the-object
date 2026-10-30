@@ -339,7 +339,10 @@ impl Morula {
             }
             Stage::Compacting { t } => Stage::Compacting { t: t + dt },
             Stage::Thawing { t } if t + dt >= THAW_SECS => {
-                self.events.push(Event::Thawed);
+                // once, on the frame it ends; it rests at THAW_SECS after that
+                if t < THAW_SECS {
+                    self.events.push(Event::Thawed);
+                }
                 Stage::Thawing { t: THAW_SECS }
             }
             Stage::Thawing { t } => Stage::Thawing { t: t + dt },
@@ -630,6 +633,8 @@ mod tests {
         assert!(m.thaw());
         settle(&mut m, THAW_SECS + 0.1);
         assert!(m.drain_events().contains(&Event::Thawed));
+        settle(&mut m, 0.5);
+        assert!(!m.drain_events().contains(&Event::Thawed), "said once, not every frame after");
     }
 
     #[test]
