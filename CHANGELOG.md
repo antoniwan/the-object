@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.10] - 2026-10-30
+
+### Fixed
+- A drop torn off never leaves it smaller than it can ever be; thawing from stone is noticed once, not every moment after; a touch running through one group of the twelve keeps running when another group is touched. (#90)
+
 ## [1.22.9] - 2026-10-30
 
 ### Fixed
@@ -484,7 +489,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.9...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.10...HEAD
+[1.22.10]: https://github.com/antoniwan/the-object/compare/v1.22.9...v1.22.10
 [1.22.9]: https://github.com/antoniwan/the-object/compare/v1.22.8...v1.22.9
 [1.22.8]: https://github.com/antoniwan/the-object/compare/v1.22.7...v1.22.8
 [1.22.7]: https://github.com/antoniwan/the-object/compare/v1.22.6...v1.22.7
