@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.19] - 2026-10-30
+
+### Fixed
+- While the body is another form, the hidden wound neither heals nor spits pieces out; what it took in comes back once it is itself and the wound can be seen. The other one given back midway no longer darkens and shrinks in a frame. A touch the browser cancels finishes nothing (#99)
+
 ## [1.22.18] - 2026-10-30
 
 ### Fixed
@@ -529,7 +534,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.18...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.19...HEAD
+[1.22.19]: https://github.com/antoniwan/the-object/compare/v1.22.18...v1.22.19
 [1.22.18]: https://github.com/antoniwan/the-object/compare/v1.22.17...v1.22.18
 [1.22.17]: https://github.com/antoniwan/the-object/compare/v1.22.16...v1.22.17
 [1.22.16]: https://github.com/antoniwan/the-object/compare/v1.22.15...v1.22.16
