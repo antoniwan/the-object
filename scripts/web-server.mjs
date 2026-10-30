@@ -12,7 +12,14 @@ export const { chromium } = createRequire(import.meta.url)('playwright');
 export const SOFTWARE_GPU = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
 
 export const root = new URL('../web/', import.meta.url).pathname;
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon' };
+const types = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.wasm': 'application/wasm',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
 
 /** Serves web/ on a free port; returns the page's address and the server, to close when done. */
 export function serve() {

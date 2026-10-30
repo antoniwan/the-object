@@ -23,20 +23,28 @@ function inline(text) {
 }
 
 export function toHtml(md) {
-  const blocks = md.replace(/^# .*\n/, '').split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
-  return blocks
-    .map((b) => {
-      if (b === '---') return '<hr>';
-      const pic = b.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
-      if (pic) return `<p><img src="${pic[2]}" alt="${escape(pic[1])}"></p>`;
-      return `<p>${inline(b.split('\n').join(' '))}</p>`;
-    })
-    .join('\n') + '\n';
+  const blocks = md
+    .replace(/^# .*\n/, '')
+    .split(/\n\s*\n/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  return (
+    blocks
+      .map((b) => {
+        if (b === '---') return '<hr>';
+        const pic = b.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
+        if (pic) return `<p><img src="${pic[2]}" alt="${escape(pic[1])}"></p>`;
+        return `<p>${inline(b.split('\n').join(' '))}</p>`;
+      })
+      .join('\n') + '\n'
+  );
 }
 
 // The pages there are: the game's description and every daily post.
 export function pages() {
-  const daily = readdirSync(`${root}devlog`).filter((n) => /^\d{4}-\d\d-\d\d\.md$/.test(n)).map((n) => `devlog/${n}`);
+  const daily = readdirSync(`${root}devlog`)
+    .filter((n) => /^\d{4}-\d\d-\d\d\.md$/.test(n))
+    .map((n) => `devlog/${n}`);
   return ['itch/page.md', ...daily];
 }
 

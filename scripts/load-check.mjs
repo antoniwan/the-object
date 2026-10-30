@@ -10,10 +10,13 @@ import { SOFTWARE_GPU, chromium, serve } from './web-server.mjs';
 
 const { url, server } = serve();
 
-const hide = (name) => `Object.defineProperty(Navigator.prototype, ${JSON.stringify(name)}, { get: () => undefined, configurable: true });`;
+const hide = (name) =>
+  `Object.defineProperty(Navigator.prototype, ${JSON.stringify(name)}, { get: () => undefined, configurable: true });`;
 const browsers = {
   chromium: '',
-  safari: hide('userAgentData') + 'window.webkitSpeechRecognition = window.webkitSpeechRecognition || function () {}; delete window.SpeechRecognition;',
+  safari:
+    hide('userAgentData') +
+    'window.webkitSpeechRecognition = window.webkitSpeechRecognition || function () {}; delete window.SpeechRecognition;',
   firefox: hide('userAgentData') + 'delete window.SpeechRecognition; delete window.webkitSpeechRecognition;',
 };
 
@@ -28,11 +31,20 @@ for (const [name, script] of Object.entries(browsers)) {
   for (const visit of ['first', 'return']) {
     await (visit === 'first' ? page.goto(url) : page.reload());
     const woke = await page
-      .waitForFunction(() => document.body.classList.contains('awake') || document.body.classList.contains('failed'), null, { timeout: 60000 })
-      .then(() => page.evaluate(() => document.body.classList.contains('awake')), () => false);
+      .waitForFunction(
+        () => document.body.classList.contains('awake') || document.body.classList.contains('failed'),
+        null,
+        { timeout: 60000 },
+      )
+      .then(
+        () => page.evaluate(() => document.body.classList.contains('awake')),
+        () => false,
+      );
     await page.waitForTimeout(1500);
     const ok = woke && errors.length === 0;
-    console.log(`${ok ? 'ok  ' : 'FAIL'} ${name} ${visit}${errors.length ? ': ' + errors.join(' | ') : woke ? '' : ': never woke'}`);
+    console.log(
+      `${ok ? 'ok  ' : 'FAIL'} ${name} ${visit}${errors.length ? ': ' + errors.join(' | ') : woke ? '' : ': never woke'}`,
+    );
     if (!ok) bad++;
     errors.length = 0;
   }
