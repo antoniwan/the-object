@@ -28,6 +28,21 @@ const FADE: f64 = 0.012;
 /// How long after the fade begins the context is suspended (ms): several time constants.
 const FADE_MS: i32 = 90;
 
+/// How the phone plays the page's sound, where the browser lets it be said (Safari's
+/// `navigator.audioSession`): at rest, as a page's quiet sounds (`ambient`: the ringer switch
+/// silences it, and someone else's music goes on under it); while the microphone is open, as a
+/// call on the speaker (`play-and-record`), or a note sung back would come out of the earpiece.
+/// Elsewhere, or if the browser will not, nothing changes and nothing is said.
+pub fn route(listening: bool) {
+    let Some(w) = web_sys::window() else { return };
+    let session = super::get(&w.navigator(), "audioSession");
+    if !session.is_object() {
+        return;
+    }
+    let kind = if listening { "play-and-record" } else { "ambient" };
+    let _ = js_sys::Reflect::set(&session, &JsValue::from_str("type"), &JsValue::from_str(kind));
+}
+
 /// A continuous sound's frequency and gain, and where each was last sent.
 struct Voice {
     freq: Glide,

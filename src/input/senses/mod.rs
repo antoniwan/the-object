@@ -3,9 +3,11 @@
 //! microphone or the camera (platform/web/, devices.rs). Hearing can also be given from the
 //! first moment, by a tap on the small microphone in the corner, which waits there until it is.
 //! On phones that only let a page feel how they are held after asking, it asks for that the
-//! same way, a little earlier (`hold the room.`); what it does with it is in motion.rs. Words come out of hearing (words.rs): where the
-//! browser can only make them by sending the voice away, that is asked for on its own, last
-//! (`say something.`), with a line under the word saying so.
+//! same way, but from early in any visit, whatever it has learned of the player (`hold the
+//! room.`), after the word to hear if both are due; what it does with it is in motion.rs. Words
+//! come out of hearing (words.rs): where the browser can only make them by sending the voice
+//! away, that is asked for on its own, last (`say something.`), with a line under the word
+//! saying so.
 //!
 //! - hearing (offered once it echoes, `speak.`): a voice makes the surface tremble where its
 //!   pitch lands, high notes high on the body. A note held and then let go comes back as a hum
@@ -429,13 +431,14 @@ impl Senses {
         if !calm {
             return;
         }
-        // Feeling first: it is the least of the three to be let have.
-        let kind = if self.can_feel && !self.offered_feel && self.feel == Leave::Closed && look.stage >= Stage::Regard {
-            self.offered_feel = true;
-            Kind::Feel
-        } else if self.can_hear && !self.offered_hear && self.hear == Leave::Closed && look.stage >= Stage::Echo {
+        // Hearing first once it echoes; feeling waits for no stage of the arc (it asks for the
+        // room, not for the player), but never crowds the word to hear: the gap keeps them apart.
+        let kind = if self.can_hear && !self.offered_hear && self.hear == Leave::Closed && look.stage >= Stage::Echo {
             self.offered_hear = true;
             Kind::Hear
+        } else if self.can_feel && !self.offered_feel && self.feel == Leave::Closed {
+            self.offered_feel = true;
+            Kind::Feel
         } else if self.can_see && !self.offered_see && self.see == Leave::Closed && look.stage >= Stage::Initiative {
             self.offered_see = true;
             Kind::See
