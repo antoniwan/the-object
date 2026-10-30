@@ -10,9 +10,10 @@
 //! saying so.
 //!
 //! - hearing (offered once it echoes, `speak.`): a voice makes the surface tremble where its
-//!   pitch lands, high notes high on the body. A note held and then let go comes back as a hum
-//!   of the same pitch, low and short; while it hums it does not listen, so it never hears
-//!   itself. A whisper and it goes still and leans in, its near side shivering. A breath blown at
+//!   pitch lands, high notes high on the body. A note held and then let go comes back as a hum,
+//!   low and short: the same note at first, and once it echoes, a fifth under the note it has
+//!   learned you sing. On its turn it may hum that note first, unasked (contact.rs). While it
+//!   hums it does not listen, so it never hears itself. A whisper and it goes still and leans in, its near side shivering. A breath blown at
 //!   it presses in the side nearest you and pushes it away; kept up, it takes a drop off the far
 //!   side. A sudden loud sound and it flinches; a shout kept up and it is upset.
 //! - sight (offered once it takes turns, `show yourself.`): only coarse things, never a face or
@@ -20,8 +21,10 @@
 //!   change was. It turns toward wherever you moved last, flinches from a fast movement, and
 //!   when the lens is covered the room goes dark with it. The eye, if there is one, follows.
 //!
-//! Every sound and every frame is reduced here to a few numbers and then dropped; nothing is
-//! kept, nothing leaves the browser. Stopping is always one key or one tap away. A refusal is
+//! Every sound and every frame is reduced here to a few numbers and then dropped; nothing
+//! leaves the browser. One number is kept: the note the player tends to sing, in Hz, a slow
+//! running middle of the notes they held (remembrance.rs, in the browser's own storage). Never
+//! a sound, never a recording; only that one number, so it can answer in it. Stopping is always one key or one tap away. A refusal is
 //! remembered (`save` / `load`) and never asked again.
 
 use crate::math::*;
@@ -188,6 +191,10 @@ pub struct Senses {
     tremble: f32,
     /// A note it is humming back, and how far into it.
     hum: Option<(f32, f32)>,
+    /// A note the player held and let go (Hz), for the game to take (`take_sung`).
+    sung: Option<f32>,
+    /// The note it has learned the player sings (Hz), set by the game each frame.
+    pub learned: Option<f32>,
     /// Seconds it will not listen for, because it is making a sound of its own.
     deaf: f32,
 
@@ -235,6 +242,8 @@ impl Default for Senses {
             flinch_wait: 0.0,
             tremble: 0.0,
             hum: None,
+            sung: None,
+            learned: None,
             deaf: 0.0,
             seen: None,
             you: (0.0, 0.0),
@@ -374,6 +383,22 @@ impl Senses {
     /// It is making a sound (audio.rs) and should not take it for the player's.
     pub fn deafen(&mut self, secs: f32) {
         self.deaf = self.deaf.max(secs);
+    }
+
+    /// The note the player last held and let go (Hz), once.
+    pub fn take_sung(&mut self) -> Option<f32> {
+        self.sung.take()
+    }
+
+    /// It hums `f` first, unasked, if it may hear and is not humming already. Humming, it does
+    /// not listen, as for any hum.
+    pub fn hum_first(&mut self, f: f32) -> bool {
+        if self.hear != Leave::Open || self.hum.is_some() || !f.is_finite() || f <= 0.0 {
+            return false;
+        }
+        self.hum = Some((hum_pitch(f), 0.0));
+        self.note = (0.0, 0.0);
+        true
     }
 
     /// The note it is humming back now, in Hz, and how loud (0..1), if any.
@@ -532,7 +557,13 @@ impl Senses {
             if self.unvoiced > 0.3 {
                 self.voiced = 0.0;
                 if self.note.1 >= HELD_SECS {
-                    self.hum = Some((hum_pitch(self.note.0), 0.0));
+                    // Once it echoes, it answers a fifth under the note it knows you by.
+                    let back = match self.learned {
+                        Some(l) if look.stage >= Stage::Echo => l * 2.0 / 3.0,
+                        _ => self.note.0,
+                    };
+                    self.hum = Some((hum_pitch(back), 0.0));
+                    self.sung = Some(self.note.0);
                     self.found.push(Discovery::Sing);
                 }
                 self.note = (0.0, 0.0);

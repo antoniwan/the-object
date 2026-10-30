@@ -20,6 +20,10 @@
 //! made, how upset it is, whether it is being held, hummed to or sung back to, whether its
 //! question was answered), so no verb has to call it. Other code can still add a deed with
 //! `remember`.
+//!
+//! - **It learns your note.** Beside the deeds it keeps one number: the note you tend to sing,
+//!   in Hz, a slow running middle of every note you held and let go (`sung`). Never a sound,
+//!   only that number; a save without it loads with none.
 
 use crate::game::{Game, Sound};
 use crate::math::*;
@@ -55,6 +59,13 @@ const SAVE_EVERY: f32 = 30.0;
 const SCAR_AT: f64 = 8.0;
 /// How near (in body radii, on the plane through it) a pointer has to come to be greeted.
 const GREET_NEAR: f32 = 1.8;
+/// The notes it keeps of you lie within these (Hz); anything else read back is none.
+const PITCH_LO: f32 = 50.0;
+const PITCH_HI: f32 = 1200.0;
+/// How far one note sung moves the note it knows you by, at most, in octaves: a semitone. Moved
+/// by at most a step each way, it settles on the middle of what you sing, and one stray note
+/// moves it little.
+const PITCH_STEP: f32 = 1.0 / 12.0;
 
 /// Something that happened to it, as it saw it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -248,6 +259,8 @@ pub struct Remembrance {
     /// When it first met you, and when you were last here (unix seconds).
     born: f64,
     seen: f64,
+    /// How long you had been away when this visit began (seconds); 0 on a first visit.
+    away: f64,
     /// The clock, unix seconds: set at load, moved on by every frame.
     now: f64,
     greeting: Greeting,
@@ -258,11 +271,12 @@ pub struct Remembrance {
     /// The flower spun nearly dizzy: how many times it kept, and the way it learned you turn it
     /// (+1 or -1; 0 not yet) (forms/spin.rs).
     spun: (u32, f32),
+    /// The note it knows you by, in Hz, if you have ever sung to it.
+    pitch: Option<f32>,
     // ---- what it was watching last frame
     upset: bool,
     held: f32,
     hummed: bool,
-    sang: bool,
     whole: bool,
     answered: Option<u32>,
     stayed: f32,
@@ -284,15 +298,16 @@ impl Remembrance {
             ledger: Ledger { at: now, ..Default::default() },
             born: now,
             seen: now,
+            away: 0.0,
             now,
             greeting: Greeting::Done,
             scar: (V3::UP, 0.0),
             scar_shown: false,
             spun: (0, 0.0),
+            pitch: None,
             upset: false,
             held: 0.0,
             hummed: false,
-            sang: false,
             whole: true,
             answered: None,
             stayed: 0.0,
@@ -323,6 +338,9 @@ impl Remembrance {
                         }
                     }
                 }
+                "pitch" => {
+                    m.pitch = v.parse::<f32>().ok().filter(|f| (PITCH_LO..=PITCH_HI).contains(f));
+                }
                 "spun" => {
                     if let Some((n, s)) = v.split_once(',') {
                         if let (Ok(n), Ok(s)) = (n.parse::<u32>(), s.parse::<f32>()) {
@@ -352,6 +370,7 @@ impl Remembrance {
         }
         if had {
             let away = now - m.seen;
+            m.away = away.max(0.0);
             m.ledger.add(Deed::Returned, now);
             if away > LONG_AWAY {
                 m.ledger.add(Deed::LongReturn, now);
@@ -383,6 +402,9 @@ impl Remembrance {
         if self.spun.0 > 0 {
             s.push_str(&format!(";spun={},{}", self.spun.0, self.spun.1));
         }
+        if let Some(f) = self.pitch {
+            s.push_str(&format!(";pitch={f:.1}"));
+        }
         s
     }
 
@@ -408,6 +430,34 @@ impl Remembrance {
     /// How well it knows you, 0..1. Never goes down.
     pub fn bond(&self) -> f32 {
         bond_of(&self.ledger)
+    }
+
+    /// How long you had been away before this visit (seconds); 0 if it never knew you before.
+    pub fn away(&self) -> f64 {
+        self.away
+    }
+
+    /// Whether it carries a scar (wound.rs).
+    pub fn scarred(&self) -> bool {
+        self.scar.1 > 0.0
+    }
+
+    /// The note it knows you by (Hz), if it has heard you sing.
+    pub fn pitch(&self) -> Option<f32> {
+        self.pitch
+    }
+
+    /// You held a note `f` (Hz) and let it go: it was sung to, and it moves the note it knows
+    /// you by toward it, a semitone at most.
+    pub fn sung(&mut self, f: f32) {
+        self.remember(Deed::Sang);
+        if !(PITCH_LO..=PITCH_HI).contains(&f) {
+            return;
+        }
+        self.pitch = Some(match self.pitch {
+            None => f,
+            Some(p) => p * 2f32.powf((f / p).log2().clamp(-PITCH_STEP, PITCH_STEP)),
+        });
     }
 
     /// How much it has been hurt, ever.
@@ -479,11 +529,7 @@ pub fn step(g: &mut Game, dt: f32) {
         m.remember(Deed::Hummed);
     }
     m.hummed = hummed;
-    let sang = g.senses.hum().is_some();
-    if sang && !m.sang {
-        m.remember(Deed::Sang);
-    }
-    m.sang = sang;
+    // Being sung to is told to it when a note ends (`sung`, from game/learn.rs).
     // What was answered before this visit is the contact's to keep, not a new deed.
     let answered = g.contact.answered;
     if m.answered.is_some_and(|a| answered > a) {
@@ -654,6 +700,26 @@ mod tests {
             let m = Remembrance::load(s, T0);
             assert_eq!(m.greeting, Greeting::Done, "{s}");
             assert_eq!(m.ledger.lifetime(), 0.0, "{s}");
+        }
+    }
+
+    #[test]
+    fn it_learns_the_middle_of_the_notes_you_sing_and_keeps_only_that() {
+        let mut m = Remembrance::fresh(T0);
+        assert_eq!(m.pitch(), None);
+        for f in [220.0, 230.0, 210.0, 900.0, 225.0, 215.0, 220.0, 220.0] {
+            m.sung(f);
+        }
+        let p = m.pitch().unwrap();
+        assert!((205.0..240.0).contains(&p), "one stray note moves it little: {p}");
+        assert_eq!(m.ledger.get(Deed::Sang).count, 8);
+        let s = m.save();
+        assert!(s.contains(";pitch="), "{s}");
+        let back = Remembrance::load(&s, T0 + 60.0);
+        assert!((back.pitch().unwrap() - p).abs() < 0.1);
+        // a save from before it learned notes, or a broken one, has none
+        for old in ["v=1;f=1;born=1;seen=1;at=1;held=2,1", "held=2,1;pitch=nan", "pitch=-4", "pitch=99999"] {
+            assert_eq!(Remembrance::load(old, T0).pitch(), None, "{old}");
         }
     }
 

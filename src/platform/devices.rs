@@ -1,7 +1,8 @@
 //! The microphone and the camera, once the player has tapped its word and the browser has let
 //! it have them. Neither is ever heard or seen by anyone: each frame the microphone gives a short
 //! window of samples and the camera a picture 32 x 24 pixels wide, senses/ turns them into a
-//! few numbers, and they are dropped. Nothing is recorded, kept or sent. Closing stops every
+//! few numbers, and they are dropped. Nothing is recorded or sent; of those numbers only one is
+//! kept, the note the player tends to sing (remembrance.rs). Closing stops every
 //! track at once, so the browser's own indicator goes out with ours.
 //!
 //! Also how a phone is held and moved, for motion.rs: two angles and one push a frame, turned to

@@ -116,7 +116,7 @@ impl Game {
                 let secs = self.clock - since;
                 let short = (bloom::PINCH_MIN..bloom::PINCH_MAX).contains(&reach);
                 // A short tug let go of at once is a pinch, however fast the hand flew off it.
-                let quick = secs < bloom::PINCH_MAX_SECS && short && self.world.ordinary();
+                let quick = secs < bloom::PINCH_MAX_SECS * self.temper.pinch() && short && self.world.ordinary();
                 let thrown = !quick && self.throw();
                 match dir {
                     // Too little and too quick to be a pull at all: a tap the finger slid on.
@@ -209,7 +209,9 @@ impl Game {
             }
             Gesture::Tug { since, .. } => {
                 let secs = self.clock - since;
-                if secs < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
+                if secs < bloom::PINCH_MAX_SECS * self.temper.pinch()
+                    && self.world.forms.pinch_flower(self.world.body.pos)
+                {
                     self.world.add_ripple(V3::UP, 0.5);
                 } else if secs < bloom::NEAR_MAX_SECS
                     && self.world.forms.spin.whole()
@@ -364,6 +366,11 @@ impl Game {
             }
             _ => return,
         }
+        // How it feels about you now is how far this gesture goes, to its end.
+        self.temper = crate::mind::temper::Temper::of(self.remembrance.warmth());
+        if self.world.forms.dust.whole() {
+            self.world.forms.dust.heap_at = self.temper.heap();
+        }
         self.cam.yaw_vel = 0.0;
         self.cam.pitch_vel = 0.0;
         self.swipe = Swipe::default();
@@ -484,6 +491,9 @@ impl Game {
                         self.world.division.whole() && f.bloom.whole() && f.filament.whole() && f.pandora.whole();
                     let flower = f.bloom.phase == bloom::Phase::Flower;
                     let stretch = if stretchy { self.world.begin_stretch(hit.pos) } else { None };
+                    if let Some(h) = stretch.and_then(|id| self.world.handles.iter_mut().find(|h| h.id == id)) {
+                        h.give = self.temper.tear();
+                    }
                     let pressed = self.clock - (self.world.time - since);
                     self.gesture = match stretch {
                         Some(handle) => Gesture::Stretching {

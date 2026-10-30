@@ -32,7 +32,7 @@ mod storage;
 
 use hud::{Hud, Line};
 use page::{body, fail, listen, send_answer, storage};
-use storage::{load, save, KEY_CONTACT, KEY_FOUND, KEY_REMEMBRANCE, KEY_SENSES, KEY_VISITS};
+use storage::{load, save, KEY_CONTACT, KEY_FOUND, KEY_MET, KEY_REMEMBRANCE, KEY_SENSES, KEY_VISITS};
 
 /// Frames the loader gets to paint before anything that might block.
 const LOADER_FRAMES: u32 = 2;
@@ -132,6 +132,11 @@ impl App {
         if self.game.remembrance.dirty {
             self.game.remembrance.dirty = false;
             save(KEY_REMEMBRANCE, || self.game.remembrance.save());
+        }
+        if self.game.world.other.dirty {
+            self.game.world.other.dirty = false;
+            self.game.world.other.met.merge(&load(KEY_MET));
+            save(KEY_MET, || self.game.world.other.met.save());
         }
         for signs in std::mem::take(&mut self.game.words.said) {
             self.urgent(Line::Greeted(signs));
@@ -295,6 +300,7 @@ pub fn start() -> Result<(), JsValue> {
         game.contact = Contact::load(&load(KEY_CONTACT));
         game.senses = Senses::load(&load(KEY_SENSES));
         game.remembrance = Remembrance::load(&load(KEY_REMEMBRANCE), js_sys::Date::now() / 1000.0);
+        game.world.other.met = crate::other::Met::load(&load(KEY_MET));
         hud.show_count(game.progress.count());
         if visits > 1 && game.progress.count() > 0 {
             game.discover(Discovery::Return);
@@ -595,6 +601,7 @@ pub fn start() -> Result<(), JsValue> {
                     a.game.progress.merge(&v);
                 }
                 (Some(KEY_CONTACT), Some(v)) => a.game.contact.merge(&v),
+                (Some(KEY_MET), Some(v)) => a.game.world.other.met.merge(&v),
                 _ => {}
             }
         })?;

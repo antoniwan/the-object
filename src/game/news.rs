@@ -32,7 +32,10 @@ impl Game {
                 F::Wound => {
                     self.world.add_ripple(self.world.forms.filament.axis, 0.8);
                     self.world.add_ripple(-self.world.forms.filament.axis, 0.8);
-                    self.discover(Discovery::Wind);
+                    // Wound back by the hand; one that went back by itself was not found.
+                    if !self.world.forms.filament.by_itself {
+                        self.discover(Discovery::Wind);
+                    }
                 }
                 F::Stirring => {
                     self.sounds.push(Sound::Stir);

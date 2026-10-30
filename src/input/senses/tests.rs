@@ -245,6 +245,42 @@ fn a_held_note_comes_back_as_a_hum_and_it_does_not_hear_itself() {
     assert_eq!(s.hum(), None);
 }
 
+/// A note held and let go at `stage`, knowing the player's note is `learned`: what it hums back
+/// (Hz), and the note it hands on to be learned.
+fn sung_back(stage: Stage, learned: Option<f32>) -> (f32, Option<f32>) {
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    s.learned = learned;
+    let l = look(stage, 0.0);
+    run(&mut s, &mut w, &l, 1.2, |s| s.heard(hear(&tone(440.0, 0.1), RATE)));
+    run(&mut s, &mut w, &l, 0.5, |s| s.heard(Heard::default()));
+    (s.hum().expect("humming").0, s.take_sung())
+}
+
+#[test]
+fn before_it_echoes_it_sings_your_note_back_and_after_a_fifth_under_the_note_it_knows_you_by() {
+    let (f, sung) = sung_back(Stage::Regard, Some(300.0));
+    assert!((f - 220.0).abs() < 5.0, "the same note, lower: {f}");
+    assert!(sung.is_some_and(|n| (n - 440.0).abs() < 9.0), "{sung:?}");
+    let (f, _) = sung_back(Stage::Echo, None);
+    assert!((f - 220.0).abs() < 5.0, "nothing learned yet: {f}");
+    let (f, _) = sung_back(Stage::Echo, Some(300.0));
+    assert!((f - 200.0).abs() < 1.0, "a fifth under 300: {f}");
+}
+
+#[test]
+fn it_hums_first_only_while_it_hears_and_does_not_hear_itself() {
+    let mut s = Senses::default();
+    assert!(!s.hum_first(220.0), "it may not hear: it does not begin");
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    assert!(s.hum_first(220.0));
+    assert!(!s.hum_first(330.0), "already humming");
+    let l = look(Stage::Initiative, 0.0);
+    // the microphone hears its own hum, held as long as a note: it is not a note of yours
+    let found = run(&mut s, &mut w, &l, HUM_SECS, |s| s.heard(hear(&tone(220.0, 0.1), RATE)));
+    run(&mut s, &mut w, &l, 0.1, |s| s.heard(Heard::default()));
+    assert!(!found.contains(&Discovery::Sing) && s.take_sung().is_none());
+}
+
 #[test]
 fn a_whisper_stills_it_and_a_breath_takes_a_drop() {
     let (mut w, mut s) = (World::new(), open(Kind::Hear));

@@ -8,6 +8,8 @@
 //!   a reach pulled out of it is made again, from the inside.
 //! - initiative (TURN_AT): left alone, it takes a turn. It does what you do most: taps your
 //!   rhythm, reaches toward where your hand last was, colors itself, holds out a drop, calls.
+//!   Once it hears you and has learned the note you sing (remembrance.rs), some turns are a
+//!   sound: it hums your note first, unasked, and waits; sung back, it is answered.
 //!   You can answer it.
 //! - contact (CONTACT_AT, and answered CONTACT_ANSWERS times): once a visit, it goes still and
 //!   reaches toward you with everything it has, plays your rhythm back, and says one thing.
@@ -90,6 +92,8 @@ pub enum Turn {
     Blush,
     Offer,
     Beckon,
+    /// It hums the note it learned you sing.
+    Hum,
 }
 
 impl Habit {
@@ -190,10 +194,26 @@ struct Phrase {
 
 /// What it is waiting for after taking a turn.
 enum Await {
-    Taps { want: usize, got: usize },
+    Taps {
+        want: usize,
+        got: usize,
+    },
     Touch,
     Take(u32),
     Warm,
+    /// A note sung back near this one (Hz), in any octave.
+    Sing(f32),
+}
+
+/// At most this far from its note (semitones, in any octave), a note sung back is an answer.
+const SUNG_NEAR: f32 = 1.0;
+/// After a turn in sound, at least this many of its other turns before the next.
+const HUM_EVERY: u32 = 2;
+
+/// How far apart two notes are, in semitones, as if in the same octave: 0..6.
+fn apart(a: f32, b: f32) -> f32 {
+    let d = (12.0 * (a / b).log2()).rem_euclid(12.0);
+    d.min(12.0 - d)
 }
 
 pub struct Contact {
@@ -216,6 +236,8 @@ pub struct Contact {
     awaiting: Option<(Await, f32)>,
     turn_wait: f32,
     turns: u32,
+    /// Its other turns since it last took one in sound.
+    since_hum: u32,
     /// Seconds into the contact, while it lasts.
     contact: Option<f32>,
     contacted_now: bool,
@@ -244,6 +266,7 @@ impl Default for Contact {
             awaiting: None,
             turn_wait: 0.0,
             turns: 0,
+            since_hum: HUM_EVERY,
             contact: None,
             contacted_now: false,
             ask: None,
@@ -270,6 +293,8 @@ pub struct Sense {
     pub up: V3,
     /// Where the pointer last pointed, on the plane through the body, if anywhere.
     pub pointer: Option<V3>,
+    /// The note it has learned the player sings (Hz), while it may hear them.
+    pub note: Option<f32>,
 }
 
 impl Contact {
@@ -327,6 +352,15 @@ impl Contact {
 
     pub fn called(&mut self) {
         self.noticed(Habit::Call);
+    }
+
+    /// The player held a note `f` (Hz) and let it go.
+    pub fn sang(&mut self, f: f32) {
+        if let Some((Await::Sing(want), _)) = self.awaiting {
+            if apart(f, want) <= SUNG_NEAR {
+                self.answer();
+            }
+        }
     }
 
     /// The player took hold of a drop.
@@ -550,11 +584,19 @@ impl Contact {
         let mut order: Vec<usize> = (0..HABITS.len()).filter(|&i| self.habits[i] > 0).collect();
         order.sort_by_key(|&i| std::cmp::Reverse(self.habits[i]));
         order.truncate(3);
-        let turn = match order.len() {
-            0 => Turn::Beckon,
-            n => HABITS[order[self.turns as usize % n]].turn(),
+        // Now and then, once it hears you and knows your note, its turn is that note.
+        let hum = sense.note.filter(|_| self.since_hum >= HUM_EVERY);
+        let turn = match (hum, order.len()) {
+            (Some(_), _) => Turn::Hum,
+            (None, 0) => Turn::Beckon,
+            (None, n) => HABITS[order[self.turns as usize % n]].turn(),
         };
-        self.turns += 1;
+        if turn == Turn::Hum {
+            self.since_hum = 0;
+        } else {
+            self.since_hum += 1;
+            self.turns += 1;
+        }
         let r = world.body.radius();
         match turn {
             Turn::Rhythm => {
@@ -588,6 +630,12 @@ impl Contact {
             }
             Turn::Beckon => {
                 world.reach(-sense.fwd);
+            }
+            Turn::Hum => {
+                // It turns to you while it hums; the answer may begin once the hum is done.
+                world.reach(-sense.fwd);
+                let f = hum.unwrap_or(0.0);
+                self.awaiting = Some((Await::Sing(f), ANSWER_WINDOW + crate::input::senses::HUM_SECS));
             }
         }
         self.events.push(Event::Turned(turn));
@@ -780,7 +828,44 @@ mod tests {
     }
 
     fn sense(stage: Stage, found: usize, idle: f32) -> Sense {
-        Sense { stage, found, idle, fwd: v3(0.0, 0.0, -1.0), right: v3(1.0, 0.0, 0.0), up: V3::UP, pointer: None }
+        Sense {
+            stage,
+            found,
+            idle,
+            fwd: v3(0.0, 0.0, -1.0),
+            right: v3(1.0, 0.0, 0.0),
+            up: V3::UP,
+            pointer: None,
+            note: None,
+        }
+    }
+
+    #[test]
+    fn knowing_your_note_and_hearing_you_it_hums_first_and_your_note_back_answers() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let mut s = sense(Stage::Initiative, TURN_AT, 10.0);
+        s.note = Some(196.0);
+        let e = run(&mut c, &mut w, &s, 1.0);
+        assert!(e.contains(&Event::Turned(Turn::Hum)), "{e:?}");
+        // another note is no answer; the same one an octave up is
+        c.sang(260.0);
+        assert_eq!(c.answered, 0);
+        c.sang(391.0);
+        assert_eq!(c.answered, 1);
+        // its next turns are its others, before it hums again
+        let e = run(&mut c, &mut w, &s, 2.0 * TURN_GAP + 1.0);
+        let turns: Vec<Turn> =
+            e.iter().filter_map(|e| if let Event::Turned(t) = e { Some(*t) } else { None }).collect();
+        assert_eq!(turns.first(), Some(&Turn::Beckon), "{turns:?}");
+        assert!(!turns.iter().take(HUM_EVERY as usize).any(|t| *t == Turn::Hum), "{turns:?}");
+    }
+
+    #[test]
+    fn not_hearing_you_it_never_hums_first() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, TURN_AT, 10.0);
+        let e = run(&mut c, &mut w, &s, 4.0 * TURN_GAP);
+        assert!(!e.contains(&Event::Turned(Turn::Hum)));
     }
 
     fn run(c: &mut Contact, w: &mut World, s: &Sense, seconds: f32) -> Vec<Event> {
