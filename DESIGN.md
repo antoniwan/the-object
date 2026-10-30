@@ -236,6 +236,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |
 | light under two | goes over 0.8 s once two cells become many | the light focused under it never goes out in one frame (`morula.rs` `first_light`) |
 | the eye | opens and closes at rate 0.8 / s; its cell killed, it shuts at 7 / s, well before the cell is shed | it never blinks out in one frame (`morula.rs`) |
+| the pressed mound | lights as the finger holds it; let go, slid off or joined by a second finger, goes out over 0.25 s | its light never goes out in one frame (`forms/dust.rs` `PRESS_FADE_SECS`) |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
 | remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |

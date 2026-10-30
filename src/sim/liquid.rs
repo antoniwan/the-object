@@ -136,8 +136,9 @@ impl World {
                 let close = (a.pos - b.pos).len() < (a.r + b.r) * 0.8;
                 // Free drops keep their distance; one has to be carried into another.
                 let carried = a.target.is_some() || b.target.is_some();
-                // The wound's pieces hold their places, and never run together (wound.rs).
-                let pieces = self.wound.is_caltrop(a.id) && self.wound.is_caltrop(b.id);
+                // The wound's pieces hold their places, and take in nothing and are taken by nothing;
+                // they go back only into the body (wound.rs).
+                let pieces = self.wound.is_caltrop(a.id) || self.wound.is_caltrop(b.id);
                 if close && carried && !pieces && a.age > MERGE_COOLDOWN && b.age > MERGE_COOLDOWN {
                     let keep_a = a.target.is_some() || (b.target.is_none() && a.r >= b.r);
                     let (ki, gi) = if keep_a { (i, j) } else { (j, i) };
