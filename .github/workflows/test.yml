@@ -20,8 +20,11 @@ jobs:
       PLAYWRIGHT: 1.63.0
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned, so a new Rust release never turns a green main red with lints of its own: move
+      # it on by hand, fixing what the new clippy finds in the same pull request.
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.97.0
           targets: wasm32-unknown-unknown
           components: clippy, rustfmt
       - uses: taiki-e/install-action@v2
@@ -41,13 +44,11 @@ jobs:
       - name: Formatted as rustfmt writes it
         run: cargo fmt --check
       - run: cargo test
-      # Compiler warnings and the lints that catch mistakes fail the build. Style, complexity and
-      # speed lints only warn: the toolchain is the newest stable, and each release adds some.
+      # Every warning fails the build: the compiler's, and the lints chosen in Cargo.toml.
       - name: No warnings or suspect code, native and wasm
         run: |
-          lints="-D warnings -A clippy::style -A clippy::complexity -A clippy::perf"
-          cargo clippy --all-targets -- $lints
-          cargo clippy --release --target wasm32-unknown-unknown -- $lints
+          cargo clippy --all-targets -- -D warnings
+          cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
       - name: The simulation ends where it did
         run: cargo run --release --example frame_bench -- --check
       - uses: actions/setup-node@v4

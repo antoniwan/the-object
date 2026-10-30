@@ -43,7 +43,7 @@ impl Game {
                     self.question.push(e);
                 }
                 C::Kept(n) => {
-                    let pitch = n as f32 / contact::KEEP_STEPS as f32;
+                    let pitch = f32::from(n) / f32::from(contact::KEEP_STEPS);
                     self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() * 0.3 });
                 }
                 C::Answer(_) => {

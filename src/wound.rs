@@ -522,7 +522,7 @@ mod tests {
         run(&mut g, 4.0);
         assert!(!g.world.wound.is_open());
         assert_eq!(g.world.wound.scar, FAINT);
-        assert_eq!(g.remembrance.ledger().get(Deed::Tended).count, TO_HEAL as u64);
+        assert_eq!(g.remembrance.ledger().get(Deed::Tended).count, u64::from(TO_HEAL));
     }
 
     #[test]

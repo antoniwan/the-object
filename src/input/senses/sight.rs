@@ -31,14 +31,14 @@ impl Retina {
         luma.extend(
             rgba.chunks_exact(4)
                 .take(w * h)
-                .map(|p| ((p[0] as u32 * 77 + p[1] as u32 * 150 + p[2] as u32 * 29) >> 8) as u8),
+                .map(|p| ((u32::from(p[0]) * 77 + u32::from(p[1]) * 150 + u32::from(p[2]) * 29) >> 8) as u8),
         );
-        let light = luma.iter().map(|&l| l as f32).sum::<f32>() / (w * h) as f32 / 255.0;
+        let light = luma.iter().map(|&l| f32::from(l)).sum::<f32>() / (w * h) as f32 / 255.0;
         let mut seen = Seen { light, motion: 0.0, at: None };
         if self.last.len() == luma.len() {
             let (mut sum, mut wx, mut wy, mut weight) = (0.0, 0.0, 0.0, 0.0);
             for (i, (&a, &b)) in luma.iter().zip(&self.last).enumerate() {
-                let d = (a as f32 - b as f32).abs() / 255.0;
+                let d = (f32::from(a) - f32::from(b)).abs() / 255.0;
                 sum += d;
                 // Small changes are the sensor's own noise.
                 if d > 0.08 {

@@ -324,7 +324,7 @@ impl Eyes {
             return None;
         }
         self.last = now;
-        let (w, h) = (SIGHT_W as f64, SIGHT_H as f64);
+        let (w, h) = (f64::from(SIGHT_W), f64::from(SIGHT_H));
         self.sight.draw_image_with_html_video_element_and_dw_and_dh(&self.video, 0.0, 0.0, w, h).ok()?;
         let image: JsValue = self.sight.get_image_data(0.0, 0.0, w, h).ok()?.into();
         let data: js_sys::Uint8ClampedArray = get(&image, "data").dyn_into().ok()?;

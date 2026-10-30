@@ -273,7 +273,7 @@ pub fn known(text: &str) -> bool {
 /// Of the browser's guesses at what was said, best first, the one with the most of its words in
 /// it: a "poke" heard as "polk" first and "poke" second is still a poke.
 pub fn likeliest(guesses: &[String]) -> &str {
-    let score = |t: &str| verbs(t).len() + greeting(t).is_some() as usize;
+    let score = |t: &str| verbs(t).len() + usize::from(greeting(t).is_some());
     let best = guesses.iter().map(|g| score(g)).max().unwrap_or(0);
     guesses.iter().find(|g| score(g) == best).map(String::as_str).unwrap_or("")
 }
@@ -442,7 +442,7 @@ impl Words {
 
 /// The signs it answers a greeting with: the same greeting always gets the same signs.
 pub fn answer(greeting: &str) -> String {
-    let mut seed = greeting.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ b as u32).wrapping_mul(0x0100_0193));
+    let mut seed = greeting.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
     let mut next = || {
         seed ^= seed << 13;
         seed ^= seed >> 17;

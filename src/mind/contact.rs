@@ -726,7 +726,7 @@ impl Contact {
             self.spot.z,
             list(&rhythm),
             self.answered,
-            self.contacted as u8
+            u8::from(self.contacted)
         )
     }
 
@@ -769,9 +769,7 @@ mod tests {
 
     #[test]
     fn a_save_from_another_tab_never_takes_back_contact() {
-        let mut there = Contact::default();
-        there.answered = 1;
-        there.contacted = true;
+        let mut there = Contact { answered: 1, contacted: true, ..Default::default() };
         there.habits[0] = 9;
         let mut here = Contact::default();
         here.habits[1] = 3;

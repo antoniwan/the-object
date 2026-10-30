@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.26] - 2026-10-30
+
+### Changed
+- Every clippy warning fails the build, with a few more lints chosen in Cargo.toml and the Rust version pinned in CI so a new release never fails a green main (#106)
+
 ## [1.22.25] - 2026-10-30
 
 ### Changed
@@ -564,7 +569,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.25...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.26...HEAD
+[1.22.26]: https://github.com/antoniwan/the-object/compare/v1.22.25...v1.22.26
 [1.22.25]: https://github.com/antoniwan/the-object/compare/v1.22.24...v1.22.25
 [1.22.24]: https://github.com/antoniwan/the-object/compare/v1.22.23...v1.22.24
 [1.22.23]: https://github.com/antoniwan/the-object/compare/v1.22.22...v1.22.23

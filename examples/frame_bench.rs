@@ -83,7 +83,7 @@ fn fingerprint(g: &Game) -> u64 {
     let w = &g.world;
     let mut h: u64 = 0xcbf29ce484222325;
     let mut mix = |x: f32| {
-        h ^= x.to_bits() as u64;
+        h ^= u64::from(x.to_bits());
         h = h.wrapping_mul(0x100000001b3);
     };
     for v in [w.body.pos, w.body.vel, w.body.color, w.gaze_dir] {
@@ -191,7 +191,7 @@ fn senses_scene() -> (u64, u64) {
     let mut px = vec![0u8; 32 * 24 * 4];
     let mut h: u64 = 0xcbf29ce484222325;
     let mut mix = |x: f32| {
-        h ^= x.to_bits() as u64;
+        h ^= u64::from(x.to_bits());
         h = h.wrapping_mul(0x100000001b3);
     };
     let mut frame = |g: &mut Game, k: usize, mix: &mut dyn FnMut(f32)| {

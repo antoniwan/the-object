@@ -132,7 +132,7 @@ impl App {
             match e {
                 senses::Event::Offer(k) => {
                     self.hud.urgent(Line::Offer(k));
-                    self.offer = Some((k, now / 1000.0 + senses::OFFER_WINDOW as f64));
+                    self.offer = Some((k, now / 1000.0 + f64::from(senses::OFFER_WINDOW)));
                 }
                 senses::Event::Refused(k) => self.hud.queue.insert(0, Line::Refused(k)),
                 senses::Event::Closed(_) => {}

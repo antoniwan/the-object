@@ -12,7 +12,7 @@ impl App {
     /// Pointer position in canvas pixels.
     pub(super) fn pos(&self, e: &PointerEvent) -> (f32, f32) {
         let (sx, sy) = self.scale;
-        ((e.offset_x() as f64 * sx) as f32, (e.offset_y() as f64 * sy) as f32)
+        ((f64::from(e.offset_x()) * sx) as f32, (f64::from(e.offset_y()) * sy) as f32)
     }
 
     /// Seconds since this pointer last moved (a frame, if it hasn't yet), and remember now.
@@ -28,8 +28,8 @@ impl App {
 
     pub(super) fn resize(&mut self) {
         let (cw, ch) = (self.canvas.client_width(), self.canvas.client_height());
-        let (cwi, chi) = (cw.max(1) as f64, ch.max(1) as f64);
-        let (cw, ch) = (cw as f64, ch as f64);
+        let (cwi, chi) = (f64::from(cw.max(1)), f64::from(ch.max(1)));
+        let (cw, ch) = (f64::from(cw), f64::from(ch));
         let mut dpr = self.window.device_pixel_ratio().min(1.5);
         dpr = dpr.min((MAX_PIXELS / (cw * ch).max(1.0)).sqrt()) * self.pace.scale();
         // A gesture is measured in canvas pixels from where it began: while a hand is on it the
@@ -44,7 +44,7 @@ impl App {
             self.canvas.set_width(w);
             self.canvas.set_height(h);
         }
-        self.scale = (w as f64 / cwi, h as f64 / chi);
+        self.scale = (f64::from(w) / cwi, f64::from(h) / chi);
         self.game.w = w as f32;
         self.game.h = h as f32;
     }

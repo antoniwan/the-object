@@ -261,8 +261,8 @@ pub fn step(g: &mut Game, dt: f32) {
 
     // The room tips toward whichever way the arrows say.
     let a = k.arrows;
-    let side = ((a[1] as i8 - a[0] as i8) as f32 + k.tilt.0).clamp(-1.0, 1.0);
-    let away = ((a[2] as i8 - a[3] as i8) as f32 + k.tilt.1).clamp(-1.0, 1.0);
+    let side = (f32::from(i8::from(a[1]) - i8::from(a[0])) + k.tilt.0).clamp(-1.0, 1.0);
+    let away = (f32::from(i8::from(a[2]) - i8::from(a[3])) + k.tilt.1).clamp(-1.0, 1.0);
     let ease = 1.0 - (-4.0 * dt).exp();
     k.lean.0 += (side - k.lean.0) * ease;
     k.lean.1 += (away - k.lean.1) * ease;

@@ -533,9 +533,8 @@ impl Game {
                 let moved = dist(start, (x, y)) / self.h;
                 if moved > TAP_SLOP {
                     // off fast where pieces hold on to each other, it cuts between them; otherwise it looks around
-                    let fast = dt > 0.0
-                        && moved / dt > crate::burst::kin::CUT_SPEED
-                        && !self.world.burst.kin.groups().is_empty();
+                    let fast =
+                        dt > 0.0 && moved / dt > burst::kin::CUT_SPEED && !self.world.burst.kin.groups().is_empty();
                     self.gesture =
                         if fast { Gesture::Cutting { last: start } } else { Gesture::Orbiting { start, last: start } };
                     self.pointer_move(id, x, y, dt);
@@ -673,7 +672,7 @@ impl Game {
             .collect();
         let cuts: Vec<(usize, usize)> = (0..burst::SHARDS)
             .flat_map(|a| (a + 1..burst::SHARDS).map(move |b| (a, b)))
-            .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::burst::kin::crosses(from, to, at[a], at[b]))
+            .filter(|&(a, b)| bu.kin.bonded(a, b) && burst::kin::crosses(from, to, at[a], at[b]))
             .collect();
         if cuts.is_empty() {
             return;
