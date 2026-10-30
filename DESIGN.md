@@ -192,6 +192,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | dizzy | gathers as `0.08 ×` its speed (radians a second), drains as `0.3 ×` itself, a second; its speed fades at 1 / s | a brisk turn a second makes the flower dizzy in about four seconds; half that only brings it near. Dizzy, it leans up to 0.38 rad, the lean going round (`forms/spin.rs`) |
 | `EDGE` / `CLEAR` / `LEARN_AFTER` / `PER_VISIT` | 0.6 / 0.25 / 5 / 2 | dizzier than the edge and back under clear without tipping is nearly; it keeps two a visit, between visits (`remembrance.rs`), and five kept, three visits at the least, it knows your turn for good. Glad of you now, it turns with you; not, against. Braced against you, dizziness gathers at 0.6 and your turn counts 0.55; with you, it turns on at 1.4 rad/s; against, it turns back at 1.1 rad/s for 3 s |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
+| `MOUND_RATE` | 2.0 of its height / s | the mound grows and sinks no faster; when another drift becomes the fullest it sinks where it stands before it rises there (`forms/dust.rs`) |
 | `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
 | `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
 | `TEND` / `WITHER_AFTER` | 0.35 of a stage / 30 s | each tap on the mound grows what roots in it this much; untended this long, it draws back toward a shoot (`forms/growth.rs`) |

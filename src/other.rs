@@ -212,7 +212,9 @@ impl Other {
 
     /// The soft one was hurt.
     pub fn hurt(&mut self) {
-        self.hurts.push(self.time);
+        let now = self.time;
+        self.hurts.retain(|t| now - t < HURT_WINDOW);
+        self.hurts.push(now);
     }
 
     pub fn drain_events(&mut self) -> Vec<Event> {
@@ -265,6 +267,13 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
     if !plain {
         o.carried = None;
         o.pressed = 0.0;
+        if matches!(o.phase, Phase::Taking { .. } | Phase::Inside) {
+            // It comes back out the way it went in, from where it is now.
+            let at = o.pos - c;
+            if at.len() > 1e-3 {
+                o.out = at.norm();
+            }
+        }
         match o.phase {
             Phase::Taking { t } => o.phase = Phase::Giving { t: GIVE_SECS * (1.0 - t / TAKE_SECS), asked: false },
             Phase::Inside => o.phase = Phase::Giving { t: 0.0, asked: false },
@@ -629,5 +638,34 @@ mod tests {
         assert!(!g.progress.has(Discovery::Give), "it was not asked");
         assert!(g.world.other.pos.y > g.world.body.pos.y + 4.0);
         assert_eq!(g.world.other.pick(g.cam.basis().pos, g.cam.basis().fwd), None);
+    }
+
+    #[test]
+    fn given_back_from_halfway_in_it_comes_out_where_it_was() {
+        let mut g = arrived();
+        let c = g.world.body.pos;
+        let r = g.world.body.radius();
+        let side = -g.cam.basis().right;
+        g.world.other.pos = c + side * (r + SIZE * BOUND);
+        g.world.other.vel = V3::ZERO;
+        g.world.other.phase = Phase::Taking { t: 0.05 };
+        let before = g.world.other.pos;
+        g.world.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        g.update(1.0 / 60.0);
+        let moved = (g.world.other.pos - before).len();
+        assert!(moved < 0.3, "moved {moved} in a frame, {before:?} to {:?}", g.world.other.pos);
+    }
+
+    #[test]
+    fn hurts_while_it_is_away_are_not_kept_forever() {
+        let mut g = Game::new();
+        g.w = 800.0;
+        g.h = 600.0;
+        for _ in 0..500 {
+            g.world.other.hurt();
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.other.phase, Phase::Absent);
+        assert!(g.world.other.hurts.len() <= (HURT_WINDOW * 60.0) as usize + 1, "{}", g.world.other.hurts.len());
     }
 }
