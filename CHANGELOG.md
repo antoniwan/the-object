@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-30
+
+### Added
+- Before it appears, the pearl grows with what has really arrived, from a speck to its full size. Whole, it draws in and comes apart in a small puff of its own colors, and it is there where the puff was. Asked for less motion, it only grows clearer and fades. (#79)
+
 ## [1.20.3] - 2026-10-30
 
 ### Changed
@@ -424,7 +429,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.20.3...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/antoniwan/the-object/compare/v1.20.3...v1.21.0
 [1.20.3]: https://github.com/antoniwan/the-object/compare/v1.20.2...v1.20.3
 [1.20.2]: https://github.com/antoniwan/the-object/compare/v1.20.1...v1.20.2
 [1.20.1]: https://github.com/antoniwan/the-object/compare/v1.20.0...v1.20.1
