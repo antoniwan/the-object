@@ -6,7 +6,8 @@
 //! Hold still on the empty ground and the pieces come home.
 //! What else the landscape does is in landscape.rs; set close together they
 //! keep together, in as many groups as they are set down in (kin.rs); all
-//! crowded into one anywhere but the middle, they run as a river (river.rs).
+//! crowded into one anywhere but the middle, they run as a river (river.rs); tip the room
+//! and they slide downhill, groups together (tilt.rs).
 //!
 //! Like meiosis.rs and fusion.rs, `Phase` only decides which continuous values
 //! move; the shader blends them, so the burst and the flight never jump.
@@ -14,11 +15,13 @@
 pub mod kin;
 pub mod landscape;
 pub mod river;
+pub mod tilt;
 
 use crate::math::*;
 use kin::Kin;
 use landscape::Land;
 use river::River;
+use tilt::Tilt;
 
 pub const SHARDS: usize = 12;
 /// Wounds open at once that kill it.
@@ -128,6 +131,8 @@ pub struct Burst {
     pub land: Land,
     pub river: River,
     pub kin: Kin,
+    /// How each piece is sliding, the room tipped (tilt.rs).
+    tilt: Tilt,
     events: Vec<Event>,
 }
 
@@ -154,6 +159,7 @@ impl Default for Burst {
             land: Land::default(),
             river: River::default(),
             kin: Kin::default(),
+            tilt: Tilt::default(),
             events: Vec::new(),
         }
     }
@@ -301,6 +307,7 @@ impl Burst {
             self.land = Land::default();
             self.river = River::default();
             self.kin = Kin::default();
+            self.tilt = Tilt::default();
             self.wounds = 0.0;
             self.events.push(Event::Burst);
             return true;

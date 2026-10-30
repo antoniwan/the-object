@@ -15,7 +15,9 @@
 //!   learned you sing. On its turn it may hum that note first, unasked (contact.rs). While it
 //!   hums it does not listen, so it never hears itself. A whisper and it goes still and leans in, its near side shivering. A breath blown at
 //!   it presses in the side nearest you and pushes it away; kept up, it takes a drop off the far
-//!   side. A sudden loud sound and it flinches; a shout kept up and it is upset.
+//!   side. A sudden loud sound and it flinches; a shout kept up and it is upset. Let go into
+//!   dust, a breath blows the drifts away along the floor (forms/gust.rs), the one way hearing
+//!   reaches past the ordinary liquid.
 //! - sight (offered once it takes turns, `show yourself.`): only coarse things, never a face or
 //!   a picture: how much light there is, how much changed since the last look, and where the
 //!   change was. It turns toward wherever you moved last, flinches from a fast movement, and
@@ -181,6 +183,8 @@ pub struct Senses {
     whisper: f32,
     blow: f32,
     blow_wait: f32,
+    /// How hard a breath is blowing this moment, 0..1 (0 when none is), for forms/gust.rs.
+    gust: f32,
     shout: f32,
     /// Smoothed loudness, to tell a sudden sound from a loud room.
     loud: f32,
@@ -236,6 +240,7 @@ impl Default for Senses {
             whisper: 0.0,
             blow: 0.0,
             blow_wait: 0.0,
+            gust: 0.0,
             shout: 0.0,
             loud: 0.0,
             room: QUIET,
@@ -350,6 +355,7 @@ impl Senses {
                 self.hum = None;
                 self.note = (0.0, 0.0);
                 (self.voiced, self.unvoiced, self.whisper, self.shout, self.blow) = (0.0, 0.0, 0.0, 0.0, 0.0);
+                self.gust = 0.0;
             }
             Kind::See => {
                 self.seen = None;
@@ -406,6 +412,11 @@ impl Senses {
         let (f, t) = self.hum?;
         let k = (t / HUM_SECS).clamp(0.0, 1.0);
         Some((f, (k * 8.0).min(1.0) * (1.0 - k).powf(1.5)))
+    }
+
+    /// How hard a breath is blowing at it now, 0..1; 0 when none is (forms/gust.rs).
+    pub fn gust(&self) -> f32 {
+        self.gust
     }
 
     /// How dark it wants the room, 0..1 (`World::dim`).
@@ -485,6 +496,7 @@ impl Senses {
     fn step_hearing(&mut self, dt: f32, world: &mut World, look: &Look) {
         let ordinary = world.ordinary();
         self.blow_wait = (self.blow_wait - dt).max(0.0);
+        self.gust = 0.0;
 
         // Humming back, it does not listen: it would only hear itself.
         if let Some((f, t)) = &mut self.hum {
@@ -593,8 +605,11 @@ impl Senses {
         // ripple, and the whole of it is pushed away, harder the harder it is blown; held a
         // moment, it takes a drop off the far side.
         self.blow = if breath { self.blow + dt } else { 0.0 };
+        let push = ((h.level - BLOW) / 0.15).clamp(0.0, 1.0) * 0.6 + 0.4;
+        if breath {
+            self.gust = push;
+        }
         if self.blow > 0.0 && ordinary {
-            let push = ((h.level - BLOW) / 0.15).clamp(0.0, 1.0) * 0.6 + 0.4;
             world.body.vel += look.fwd * (push * 3.5 * dt);
             world.agitation = world.agitation.max(0.12 * push);
             self.tremble += dt;

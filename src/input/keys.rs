@@ -11,8 +11,10 @@
 //!   and come home when the room is level (a phone tipped in the hand does the same, motion.rs)
 //! - after it has said its one word, type that word back
 //!
-//! Everything here acts only on the ordinary liquid. The page passes keys in by their place
-//! on the keyboard (`KeyboardEvent.code`), so the places hold on any layout.
+//! Everything here acts only on the ordinary liquid, but for two crossings that live in their
+//! own modules: the room tipped while the twelve lie on the ground slides them (burst/tilt.rs),
+//! and a breath let out over the dust blows it along the floor (forms/gust.rs). The page passes
+//! keys in by their place on the keyboard (`KeyboardEvent.code`), so the places hold on any layout.
 
 use crate::game::{Game, Sound};
 use crate::math::*;
@@ -66,6 +68,9 @@ pub struct Keys {
     /// How far a phone in the hand tips the room, right and away, -1..1 (motion.rs).
     pub tilt: (f32, f32),
     leaned: f32,
+    /// A breath let out while it was anything but the ordinary liquid, 0..1 by how long it was
+    /// drawn, until forms/gust.rs takes it.
+    pub puff: f32,
     clock: f32,
 }
 
@@ -73,6 +78,11 @@ impl Keys {
     /// What it is humming, 0..1 low to high, if anything.
     pub fn hum(&self) -> Option<f32> {
         self.humming().map(|(c, _)| place(c).map_or(0.5, |p| p.pitch))
+    }
+
+    /// How far the room is tipped now, eased: right and away, -1..1, as the player sees it.
+    pub fn lean(&self) -> (f32, f32) {
+        self.lean
     }
 
     fn humming(&self) -> Option<(char, f32)> {
@@ -191,6 +201,7 @@ fn type_letter(g: &mut Game, c: char) {
 fn exhale(g: &mut Game) {
     let Some(t) = g.keys.inhale.take() else { return };
     if !g.world.ordinary() {
+        g.keys.puff = (t / BREATH_SLOW).clamp(0.3, 1.0);
         return;
     }
     if t > 0.4 {
