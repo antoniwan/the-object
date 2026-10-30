@@ -266,7 +266,7 @@ impl Game {
                 let fwd = self.cam.basis().fwd;
                 let pull = tip - self.world.body.pos;
                 if self.world.forms.filament.draw(pull - fwd * pull.dot(fwd)) {
-                    self.world.handles.retain(|h| h.id != handle);
+                    self.world.sink_handle(handle);
                     self.gesture = Gesture::Idle;
                     self.sounds.push(Sound::Become);
                 }

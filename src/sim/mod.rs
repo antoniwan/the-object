@@ -35,6 +35,8 @@ const STUMP_GROW: f32 = 15.0;
 /// How fast a stump sinks back into the body, a second: gone in 0.38 s. Let go and settled,
 /// or making way for a pull past the most there can be.
 const STUMP_FADE: f32 = 8.0;
+/// How fast a whole stretch fades where it is when something else takes its place (`sink_handle`).
+const STUMP_SINK: f32 = 3.0;
 /// Freshly torn or merged drops can't merge again until they are this old (seconds).
 const MERGE_COOLDOWN: f32 = 0.5;
 /// Smoothing radii for the liquid joins, as a fraction of the body radius.

@@ -394,11 +394,17 @@ pub fn start() -> Result<(), JsValue> {
         listen(target, name, false, move |e: web_sys::Event| {
             e.prevent_default();
             let game = &mut app.borrow_mut().game;
+            // A pinch is not begun while a hand is down, but its end always comes through, or it
+            // would stay squeezed.
+            if e.type_() == "gestureend" {
+                game.pad.gesture(None);
+                return;
+            }
             if game.held() {
                 return;
             }
             let scale = crate::platform::get(&e, "scale").as_f64();
-            game.pad.gesture(if e.type_() == "gestureend" { None } else { scale.map(|s| s as f32) });
+            game.pad.gesture(scale.map(|s| s as f32));
         })?;
     }
     {
