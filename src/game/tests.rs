@@ -202,6 +202,35 @@ fn far_enough_along_it_takes_a_turn_when_you_go_still() {
 }
 
 #[test]
+fn hearing_you_and_knowing_your_note_its_turn_is_that_note_and_singing_it_back_answers() {
+    use crate::input::senses::{hear, Heard, Kind};
+    let mut g = game();
+    for d in crate::progress::ALL.iter().take(contact::TURN_AT) {
+        g.progress.discover(*d);
+    }
+    g.senses.can_hear = true;
+    assert!(g.senses.accept_waiting(Kind::Hear));
+    g.senses.opened(Kind::Hear);
+    g.remembrance.sung(196.0);
+    wait(&mut g, 8.0);
+    assert!(g.progress.has(Discovery::YourNote), "it hummed first");
+    let (f, _) = g.senses.hum().expect("humming");
+    assert!((f - 196.0).abs() < 1.0, "your note: {f}");
+    wait(&mut g, senses::HUM_SECS);
+    let note: Vec<f32> = (0..2048).map(|i| (i as f32 / 48_000.0 * 392.0 * std::f32::consts::TAU).sin() * 0.1).collect();
+    for _ in 0..72 {
+        g.senses.heard(hear(&note, 48_000.0));
+        g.update(1.0 / 60.0);
+    }
+    for _ in 0..30 {
+        g.senses.heard(Heard::default());
+        g.update(1.0 / 60.0);
+    }
+    assert!(g.progress.has(Discovery::Answer), "sung back, an octave up");
+    assert_eq!(g.contact.answered, 1);
+}
+
+#[test]
 fn early_on_it_is_only_matter() {
     let mut g = game();
     for _ in 0..(60 * 20) {

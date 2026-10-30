@@ -15,6 +15,10 @@
 //!
 //! On a first visit it is less patient: `FIRST_VISIT` holds shorter times for the same gates.
 //!
+//! Some thoughts follow what it remembers of the player (remembrance.rs), read and never
+//! changed here: how glad or wary of them it is, how well it knows them, how long they were
+//! away, and the scar.
+//!
 //! Which thought: the first line in `THOUGHTS` that belongs to where it is now, to how far it
 //! has come in learning the player (earlier lines are about itself, later ones about them),
 //! and whose condition still holds, which mostly means something there is not yet found.
@@ -24,6 +28,7 @@ use crate::division::{meiosis, morula};
 use crate::floor::fusion;
 use crate::forms::{bloom, cosmos, filament, fold, pandora};
 use crate::mind::contact::{self, Contact, Stage};
+use crate::mind::remembrance::Remembrance;
 use crate::progress::{Discovery as D, Progress};
 use crate::sim::World;
 
@@ -37,6 +42,10 @@ pub const QUIET: f32 = 3.5;
 pub const SETTLE: f32 = 8.0;
 /// Seconds between two thoughts.
 pub const GAP: f32 = 45.0;
+/// Away at least this long (seconds) before this visit, it has had time to miss them.
+const AWAY: f64 = 6.0 * 3600.0;
+/// Away this long (seconds), it was not sure they would come back.
+const LONG_AWAY: f64 = 3.0 * 24.0 * 3600.0;
 
 /// The gates, in seconds: into the visit, without a discovery, in one place, between thoughts.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -116,11 +125,18 @@ pub struct Mind<'a> {
     pub contact: &'a Contact,
     /// A phone in the hand, and it can feel how it is held (motion.rs).
     pub felt: bool,
+    /// What it remembers of how it was treated, to read only.
+    pub kept: &'a Remembrance,
 }
 
 impl Mind<'_> {
     fn has(&self, d: D) -> bool {
         self.found.has(d)
+    }
+
+    /// Back after long enough away to have been missed.
+    fn missed(&self) -> bool {
+        self.kept.away() >= AWAY
     }
 }
 
@@ -142,7 +158,7 @@ const fn t(place: Place, from: Stage, until: Stage, when: fn(&Mind) -> bool, lin
 
 /// Every thought, in the order they are preferred. A pair of lines on one condition, split by
 /// stage, is the same thought turning from itself toward the player.
-pub static THOUGHTS: [Thought; 68] = [
+pub static THOUGHTS: [Thought; 75] = [
     // ---- the other one, once it has come
     t(P::Liquid, I, I, |m| m.world.other.inside() > 0.99 && !m.has(D::Give), "something is in it that is not it."),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Near), "it has not decided about the other one."),
@@ -156,7 +172,7 @@ pub static THOUGHTS: [Thought; 68] = [
     ),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Distance), "neither of them will go first."),
     // ---- the liquid, about you, once it has started to learn you
-    t(P::Liquid, I, I, |m| m.contact.contacted, "it thinks about you when you are not here."),
+    t(P::Liquid, I, I, |m| m.contact.contacted && m.missed(), "it thinks about you when you are not here."),
     t(P::Liquid, I, I, |m| m.contact.contacted && !m.has(D::Said), "it said one word. nobody has said it back."),
     t(
         P::Liquid,
@@ -170,6 +186,20 @@ pub static THOUGHTS: [Thought; 68] = [
     t(P::Liquid, E, I, |m| !m.has(D::Echo), "it is learning your rhythm. it wants to hear it again."),
     t(P::Liquid, E, I, |m| !m.has(D::Mimic), "it watches how far you reach. it could reach like that."),
     t(P::Liquid, R, I, |m| !m.has(D::Flinch), "it knows the place you always come back to."),
+    // ---- the liquid, as it remembers you
+    t(P::Liquid, R, I, |m| m.kept.away() >= LONG_AWAY, "it was not sure you would come back."),
+    t(P::Liquid, R, I, |m| m.kept.scarred(), "it keeps the place you hurt. it does not keep the reason."),
+    t(P::Liquid, R, I, |m| m.kept.wary() && m.kept.bond() < 0.3, "it is still deciding what your hands are for."),
+    t(
+        P::Liquid,
+        R,
+        I,
+        |m| m.kept.wary() && m.kept.bond() >= 0.3,
+        "it knows you. that is not the same as trusting you.",
+    ),
+    t(P::Liquid, R, I, |m| m.kept.kind() && m.missed(), "it was already facing the way you came in."),
+    t(P::Liquid, R, I, |m| m.kept.kind() && m.kept.bond() >= 0.2, "it has started to expect you."),
+    t(P::Liquid, E, I, |m| m.kept.bond() >= 0.6, "it knows you better than it knows the room."),
     // ---- the liquid: what it has not been yet
     t(P::Liquid, M, M, |m| !m.has(D::Stretch), "it does not know yet how far it goes."),
     t(P::Liquid, R, I, |m| !m.has(D::Stretch), "it wonders how far you would take it."),
@@ -360,8 +390,8 @@ mod tests {
 
     #[test]
     fn nothing_before_the_first_discovery() {
-        let (w, found, c) = (World::new(), Progress::default(), Contact::default());
-        let mind = Mind { found: &found, world: &w, contact: &c, felt: false };
+        let (w, found, c, kept) = (World::new(), Progress::default(), Contact::default(), Remembrance::default());
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false, kept: &kept };
         let mut th = Thoughts::default();
         for _ in 0..(120 * 60) {
             th.step(1.0 / 60.0, 60.0, &mind);
@@ -438,6 +468,66 @@ mod tests {
         assert!(g.thoughts.out.is_empty());
     }
 
+    /// Whether the thought `line` could come to `mind`.
+    fn could(line: &str, mind: &Mind) -> bool {
+        THOUGHTS.iter().find(|t| t.line == line).is_some_and(|t| (t.when)(mind))
+    }
+
+    const T0: f64 = 1_800_000_000.0;
+    const DAY: f64 = 24.0 * 3600.0;
+
+    /// A ledger of `deeds`, kept `away` seconds before now, as it is when they come back.
+    fn kept(deeds: &[(crate::mind::remembrance::Deed, u32)], away: f64) -> Remembrance {
+        let mut m = Remembrance::fresh(T0 - away - 3600.0);
+        for &(d, n) in deeds {
+            (0..n).for_each(|_| m.remember(d));
+        }
+        m.tick(3600.0);
+        Remembrance::load(&m.save(), T0)
+    }
+
+    #[test]
+    fn missing_you_is_only_thought_after_you_were_away() {
+        use crate::mind::remembrance::Deed;
+        let (w, found) = (World::new(), Progress::default());
+        let mut c = Contact::default();
+        c.contacted = true;
+        let line = "it thinks about you when you are not here.";
+        let never = Remembrance::default();
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false, kept: &never };
+        assert!(!could(line, &mind), "nobody has been away yet");
+        let soon = kept(&[(Deed::Held, 3)], 600.0);
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false, kept: &soon };
+        assert!(!could(line, &mind), "back within minutes");
+        let later = kept(&[(Deed::Held, 3)], 2.0 * DAY);
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false, kept: &later };
+        assert!(could(line, &mind));
+    }
+
+    #[test]
+    fn what_it_remembers_of_you_turns_up_in_its_thoughts() {
+        use crate::mind::remembrance::Deed;
+        let (w, found, c) = (World::new(), Progress::default(), Contact::default());
+        let thought = |kept: &Remembrance| {
+            let mind = Mind { found: &found, world: &w, contact: &c, felt: false, kept };
+            THOUGHTS.iter().filter(|t| (t.when)(&mind)).map(|t| t.line).collect::<Vec<&'static str>>()
+        };
+        let neutral = thought(&Remembrance::default());
+        let glad = thought(&kept(&[(Deed::Held, 30), (Deed::Sang, 10)], DAY));
+        let wary = thought(&kept(&[(Deed::Hurt, 12), (Deed::Broken, 3)], 4.0 * DAY));
+        let new =
+            |v: &[&'static str]| v.iter().filter(|l| !neutral.contains(l)).copied().collect::<Vec<&'static str>>();
+        assert_eq!(
+            new(&glad),
+            ["it was already facing the way you came in.", "it has started to expect you."],
+            "{glad:?}"
+        );
+        assert!(new(&wary).contains(&"it was not sure you would come back."), "{wary:?}");
+        assert!(new(&wary).iter().any(|l| l.contains("hands are for") || l.contains("trusting")), "{wary:?}");
+        // a ledger that knows nothing of you thinks nothing of you
+        assert!(!neutral.iter().any(|l| l.contains("expect") || l.contains("come back.")));
+    }
+
     #[test]
     fn it_thinks_about_where_it_is() {
         let mut w = World::new();
@@ -446,8 +536,8 @@ mod tests {
         assert_eq!(place(&w), Some(Place::Box));
         let mut found = Progress::default();
         found.discover(D::Poke);
-        let c = Contact::default();
-        let mind = Mind { found: &found, world: &w, contact: &c, felt: false };
+        let (c, kept) = (Contact::default(), Remembrance::default());
+        let mind = Mind { found: &found, world: &w, contact: &c, felt: false, kept: &kept };
         let mut th = Thoughts::default();
         for _ in 0..(60 * 60) {
             th.step(1.0 / 60.0, 10.0, &mind);

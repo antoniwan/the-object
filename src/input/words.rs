@@ -7,14 +7,15 @@
 //!   hand that does it is the same hand the pointer is, so every word does exactly what that
 //!   gesture would, wherever it is.
 //! - greet it, in any language, and what it does depends on how it has been treated, as
-//!   remembrance.rs keeps it. Treated gently, it turns to you and answers in its own signs: the
-//!   same signs for the same greeting, so a player can learn its word for theirs. Not sure of
+//!   remembrance.rs keeps it. Treated gently, it turns to you and answers in its own signs, each
+//!   heard as a soft note as it appears: the same signs and the same short phrase for the same
+//!   greeting, so a player can learn its word for theirs. Not sure of
 //!   you yet, it only turns to listen. Hurt lately, it draws back and says nothing. Being
 //!   greeted is itself remembered, as a small kindness.
 //!
 //! The words themselves are never kept: each piece of text is read for these words and dropped.
 
-use crate::game::{Game, Sound};
+use crate::game::{signs, Game};
 use crate::math::*;
 use crate::mind::contact::SIGNS;
 use crate::mind::remembrance::Deed;
@@ -28,6 +29,8 @@ const QUEUE: usize = 8;
 const GAP: f32 = 0.14;
 /// A greeting is answered at most this often (seconds).
 const GREET_GAP: f32 = 6.0;
+/// How long after a greeting (seconds) its answer starts to sound, a note for each sign.
+const SIGNS_AFTER: f32 = 0.35;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verb {
@@ -483,12 +486,8 @@ fn step_turn(g: &mut Game, dt: f32) {
         Mood::Kind => {
             g.world.gaze_dir = -b.fwd;
             g.world.watching = true;
-            if (t - dt..t).contains(&0.35) {
-                g.sounds.push(Sound::Poke { pitch: 0.55, size: 0.6 });
-            }
             if (t - dt..t).contains(&0.6) {
                 g.world.add_ripple((-b.fwd + b.up * 0.35).norm(), 0.35);
-                g.sounds.push(Sound::Poke { pitch: 0.85, size: 0.6 });
             }
         }
         Mood::Unsure => {
@@ -515,7 +514,10 @@ fn greet(g: &mut Game, greeting: &'static str) {
             if ordinary {
                 g.world.reach(-b.fwd);
             }
-            g.words.said.push(answer(greeting));
+            let said = answer(greeting);
+            // Each sign is heard as it appears: the same greeting, the same short phrase.
+            g.sounds.extend(signs(&said, SIGNS_AFTER));
+            g.words.said.push(said);
             g.discover(Discovery::Greeting);
         }
         Mood::Unsure => {

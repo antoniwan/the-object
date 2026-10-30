@@ -11,6 +11,8 @@ pub(super) const KEY_CONTACT: &str = "the-object.contact";
 pub(super) const KEY_SENSES: &str = "the-object.senses";
 /// What it remembers of what was done to it, and when you were last here (remembrance.rs).
 pub(super) const KEY_REMEMBRANCE: &str = "the-object.remembrance";
+/// How the meetings with the other one ended, every visit (other.rs).
+pub(super) const KEY_MET: &str = "the-object.met";
 
 /// What was kept under `key`, or nothing (no storage, or never kept).
 pub(super) fn load(key: &str) -> String {

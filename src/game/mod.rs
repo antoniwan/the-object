@@ -60,10 +60,12 @@
 //!   or leave them both alone
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
-//! the more it follows, flinches, echoes, takes turns, and, once, replies.
+//! the more it follows, flinches, echoes, takes turns, and, once, replies. Once it hears you it
+//! learns the note you sing, answers in it, and sometimes hums it first on its turn.
 //! It also remembers how it was treated (see remembrance.rs): come back, and the first time
-//! a hand comes near it leans toward it, or away. Hurt it enough and it scars; hurt a scar and
-//! it opens, and what falls out can close it again (see wound.rs).
+//! a hand comes near it leans toward it, or away; and how glad or wary of you it is lets your
+//! verbs go a little further, or less far (see temper.rs). Hurt it enough and it scars; hurt a
+//! scar and it opens, and what falls out can close it again (see wound.rs).
 //!
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
@@ -91,7 +93,7 @@ mod tests;
 mod view;
 
 use gesture::Gesture;
-pub use sound::{memory, memory_deaf, Sound, Tone, Wave, OWN_SOUND_DEAF};
+pub use sound::{memory, memory_deaf, signs, Sound, Tone, Wave, OWN_SOUND_DEAF};
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
@@ -186,6 +188,8 @@ pub struct Game {
     pub remembrance: crate::mind::remembrance::Remembrance,
     /// Words it hears, and how it has been treated (see words.rs).
     pub words: crate::input::words::Words,
+    /// Its mood as the hand now on it found it: how far that hand's verbs go (mind/temper.rs).
+    pub(crate) temper: crate::mind::temper::Temper,
 }
 
 impl Game {
@@ -225,6 +229,7 @@ impl Game {
             pad: Default::default(),
             remembrance: Default::default(),
             words: Default::default(),
+            temper: Default::default(),
         }
     }
 
@@ -300,6 +305,8 @@ impl Game {
                 let fwd = self.cam.basis().fwd;
                 let pull = tip - self.world.body.pos;
                 if self.world.forms.filament.draw(pull - fwd * pull.dot(fwd)) {
+                    // Wary of the hand that drew it, the thread will not stay that way for long.
+                    self.world.forms.filament.restless = self.temper.wary;
                     self.world.sink_handle(handle);
                     self.gesture = Gesture::Idle;
                     self.sounds.push(Sound::Become);
@@ -421,6 +428,7 @@ impl Game {
             world: &self.world,
             contact: &self.contact,
             felt: self.motion.alive && self.senses.is_open(senses::Kind::Feel),
+            kept: &self.remembrance,
         };
         self.thoughts.step(dt, self.idle, &mind);
         // Lit while a finger holds the mound still; any other gesture lets the light fade.
