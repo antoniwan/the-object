@@ -111,7 +111,7 @@ pub struct Mere {
     clock: f32,
     /// What it last rose as, and how much of that is left on it, 0..1.
     pub coat: Coat,
-    pub coat_left: f32,
+    coat_left: f32,
     events: Vec<Event>,
 }
 
@@ -287,7 +287,7 @@ impl Mere {
 
     /// How much quicksilver and how much ink is on the object, for the shader.
     pub fn coat_mix(&self) -> (f32, f32) {
-        // fades in over the first seconds as it comes up, out over the long tail
+        // all of it from the moment it rises, fading only over the last quarter of its time
         let c = smoothstep(0.0, 0.25, self.coat_left);
         match self.coat {
             Coat::Pearl => (0.0, 0.0),

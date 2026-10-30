@@ -14,12 +14,12 @@
 //! Only all twelve, crowded into one, run as a river (river.rs); smaller
 //! groups keep to themselves. Carried to the middle, a group goes home together.
 //!
-//! `Kin` only keeps which pieces hold on to which; burst.rs owns where they
+//! `Kin` only keeps which pieces hold on to which; burst/mod.rs owns where they
 //! stand and folds the breathing into each piece's pose. Nothing new reaches
 //! the shader: a piece's place and its turn are all it needs.
 
 use crate::burst::{Shard, SHARDS};
-use crate::burst::landscape::Land;
+use crate::burst::landscape::{spacing, Land};
 use crate::math::*;
 
 /// Set down this much further apart than they shove each other to, two pieces hold on.
@@ -79,11 +79,6 @@ pub struct Kin {
     clock: f32,
     told_many: bool,
     events: Vec<Event>,
-}
-
-/// How close two pieces of these heights are shoved to, at most.
-fn spacing(a: f32, b: f32) -> f32 {
-    (a + b) * 0.32
 }
 
 fn flat(v: V3) -> V3 {
@@ -242,8 +237,7 @@ impl Kin {
         if n < 2 {
             return V3::ZERO;
         }
-        let members = (0..SHARDS).filter(|&j| g & (1 << j) != 0);
-        let mid = members.clone().fold(V3::ZERO, |a, j| a + homes[j]) * (1.0 / n as f32);
+        let mid = (0..SHARDS).filter(|&j| g & (1 << j) != 0).fold(V3::ZERO, |a, j| a + homes[j]) * (1.0 / n as f32);
         let out = flat(homes[i] - mid);
         if out.len() < 1e-3 {
             return V3::ZERO;
@@ -255,7 +249,7 @@ impl Kin {
         out.norm() * (BREATH * phase.sin())
     }
 
-    /// `homes` and `shards` are burst.rs's; `fixed(j)` is true for a piece that cannot move
+    /// `shards` is burst/mod.rs's; `fixed(j)` is true for a piece that cannot move
     /// (planted, or gone home).
     pub fn step(&mut self, dt: f32, shards: &mut [Shard; SHARDS], sizes: &[f32; SHARDS], land: &Land, fixed: impl Fn(usize) -> bool) {
         self.clock += dt;

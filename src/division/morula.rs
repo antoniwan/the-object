@@ -15,7 +15,7 @@
 //!   long enough brings the liquid back.
 //!
 //! Cells are a tiny particle system, in units of the body radius, centered on
-//! the body. Like the rest of meiosis.rs, `Stage` only decides which continuous
+//! the body. Like `Phase` in meiosis.rs, `Stage` only decides which continuous
 //! values move, and the shader mixes them, so nothing jumps.
 
 use crate::math::*;

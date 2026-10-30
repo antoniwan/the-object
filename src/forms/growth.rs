@@ -9,24 +9,25 @@
 //! 4 in leaf and blossom. It eases toward `tended`, so growing is something you watch.
 
 use super::Event;
+use crate::math::smoothstep;
 
 /// Where it gets to on its own: a shoot.
 const ROOT: f32 = 0.6;
 pub const FULL: f32 = 4.0;
 /// How far one tap brings it on.
-pub const TEND: f32 = 0.35;
+const TEND: f32 = 0.35;
 /// How fast what is drawn follows what it has been given, per second.
 const GROW_RATE: f32 = 0.3;
 /// Untended this long, it starts to draw back, this much a second.
-pub const WITHER_AFTER: f32 = 30.0;
+const WITHER_AFTER: f32 = 30.0;
 const WITHER_RATE: f32 = 0.05;
 
 #[derive(Default)]
 pub struct Growth {
     pub shown: f32,
-    pub tended: f32,
+    tended: f32,
     /// Seconds since it was last tended.
-    pub quiet: f32,
+    quiet: f32,
     peak: f32,
     rooted: bool,
     full: bool,
@@ -45,12 +46,12 @@ impl Growth {
     /// The shader's tree reaches about this far.
     pub fn reach(&self) -> f32 {
         let g = self.shown;
-        0.15 + 2.3 * crate::math::smoothstep(0.0, 2.5, g) + 0.9 * crate::math::smoothstep(2.6, 3.6, g)
+        0.15 + 2.3 * smoothstep(0.0, 2.5, g) + 0.9 * smoothstep(2.6, 3.6, g)
     }
 
     /// How wide its branches spread from the trunk.
     pub fn spread(&self) -> f32 {
-        0.15 + 1.2 * crate::math::smoothstep(1.0, 3.0, self.shown)
+        0.15 + 1.2 * smoothstep(1.0, 3.0, self.shown)
     }
 
     /// While the mound stands: it takes root, follows the tending, and withers when left alone.
@@ -60,7 +61,7 @@ impl Growth {
         if self.quiet > WITHER_AFTER {
             self.tended = (self.tended - WITHER_RATE * dt).max(ROOT);
         }
-        self.ease(dt);
+        self.follow(dt);
         self.peak = self.peak.max(self.shown);
         if !self.rooted && self.shown > 0.5 {
             self.rooted = true;
@@ -82,7 +83,8 @@ impl Growth {
         self.shown = (self.shown - dt * 3.0).max(0.0);
     }
 
-    fn ease(&mut self, dt: f32) {
+    /// `shown` moves toward `tended` at `GROW_RATE`, never faster.
+    fn follow(&mut self, dt: f32) {
         let d = self.tended - self.shown;
         self.shown += d.signum() * d.abs().min(GROW_RATE * dt);
     }

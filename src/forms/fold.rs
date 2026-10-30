@@ -13,16 +13,16 @@ use super::Event;
 use crate::math::{ease, fade, smoothstep};
 
 /// Turns past the universe, the way it was stirred, that open the fold.
-pub const FOLD_TURNS: f32 = 3.0;
+const FOLD_TURNS: f32 = 3.0;
 /// Turns the other way that close it again.
-pub const UNFOLD_TURNS: f32 = 2.0;
+const UNFOLD_TURNS: f32 = 2.0;
 const OPEN_SECS: f32 = 4.2;
 const CLOSE_SECS: f32 = 3.0;
 /// Stop stirring for more than `PAUSE_SECS` and the stir fades, over about `FORGET_SECS`.
 const PAUSE_SECS: f32 = 0.6;
 const FORGET_SECS: f32 = 3.0;
 /// Held this long, its time turns round.
-pub const BACKWARD_SECS: f32 = 0.6;
+const BACKWARD_SECS: f32 = 0.6;
 /// How many mirrors the room folds into first, and the most it takes before it starts again.
 const FIRST_MIRRORS: u32 = 4;
 const MOST_MIRRORS: u32 = 12;

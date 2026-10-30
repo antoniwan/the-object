@@ -25,7 +25,7 @@ const REJOIN_SECS: f32 = 2.2;
 /// How long the time-freeze lasts right after the cut, in real seconds.
 pub const HIT_STOP_SECS: f32 = 0.12;
 /// A swipe must cross the body this fast to count as a slice.
-pub const SLICE_MAX_SECS: f32 = 0.35;
+const SLICE_MAX_SECS: f32 = 0.35;
 /// Holding a squeeze this long presses two cells back into one.
 const REJOIN_SQUEEZE_SECS: f32 = 0.9;
 

@@ -31,7 +31,7 @@ const SWELL_SECS: f32 = 0.35;
 const FLIGHT_SECS: f32 = 2.4;
 const GATHER_SECS: f32 = 2.8;
 /// Each liquid bead's radius, as a fraction of the body's; the shader's blob matches it.
-pub const BEAD: f32 = 0.437;
+const BEAD: f32 = 0.437;
 /// Holding still on empty ground this long calls the pieces home.
 pub const GATHER_HOLD_SECS: f32 = 1.4;
 /// Camera distance from which the whole landscape can be seen.
@@ -194,7 +194,7 @@ impl Burst {
         let (depth, _) = self.land.depth_and_scale(i);
         let sunk = depth * self.shard_size(i) * s;
         // melted into the river, they are under the ground, and come up out of it as liquid
-        let bled = smoothstep(0.0, 1.0, self.river.amount);
+        let bled = smooth01(self.river.amount);
         let under = bled * (self.shard_size(i) * 0.9 + 1.5);
         let pos = v3(flat.x, flat.y + arc - sunk - under, flat.z);
         (pos, smoothstep(0.55, 1.0, s) * (1.0 - bled))

@@ -35,7 +35,7 @@ pub struct Filament {
     pub swing: V3,
     pub harmonic: u32,
     /// Seconds since the last pluck.
-    pub since_pluck: f32,
+    since_pluck: f32,
     pub(super) events: Vec<Event>,
 }
 
