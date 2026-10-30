@@ -1,8 +1,8 @@
 //! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the lines of text
 //! (hint, toast, count, now and then a thought, and the marks while it hears or sees), what is
 //! saved between visits, the microphone and camera once the player has let it have them
-//! (senses/, devices.rs), words made of what it hears (words.rs, speech.rs), and how a phone
-//! is held and moved (motion.rs).
+//! (senses/, devices.rs), words made of what it hears (words.rs, speech.rs), how a phone
+//! is held and moved (motion.rs), and keeping the screen on (wake.rs, keep.rs).
 
 use crate::game::{Game, Sound};
 use crate::input::keys;
@@ -16,6 +16,7 @@ use crate::platform::devices::{self, Answer, Ears, Eyes};
 use crate::platform::render::Renderer;
 use crate::platform::speech::{self, Can, Note, Speech};
 use crate::progress::{Discovery, Progress};
+use crate::wake::Wake;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -24,6 +25,7 @@ use web_sys::{HtmlCanvasElement, HtmlElement, KeyboardEvent, PointerEvent, WebGl
 
 mod frame;
 mod hud;
+mod keep;
 mod page;
 mod sensing;
 mod storage;
@@ -88,6 +90,11 @@ struct App {
     tongues: Vec<String>,
     /// Things said in a row with nothing in them it knows.
     unknown: u32,
+    /// Whether the screen is kept on, and the browser's half of it.
+    wake: Wake,
+    keep: keep::Keep,
+    /// How sound was last routed: as for a page that also listens, or one that only plays.
+    routed: Option<bool>,
 }
 
 impl App {
@@ -105,6 +112,7 @@ impl App {
 
         self.resize();
         self.sense(now);
+        self.keep_awake(dt as f32);
         self.game.update(dt as f32);
         // Another tab may have kept more since this one read it: what only grows is taken in
         // first, so neither undoes the other.
@@ -209,6 +217,34 @@ impl App {
         self.hud.urgent(line);
     }
 
+    /// Someone pressed or typed: the screen is kept on from now, if it was not.
+    fn touched(&mut self) {
+        let d = self.wake.touched();
+        self.keep.apply(d);
+    }
+
+    /// The screen stays on while someone is there, or while it hears or sees them (wake.rs).
+    fn keep_awake(&mut self, dt: f32) {
+        if self.keep.lost() {
+            self.wake.lost();
+        }
+        let sensing = self.game.senses.is_open(Kind::Hear) || self.game.senses.is_open(Kind::See);
+        let d = self.wake.step(dt, sensing);
+        self.keep.apply(d);
+        // While the microphone is open (or being asked for), sound is routed as for a call's
+        // speaker, not the earpiece; otherwise it plays as the quiet sounds of a page do.
+        let h = self.game.senses.hear;
+        self.route(matches!(h, senses::Leave::Opening | senses::Leave::Open));
+    }
+
+    /// How the phone should play its sound (audio.rs `route`), told only when it changes.
+    fn route(&mut self, listening: bool) {
+        if self.routed != Some(listening) {
+            self.routed = Some(listening);
+            crate::platform::audio::route(listening);
+        }
+    }
+
     /// Sound can only start inside a gesture; the first one makes it.
     fn start_audio(&mut self) {
         if self.audio.is_none() {
@@ -311,7 +347,11 @@ pub fn start() -> Result<(), JsValue> {
         speech_gone: false,
         tongues,
         unknown: 0,
+        wake: Wake::default(),
+        keep: keep::Keep::default(),
+        routed: None,
     }));
+    app.borrow_mut().route(false);
     app.borrow_mut().resize();
     if feeling == devices::Feeling::Free {
         app.borrow_mut().feel();
@@ -326,6 +366,7 @@ pub fn start() -> Result<(), JsValue> {
             let _ = c.set_pointer_capture(e.pointer_id());
             let mut a = app.borrow_mut();
             a.start_audio();
+            a.touched();
             let (x, y) = a.pos(&e);
             a.moved(e.pointer_id(), e.time_stamp());
             let grab = a.game.hovering_liquid(x, y);
@@ -339,6 +380,7 @@ pub fn start() -> Result<(), JsValue> {
         let app = app.clone();
         listen(target, "pointermove", true, move |e: PointerEvent| {
             let mut a = app.borrow_mut();
+            a.wake.stirred();
             let (x, y) = a.pos(&e);
             let dt = a.moved(e.pointer_id(), e.time_stamp());
             a.game.pointer_move(e.pointer_id(), x, y, dt);
@@ -386,7 +428,9 @@ pub fn start() -> Result<(), JsValue> {
                     _ => 1.0,
                 };
             // Two fingers pinched on a trackpad come as a wheel with ctrl held.
-            let game = &mut app.borrow_mut().game;
+            let mut a = app.borrow_mut();
+            a.wake.stirred();
+            let game = &mut a.game;
             if e.ctrl_key() {
                 game.pad.wheel(dy);
             } else {
@@ -449,6 +493,7 @@ pub fn start() -> Result<(), JsValue> {
             }
             let mut a = app.borrow_mut();
             a.wake_audio();
+            a.touched();
             if e.key() == "m" {
                 if let Some(audio) = &mut a.audio {
                     audio.toggle_mute();
@@ -516,7 +561,7 @@ pub fn start() -> Result<(), JsValue> {
         })?;
     }
     {
-        // Nobody is looking at the page: it stops hearing and seeing.
+        // Nobody is looking at the page: it stops hearing and seeing, and lets the screen go.
         let app = app.clone();
         let d = doc.clone();
         listen(doc.as_ref(), "visibilitychange", true, move |_: web_sys::Event| {
@@ -528,8 +573,14 @@ pub fn start() -> Result<(), JsValue> {
                 if let Some(audio) = &a.audio {
                     audio.suspend();
                 }
-            } else if let Some(audio) = &a.audio {
-                audio.resume();
+                let w = a.wake.hide();
+                a.keep.apply(w);
+            } else {
+                if let Some(audio) = &a.audio {
+                    audio.resume();
+                }
+                let w = a.wake.show();
+                a.keep.apply(w);
             }
         })?;
     }

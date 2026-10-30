@@ -9,7 +9,7 @@
 //!   flung off the way it was thrown; enough of them free and the room goes dark, as always.
 //!
 //! Most phones simply let the page feel how they are held. Some (iOS) only after asking: then
-//! it asks once a visit, late enough in the arc, in one word (`hold the room.`, senses/), and
+//! it asks once a visit, once it has been left alone a moment, in one word (`hold the room.`, senses/), and
 //! only the player's tap on that word lets the browser ask. On a desk nothing arrives and
 //! nothing happens. Readings are a few numbers a frame, used and dropped. Everything here acts
 //! only on the ordinary liquid.
