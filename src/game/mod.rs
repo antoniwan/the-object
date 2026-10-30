@@ -91,7 +91,7 @@ mod tests;
 mod view;
 
 use gesture::Gesture;
-pub use sound::Sound;
+pub use sound::{memory, memory_deaf, Sound, Tone, Wave, OWN_SOUND_DEAF};
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;

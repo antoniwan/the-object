@@ -1,8 +1,8 @@
 //! Every sound is synthesized: a few sine and triangle tones, no samples.
 
-use crate::game::Sound;
+use crate::game::{memory, memory_deaf, Sound, Tone, Wave, OWN_SOUND_DEAF};
 use crate::sim::World;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
@@ -65,6 +65,8 @@ pub struct Audio {
     hum: Voice,
     /// A note the player held, hummed back (senses/).
     echo: Voice,
+    /// The last sound it made: when it began, and its tones, to come back when something is found.
+    last: RefCell<(f64, Vec<Tone>)>,
     pub muted: bool,
     /// Nobody is looking: faded out, and suspended once the fade is done unless they came back.
     away: Rc<Cell<bool>>,
@@ -97,6 +99,7 @@ impl Audio {
             hum: glides(hum),
             echo: glides(echo),
             ctx,
+            last: RefCell::new((0.0, Vec::new())),
             muted: false,
             away: Rc::new(Cell::new(false)),
         })
@@ -169,11 +172,22 @@ impl Audio {
         let _ = self.master.gain().set_target_at_time(self.level(), t, 0.1);
     }
 
-    /// One plucked tone: a quick attack, a slide from `f0` to `f1`, and an exponential fade.
+    /// One plucked tone, kept as part of the last sound it made.
     fn pluck(&self, kind: OscillatorType, f0: f32, f1: f32, gain: f32, decay: f64, delay: f64) -> Result<(), JsValue> {
+        let wave = if kind == OscillatorType::Triangle { Wave::Triangle } else { Wave::Sine };
+        let tone = Tone { wave, f0, f1, gain, decay, delay };
+        self.last.borrow_mut().1.push(tone);
+        self.tone(tone)
+    }
+
+    /// One tone: a quick attack, a slide from `f0` to `f1`, and an exponential fade.
+    fn tone(&self, Tone { wave, f0, f1, gain, decay, delay }: Tone) -> Result<(), JsValue> {
         let t = self.ctx.current_time() + delay;
         let osc = self.ctx.create_oscillator()?;
-        osc.set_type(kind);
+        osc.set_type(match wave {
+            Wave::Sine => OscillatorType::Sine,
+            Wave::Triangle => OscillatorType::Triangle,
+        });
         osc.frequency().set_value_at_time(f0, t)?;
         osc.frequency().exponential_ramp_to_value_at_time(f1, t + decay * 0.5)?;
         let g = self.ctx.create_gain()?;
@@ -187,7 +201,12 @@ impl Audio {
         Ok(())
     }
 
-    pub fn play(&self, s: Sound) {
+    /// Plays one sound, and says how long a microphone should not listen (seconds from now).
+    pub fn play(&self, s: Sound) -> f32 {
+        if s == Sound::Discover {
+            return self.remember();
+        }
+        *self.last.borrow_mut() = (self.ctx.current_time(), Vec::new());
         use OscillatorType::*;
         let _ = match s {
             Sound::Poke { pitch, size } => {
@@ -199,10 +218,7 @@ impl Audio {
             Sound::Merge => self
                 .pluck(Sine, 110.0, 108.0, 0.16, 1.6, 0.0)
                 .and_then(|_| self.pluck(Sine, 164.8, 163.0, 0.09, 1.4, 0.03)),
-            Sound::Discover => self
-                .pluck(Sine, 659.3, 659.3, 0.05, 2.4, 0.15)
-                .and_then(|_| self.pluck(Sine, 987.8, 987.8, 0.035, 2.6, 0.32))
-                .and_then(|_| self.pluck(Sine, 1318.5, 1318.5, 0.02, 2.8, 0.5)),
+            Sound::Discover => Ok(()),
             Sound::Shard { i } => {
                 // the hard ones ring, the soft ones thud
                 let f = shard_note(i);
@@ -264,6 +280,20 @@ impl Audio {
                 .pluck(Triangle, 73.4, 69.0, 0.25, 1.4, 0.0)
                 .and_then(|_| self.pluck(Triangle, 77.8, 72.0, 0.2, 1.3, 0.0)),
         };
+        OWN_SOUND_DEAF
+    }
+
+    /// Something was found: a pressure, and then the memory of a pressure. The last sound it
+    /// made comes back, lower and faint; it is not itself remembered.
+    fn remember(&self) -> f32 {
+        let tones = {
+            let (at, last) = &*self.last.borrow();
+            memory(last, self.ctx.current_time() - at)
+        };
+        for t in &tones {
+            let _ = self.tone(*t);
+        }
+        memory_deaf(&tones)
     }
 
     /// A letter held down, sung back: `pitch` 0..1 picks a note from the scale, an octave under

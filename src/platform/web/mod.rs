@@ -152,27 +152,32 @@ impl App {
                 _ => {}
             }
         }
-        if self.audio.as_ref().is_some_and(|a| !a.muted) {
-            // A microphone near the speaker would hear these; it is not to take them for the player.
-            for s in &self.game.sounds {
-                // Only while the sound is loud: most of each one is gone in under a second.
-                self.game.senses.deafen(if *s == Sound::Discover { 1.6 } else { 0.6 });
-            }
-            // Nor the voices that keep sounding while the player holds on (audio.rs `follow`,
-            // `hum`): the warm hum while held still, a held letter's note. Each fades over a
-            // moment once it stops, so it stays deaf a little past the last frame of it. The
-            // night's drone is left out: it lasts the whole night, and it must still hear then.
-            if self.game.world.warming || self.game.keys.hum().is_some() {
-                self.game.senses.deafen(0.6);
-            }
-        }
         if let Some(a) = &self.audio {
-            for s in self.game.sounds.drain(..) {
-                a.play(s);
+            // What is found sounds after everything else this frame, so it remembers the sound
+            // that went with it; two found at once are remembered once.
+            let found = self.game.sounds.contains(&Sound::Discover);
+            let mut deaf = 0.0f32;
+            for s in self.game.sounds.drain(..).filter(|s| *s != Sound::Discover) {
+                deaf = deaf.max(a.play(s));
+            }
+            if found {
+                deaf = deaf.max(a.play(Sound::Discover));
             }
             a.follow(&self.game.world);
             a.hum(self.game.keys.hum());
             a.echo(self.game.senses.hum());
+            if !a.muted {
+                // A microphone near the speaker would hear these; it is not to take them for the
+                // player, only while each is loud (audio.rs `play`).
+                self.game.senses.deafen(deaf);
+                // Nor the voices that keep sounding while the player holds on (audio.rs `follow`,
+                // `hum`): the warm hum while held still, a held letter's note. Each fades over a
+                // moment once it stops, so it stays deaf a little past the last frame of it. The
+                // night's drone is left out: it lasts the whole night, and it must still hear then.
+                if self.game.world.warming || self.game.keys.hum().is_some() {
+                    self.game.senses.deafen(crate::game::OWN_SOUND_DEAF);
+                }
+            }
         }
         // Emptied in place, so the list keeps its room for the next frame.
         self.game.sounds.clear();
