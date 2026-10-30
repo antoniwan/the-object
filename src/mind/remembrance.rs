@@ -24,6 +24,10 @@
 //! - **It learns your note.** Beside the deeds it keeps one number: the note you tend to sing,
 //!   in Hz, a slow running middle of every note you held and let go (`sung`). Never a sound,
 //!   only that number; a save without it loads with none.
+//! - **It keeps where you last touched it**, one direction (`spot`), so that what it shows of
+//!   your time away is where your hand was (absence.rs). A save without it loads with none.
+//! - **A long time away is not only care.** Back after days, it counts the return, a little, and
+//!   is a little more careful of you for the first minutes of the visit (`reserve`), never longer.
 
 use crate::game::{Game, Sound};
 use crate::math::*;
@@ -32,13 +36,18 @@ use crate::progress::Discovery;
 
 /// Bump when `warmth_of` or `bond_of` change meaning. Saved for whoever reads the value; never
 /// used to read it back.
-pub const FORMULA: u32 = 1;
+pub const FORMULA: u32 = 2;
 const FILE: u32 = 1;
 
-/// A day, in seconds.
-const DAY: f64 = 24.0 * 3600.0;
+/// An hour and a day, in seconds.
+pub const HOUR: f64 = 3600.0;
+pub const DAY: f64 = 24.0 * HOUR;
 /// Away longer than this, a return counts as a long one.
-const LONG_AWAY: f64 = 3.0 * DAY;
+pub const LONG_AWAY: f64 = 3.0 * DAY;
+/// Back after a long time away, it is this much less glad of you at first (of warmth's 0..1),
+/// and that fades away at this rate a second: gone within the first few minutes of the visit.
+const RESERVE: f32 = 0.1;
+const RESERVE_RATE: f32 = 1.0 / 60.0;
 /// How many lifetime points before it trusts its own memory fully; until then it stays near
 /// neutral, so one visit is never the whole of you.
 const FAMILIAR: f64 = 10.0;
@@ -82,7 +91,8 @@ pub enum Deed {
     Answered,
     /// Came back.
     Returned,
-    /// Came back after days away. Always also a `Returned`.
+    /// Came back after days away. Always also a `Returned`. Counted as a return, a little more
+    /// than a short one, and for a while it is careful of you (`reserve`): not pure care.
     LongReturn,
     /// A while here together with nothing hurting it.
     Stayed,
@@ -145,8 +155,9 @@ impl Deed {
     fn felt(self) -> f64 {
         match self {
             Deed::Touch => 0.0,
-            Deed::Held | Deed::Sang | Deed::Answered | Deed::LongReturn | Deed::Tended => 1.0,
+            Deed::Held | Deed::Sang | Deed::Answered | Deed::Tended => 1.0,
             Deed::Hummed | Deed::Returned | Deed::Greeted => 0.5,
+            Deed::LongReturn => 0.3,
             Deed::Stayed => 0.25,
             Deed::Hurt => -1.0,
             Deed::Broken => -2.0,
@@ -273,6 +284,10 @@ pub struct Remembrance {
     spun: (u32, f32),
     /// The note it knows you by, in Hz, if you have ever sung to it.
     pitch: Option<f32>,
+    /// Where you last touched it, from its middle, if you ever have.
+    spot: Option<V3>,
+    /// 1 at the start of a visit after a long time away, fading: how much of `RESERVE` it keeps.
+    reserve: f32,
     // ---- what it was watching last frame
     upset: bool,
     held: f32,
@@ -305,6 +320,8 @@ impl Remembrance {
             scar_shown: false,
             spun: (0, 0.0),
             pitch: None,
+            spot: None,
+            reserve: 0.0,
             upset: false,
             held: 0.0,
             hummed: false,
@@ -341,6 +358,14 @@ impl Remembrance {
                 "pitch" => {
                     m.pitch = v.parse::<f32>().ok().filter(|f| (PITCH_LO..=PITCH_HI).contains(f));
                 }
+                "spot" => {
+                    let n: Vec<f32> =
+                        v.split(',').filter_map(|x| x.parse::<f32>().ok()).filter(|x| x.is_finite()).collect();
+                    if let [x, y, z] = n[..] {
+                        let dir = v3(x, y, z);
+                        m.spot = (dir.len() > 0.5).then(|| dir.norm());
+                    }
+                }
                 "spun" => {
                     if let Some((n, s)) = v.split_once(',') {
                         if let (Ok(n), Ok(s)) = (n.parse::<u32>(), s.parse::<f32>()) {
@@ -374,9 +399,10 @@ impl Remembrance {
             m.ledger.add(Deed::Returned, now);
             if away > LONG_AWAY {
                 m.ledger.add(Deed::LongReturn, now);
+                m.reserve = 1.0;
             }
             // How it meets you is how it was with you before you came back.
-            m.greeting = Greeting::Due { warmth: warmth_of(&m.ledger, m.now) };
+            m.greeting = Greeting::Due { warmth: m.warmth() };
         }
         m.seen = now;
         m.dirty = true;
@@ -405,6 +431,9 @@ impl Remembrance {
         if let Some(f) = self.pitch {
             s.push_str(&format!(";pitch={f:.1}"));
         }
+        if let Some(d) = self.spot {
+            s.push_str(&format!(";spot={:.2},{:.2},{:.2}", d.x, d.y, d.z));
+        }
         s
     }
 
@@ -412,9 +441,10 @@ impl Remembrance {
         &self.ledger
     }
 
-    /// How glad of you it is now, 0..1; 0.5 until it knows you.
+    /// How glad of you it is now, 0..1; 0.5 until it knows you. Back after a long time away, a
+    /// little less, for the first minutes of the visit.
     pub fn warmth(&self) -> f32 {
-        warmth_of(&self.ledger, self.now)
+        (warmth_of(&self.ledger, self.now) - RESERVE * self.reserve).clamp(0.0, 1.0)
     }
 
     /// It has been treated well, lately, by someone it knows.
@@ -447,6 +477,18 @@ impl Remembrance {
         self.pitch
     }
 
+    /// Where you last touched it (a direction from its middle), if it has kept one.
+    pub fn spot(&self) -> Option<V3> {
+        self.spot
+    }
+
+    /// You touched it at `dir` (from its middle): kept as where you last touched it.
+    pub fn touched(&mut self, dir: V3) {
+        if dir.len() > 0.5 && dir.len().is_finite() {
+            self.spot = Some(dir.norm());
+        }
+    }
+
     /// You held a note `f` (Hz) and let it go: it was sung to, and it moves the note it knows
     /// you by toward it, a semitone at most.
     pub fn sung(&mut self, f: f32) {
@@ -474,6 +516,7 @@ impl Remembrance {
     /// Time passes.
     pub fn tick(&mut self, dt: f32) {
         self.now += f64::from(dt.max(0.0));
+        self.reserve = fade(self.reserve, -RESERVE_RATE * dt.max(0.0));
         self.since_save += dt;
         if self.since_save >= SAVE_EVERY {
             self.since_save = 0.0;
@@ -692,6 +735,44 @@ mod tests {
         let s = m.save();
         let back = Remembrance::load(&s, T0 + 5.0 * DAY);
         assert_eq!(back.ledger.get(Deed::LongReturn).count, 1);
+    }
+
+    #[test]
+    fn a_long_time_away_is_a_return_and_a_little_care_not_pure_care() {
+        assert_eq!(FORMULA, 2);
+        assert_eq!(Deed::LongReturn.felt(), 0.3);
+        assert!(Deed::LongReturn.felt() < Deed::Held.felt());
+        // a ledger near neutral: back after a week, it is warier at first than back after a day
+        let mut m = Remembrance::fresh(T0);
+        for _ in 0..12 {
+            m.remember(Deed::Touch);
+        }
+        m.remember(Deed::Held);
+        let s = m.save();
+        let day = Remembrance::load(&s, T0 + DAY);
+        let week = Remembrance::load(&s, T0 + 7.0 * DAY);
+        assert_eq!(week.ledger.get(Deed::LongReturn).count, 1);
+        let quiet = warmth_of(&week.ledger, week.now);
+        assert!((week.warmth() - (quiet - RESERVE)).abs() < 1e-4, "careful of you at first");
+        assert_eq!(day.warmth(), warmth_of(&day.ledger, day.now), "only after a long time away");
+        // and it fades within the visit
+        let mut week = week;
+        week.tick(300.0);
+        assert!((week.warmth() - warmth_of(&week.ledger, week.now)).abs() < 0.01);
+        // nothing of it is written down: the next visit starts from the ledger alone
+        assert!(!week.save().contains("reserve"));
+    }
+
+    #[test]
+    fn a_save_from_before_it_kept_your_touch_loads_with_none() {
+        for old in ["v=1;f=1;born=1;seen=1;at=1;held=2,1;long=1,0.5", "held=2,1;spot=nan,1,2", "spot=0,0,0", "spot=1,2"]
+        {
+            let m = Remembrance::load(old, T0);
+            assert_eq!(m.spot(), None, "{old}");
+        }
+        let m = Remembrance::load("v=1;f=1;born=1;seen=1;at=1;held=2,1;long=1,0.5", T0);
+        assert_eq!(m.ledger.get(Deed::LongReturn).count, 2, "kept, and this return counted");
+        assert_eq!(m.ledger.get(Deed::Held).count, 2);
     }
 
     #[test]

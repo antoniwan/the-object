@@ -12,10 +12,15 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-30
+
+### Added
+- Coming back after hours leaves a drop where you last touched it; after days it is warm at first; after longer it is facing away and turns round to you. A long absence is no longer counted only as care
+
 ## [2.0.0] - 2026-10-30
 
 ### Changed
-- It reaches back once. On later visits it only remembers doing so: shorter, and as far as it knows you. Its question comes once, and once more only if it went unanswered. After that, on its turn, it may begin a flower, a box or a universe you once made, stop partway, and wait
+- It reaches back once. On later visits it only remembers doing so: shorter, and as far as it knows you. Its question comes once, and once more only if it went unanswered. After that, on its turn, it may begin a flower, a box or a universe you once made, stop partway, and wait (#113)
 
 ## [1.25.0] - 2026-10-30
 
@@ -602,7 +607,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/antoniwan/the-object/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/antoniwan/the-object/compare/v1.25.0...v2.0.0
 [1.25.0]: https://github.com/antoniwan/the-object/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/antoniwan/the-object/compare/v1.23.1...v1.24.0

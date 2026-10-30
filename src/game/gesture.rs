@@ -258,6 +258,9 @@ impl Game {
         let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
         self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
         self.contact.poked((hit.pos - self.world.body.pos).norm(), pitch);
+        if hit.target == Target::Body {
+            self.remembrance.touched(hit.pos - self.world.body.pos);
+        }
         self.world.other.hurt();
         self.discover(Discovery::Poke);
         if self.world.division.phase == meiosis::Phase::Two {

@@ -41,6 +41,9 @@ const LEVEL: f32 = 0.7;
 const FADE: f64 = 0.012;
 /// How long after the fade begins the context is suspended (ms): several time constants.
 const FADE_MS: i32 = 90;
+/// The note it keeps for you, played back once on a return: how loud, and how long it rings.
+const KEPT_GAIN: f32 = 0.015;
+const KEPT_SECS: f64 = 2.4;
 
 /// How the phone plays the page's sound, where the browser lets it be said (Safari's
 /// `navigator.audioSession`): at rest, as a page's quiet sounds (`ambient`: the ringer switch
@@ -312,6 +315,8 @@ impl Audio {
                 let t = sign_tone(i, delay);
                 self.pluck(Sine, t.f0, t.f1, t.gain, t.decay, t.delay)
             }
+            // Its note for you, hardly there: the quietest thing it plays.
+            Sound::Kept { f } => self.pluck(Sine, f, f, KEPT_GAIN, KEPT_SECS, 0.0),
             Sound::Provoked => self
                 .pluck(Triangle, 73.4, 69.0, 0.25, 1.4, 0.0)
                 .and_then(|_| self.pluck(Triangle, 77.8, 72.0, 0.2, 1.3, 0.0)),
@@ -319,6 +324,8 @@ impl Audio {
         // A sign said later is listened over until it, too, has sounded.
         match s {
             Sound::Sign { delay, .. } => delay + OWN_SOUND_DEAF,
+            // A held tone of its own: listened over until it has gone.
+            Sound::Kept { .. } => KEPT_SECS as f32 + OWN_SOUND_DEAF,
             _ => OWN_SOUND_DEAF,
         }
     }
