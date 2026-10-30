@@ -151,6 +151,11 @@ impl Kin {
         self.held = None;
     }
 
+    /// Whether one of them is being carried now.
+    pub fn holding(&self) -> bool {
+        self.held.is_some()
+    }
+
     /// Piece `i` has been set down: it and its group hold on to every loose piece
     /// close enough. Returns true if anything new held on.
     pub fn settle(

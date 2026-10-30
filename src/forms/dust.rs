@@ -5,7 +5,8 @@
 //! up: a mound standing on the ground, which settles and firms and then breathes, slowly,
 //! where it stands. Tap the mound and it answers low. Press and hold it and it comes back
 //! up out of itself as the liquid, floating again, and the mound goes into it.
-//! Left alone long enough, the dust drifts together on its own. Once the mound has
+//! Left alone long enough, the dust drifts together on its own. Blown over, it drifts away
+//! from you along the floor (gust.rs). Once the mound has
 //! settled something takes root in it and grows as far as it is tended (growth.rs).
 //!
 //! Like the other forms, `Phase` only decides which 0..1 values move; the shader mixes
@@ -301,6 +302,23 @@ impl Dust {
             self.events.push(Event::Swept);
         }
         moved
+    }
+
+    /// Breath over the floor moves every drift by (dx, dz), the lighter ones a little further,
+    /// none past where it can be seen; ones blown into each other run together as always.
+    /// True if any moved.
+    pub fn blow(&mut self, dx: f32, dz: f32) -> bool {
+        if self.phase != Phase::Dust || dx.hypot(dz) < 1e-7 {
+            return false;
+        }
+        self.idle = 0.0;
+        for c in self.clumps.iter_mut().filter(|c| c.amount > 0.0) {
+            let k = 1.0 - 0.35 * c.amount;
+            c.x += dx * k;
+            c.z += dz * k;
+            clamp_reach(c);
+        }
+        true
     }
 
     /// Drifts lying over each other run together over time: the smaller is drawn onto the

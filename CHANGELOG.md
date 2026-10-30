@@ -12,10 +12,16 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-30
+
+### Added
+- Tip the room, with the arrows or the phone, while the twelve lie on the ground, and they slide downhill: a group together and slowly, a piece alone a little further and aside, and groups that meet are one
+- A breath let out over the dust, with space or blown once it hears, moves the drifts away from you over the floor
+
 ## [2.2.0] - 2026-10-30
 
 ### Added
-- Watched, or held still with no hand on it, the view slowly narrows on it, and widens again when touched
+- Watched, or held still with no hand on it, the view slowly narrows on it, and widens again when touched (#115)
 
 ## [2.1.0] - 2026-10-30
 
@@ -612,7 +618,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/antoniwan/the-object/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/antoniwan/the-object/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/antoniwan/the-object/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/antoniwan/the-object/compare/v1.25.0...v2.0.0
