@@ -8,32 +8,14 @@
 // A few runs come back far quicker than the rest when the browser still finds an earlier
 // compile; the median of the slow group is the number to compare. It launches the full Chromium
 // (channel 'chromium'): the headless shell is ready far sooner and measures nothing.
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
-import { createRequire } from 'node:module';
-
-// Through require, so a global Playwright is found with NODE_PATH=$(npm root -g).
-const { chromium } = createRequire(import.meta.url)('playwright');
+import { SOFTWARE_GPU, chromium, serve } from './web-server.mjs';
 
 const runs = Number(process.argv[2] || 9);
-const root = new URL('../web/', import.meta.url).pathname;
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon' };
-
-const server = createServer(async (req, res) => {
-  const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
-  try {
-    const body = await readFile(join(root, path.endsWith('/') ? path + 'index.html' : path));
-    res.writeHead(200, { 'content-type': types[extname(path) || '.html'] || 'application/octet-stream' }).end(body);
-  } catch {
-    res.writeHead(404).end();
-  }
-}).listen(0);
-const url = `http://localhost:${server.address().port}/`;
+const { url, server } = serve();
 
 const times = [];
 for (let i = 0; i < runs; i++) {
-  const browser = await chromium.launch({ channel: 'chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-gpu-shader-disk-cache'] });
+  const browser = await chromium.launch({ channel: 'chromium', args: [...SOFTWARE_GPU, '--disable-gpu-shader-disk-cache'] });
   const page = await browser.newPage({ viewport: { width: 48, height: 32 } });
   const t0 = Date.now();
   await page.goto(url);

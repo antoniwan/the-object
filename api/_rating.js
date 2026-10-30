@@ -1,4 +1,4 @@
-// What the object's question comes to (see src/contact.rs, `Ask`): pure helpers for
+// What the object's question comes to (see src/mind/contact.rs, `Ask`): pure helpers for
 // api/rating.js, kept apart so they can be tested without a store.
 import { createHash } from 'node:crypto';
 

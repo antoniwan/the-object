@@ -1,4 +1,5 @@
-# Runs the simulation tests and a full build on every push and pull request.
+# On every push to main and every pull request: the tests, the lints, the simulation fingerprints,
+# the Node tests, a full build and the itch pack, then the built page loaded in headless Chromium.
 # Hosting is on Vercel, which builds and deploys main on its own.
 name: test
 
@@ -15,6 +16,8 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT: 1.63.0
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -48,11 +51,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - run: npm ci && npm test
       - run: ./build.sh
       - run: ./scripts/itch.sh
+      # Only the browser download is kept between runs; the system packages it needs are installed each time.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT }}-${{ runner.os }}
       - name: The page wakes in each browser, first visit and return
         run: |
-          npm i -g playwright@1.63.0
+          npm i -g playwright@$PLAYWRIGHT
           playwright install --with-deps chromium
           NODE_PATH=$(npm root -g) node scripts/load-check.mjs
