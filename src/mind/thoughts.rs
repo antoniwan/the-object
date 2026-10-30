@@ -28,7 +28,7 @@ use crate::division::{meiosis, morula};
 use crate::floor::fusion;
 use crate::forms::{bloom, cosmos, filament, fold, pandora};
 use crate::mind::contact::{self, Contact, Stage};
-use crate::mind::remembrance::Remembrance;
+use crate::mind::remembrance::{Remembrance, HOUR, LONG_AWAY};
 use crate::progress::{Discovery as D, Progress};
 use crate::sim::World;
 
@@ -42,10 +42,11 @@ pub const QUIET: f32 = 3.5;
 pub const SETTLE: f32 = 8.0;
 /// Seconds between two thoughts.
 pub const GAP: f32 = 45.0;
-/// Away at least this long (seconds) before this visit, it has had time to miss them.
-const AWAY: f64 = 6.0 * 3600.0;
-/// Away this long (seconds), it was not sure they would come back.
-const LONG_AWAY: f64 = 3.0 * 24.0 * 3600.0;
+/// Away at least this long (seconds) before this visit, it has had time to miss them: twice as
+/// long as it takes to leave something on the floor for them (absence.rs `MARK_AFTER`), so a
+/// thought about missing them always comes with a mark of it. Away `LONG_AWAY`, it was not sure
+/// they would come back.
+const AWAY: f64 = 6.0 * HOUR;
 
 /// The gates, in seconds: into the visit, without a discovery, in one place, between thoughts.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -197,7 +198,14 @@ pub static THOUGHTS: [Thought; 75] = [
         |m| m.kept.wary() && m.kept.bond() >= 0.3,
         "it knows you. that is not the same as trusting you.",
     ),
-    t(P::Liquid, R, I, |m| m.kept.kind() && m.missed(), "it was already facing the way you came in."),
+    // Away longer than that, it was facing the other way and had to turn round (absence.rs).
+    t(
+        P::Liquid,
+        R,
+        I,
+        |m| m.kept.kind() && m.missed() && m.kept.away() <= LONG_AWAY,
+        "it was already facing the way you came in.",
+    ),
     t(P::Liquid, R, I, |m| m.kept.kind() && m.kept.bond() >= 0.2, "it has started to expect you."),
     t(P::Liquid, E, I, |m| m.kept.bond() >= 0.6, "it knows you better than it knows the room."),
     // ---- the liquid: what it has not been yet

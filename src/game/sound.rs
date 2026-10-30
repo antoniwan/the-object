@@ -45,6 +45,11 @@ pub enum Sound {
     Ring {
         pitch: f32,
     },
+    /// The note it knows the player by, `f` Hz, faint and once: back after a while, to a hand it
+    /// is glad of (mind/absence.rs).
+    Kept {
+        f: f32,
+    },
     /// One of its signs, said: `i` which of the twelve, `delay` seconds from now, `first` of a
     /// phrase (`signs`).
     Sign {
