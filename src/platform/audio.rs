@@ -207,7 +207,7 @@ impl Audio {
                 // the hard ones ring, the soft ones thud
                 let f = shard_note(i);
                 let (give, decay) = crate::burst::CONSISTENCIES[i].give();
-                let ring = (2.6 / decay) as f64;
+                let ring = f64::from(2.6 / decay);
                 let kind = if decay > 6.0 { Triangle } else { Sine };
                 self.pluck(kind, f, f * (1.0 - 0.04 * give), 0.16, ring, 0.0)
                     .and_then(|_| self.pluck(Sine, f * 2.01, f * 2.0, 0.03 / decay.max(1.0), ring * 0.6, 0.0))

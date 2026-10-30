@@ -1,6 +1,6 @@
 [package]
 name = "chaos-object"
-version = "1.22.25"
+version = "1.22.26"
 edition = "2021"
 
 [lib]
@@ -66,3 +66,15 @@ opt-level = "s"
 lto = true
 codegen-units = 1
 strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+cast_lossless = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+lossy_float_literal = "warn"

@@ -423,7 +423,7 @@ impl Remembrance {
 
     /// Time passes.
     pub fn tick(&mut self, dt: f32) {
-        self.now += dt.max(0.0) as f64;
+        self.now += f64::from(dt.max(0.0));
         self.since_save += dt;
         if self.since_save >= SAVE_EVERY {
             self.since_save = 0.0;

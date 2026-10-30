@@ -138,9 +138,9 @@ impl Hud {
             }
             Line::Offer(Kind::Words) => {
                 let line = format!("{}</span><small class=\"away\">{}</small><span>", Kind::Words.word(), AWAY);
-                ("it asks", line, offer, senses::OFFER_WINDOW as f64)
+                ("it asks", line, offer, f64::from(senses::OFFER_WINDOW))
             }
-            Line::Offer(k) => ("it asks", k.word().to_string(), offer, senses::OFFER_WINDOW as f64),
+            Line::Offer(k) => ("it asks", k.word().to_string(), offer, f64::from(senses::OFFER_WINDOW)),
             Line::Greeted(signs) => ("", signs, alien, TOAST_SECONDS),
             Line::Refused(k) => ("no", k.refused().to_string(), "", TOAST_SECONDS),
         };

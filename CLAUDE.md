@@ -21,7 +21,7 @@ Read these before changing anything, in this order:
 
 ```
 ./scripts/version.sh <next>   # then write its CHANGELOG.md entry (and today's devlog/ post, if you are the one writing it)
-cargo fmt && cargo test
+cargo fmt && cargo test && cargo clippy --all-targets -- -D warnings
 npm ci && npm run lint && npm test
 ./build.sh
 ```

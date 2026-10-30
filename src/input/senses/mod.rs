@@ -595,7 +595,7 @@ impl Senses {
             self.lit += dt;
         }
         let covered = self.lit > 1.0 && s.light < COVERED;
-        self.dark += ((covered as u8 as f32) - self.dark) * ease(if covered { 1.2 } else { 0.8 });
+        self.dark += (f32::from(u8::from(covered)) - self.dark) * ease(if covered { 1.2 } else { 0.8 });
         if self.dark > 0.6 {
             self.found.push(Discovery::Blind);
         }

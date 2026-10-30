@@ -308,7 +308,7 @@ impl Game {
         }
         self.still += dt;
         // The further along it is, the sooner it starts watching you back.
-        if self.idle > IDLE_WATCH - 2.0 * self.stage() as u8 as f32 {
+        if self.idle > IDLE_WATCH - 2.0 * f32::from(self.stage() as u8) {
             if !self.world.watching {
                 // Until the pointer moves, it reaches toward the camera.
                 self.world.gaze_dir = -self.cam.basis().fwd;
@@ -417,7 +417,7 @@ impl Game {
             }
         }
         if let Gesture::Shard { i, since, carried: false, .. } = self.gesture {
-            if self.clock - since > crate::burst::landscape::PLANT_HOLD_SECS {
+            if self.clock - since > burst::landscape::PLANT_HOLD_SECS {
                 if self.world.burst.land.toggle_root(i) {
                     self.discover(Discovery::Plant);
                 }

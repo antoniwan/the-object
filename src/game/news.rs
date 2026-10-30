@@ -175,7 +175,7 @@ impl Game {
         }
     }
 
-    pub(super) fn on_land(&mut self, e: crate::burst::landscape::Event) {
+    pub(super) fn on_land(&mut self, e: burst::landscape::Event) {
         use crate::burst::landscape::Event as L;
         match e {
             L::Chord | L::Planted => {}
@@ -184,7 +184,7 @@ impl Game {
             L::Eroded => self.gesture = Gesture::Idle,
             L::Mended { last } => {
                 // it comes back in the color of the last piece home
-                let tint = crate::burst::landscape::TINTS[last];
+                let tint = burst::landscape::TINTS[last];
                 self.world.body.color = crate::sim::PEARL.lerp(tint, 0.65);
                 self.sounds.push(Sound::Chord);
                 self.discover(Discovery::Mend);
@@ -193,7 +193,7 @@ impl Game {
         }
     }
 
-    pub(super) fn on_kin(&mut self, e: crate::burst::kin::Event) {
+    pub(super) fn on_kin(&mut self, e: burst::kin::Event) {
         use crate::burst::kin::Event as K;
         match e {
             K::Joined => {
@@ -210,7 +210,7 @@ impl Game {
         }
     }
 
-    pub(super) fn on_river(&mut self, e: crate::burst::river::Event) {
+    pub(super) fn on_river(&mut self, e: burst::river::Event) {
         use crate::burst::river::Event as R;
         match e {
             R::Bled => {
@@ -230,7 +230,7 @@ impl Game {
             }
             R::Pulsed => {
                 // it comes up out of the river dark red, and keeps the beat a while
-                self.world.body.color = crate::sim::PEARL.lerp(crate::burst::river::BLOOD, 0.8);
+                self.world.body.color = crate::sim::PEARL.lerp(burst::river::BLOOD, 0.8);
                 self.heart = (self.world.burst.river.rhythm(), 0.0, HEART_BEATS);
                 self.sounds.push(Sound::Beat);
                 self.gesture = Gesture::Idle;

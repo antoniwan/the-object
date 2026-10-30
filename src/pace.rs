@@ -121,7 +121,7 @@ impl Pace {
         let rate = if gap < 0.0 { SHOWN_DOWN } else { SHOWN_UP };
         self.shown += gap.clamp(-rate * dt, rate * dt);
         let goal = if self.quality >= FINE_AT - 1e-6 { 1.0 } else { 0.0 };
-        self.fine += ((goal - self.fine as f64) * (1.0 - (-FINE_RATE * dt).exp())) as f32;
+        self.fine += ((goal - f64::from(self.fine)) * (1.0 - (-FINE_RATE * dt).exp())) as f32;
         dt
     }
 
@@ -306,7 +306,7 @@ mod tests {
             p.frame(1.0 / 60.0, true);
             let s = p.scale();
             assert!((s - last).abs() <= SHOWN_STEP + 1e-9, "the canvas jumped {last} to {s}");
-            changes += (s != last) as u32;
+            changes += u32::from(s != last);
             last = s;
         }
         assert!((p.scale() - 0.75).abs() < 1e-9, "{}", p.scale());

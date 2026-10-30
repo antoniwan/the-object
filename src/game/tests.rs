@@ -794,7 +794,7 @@ fn mounded() -> (Game, (f32, f32)) {
         "nothing left to touch"
     );
     // sweep each drift into the fullest one, with strokes across the floor
-    let floor = |x: f32, z: f32| v3(x, crate::floor::fusion::FLOOR_Y, z);
+    let floor = |x: f32, z: f32| v3(x, fusion::FLOOR_Y, z);
     for _ in 0..12 {
         if g.world.forms.dust.phase != forms::dust::Phase::Dust {
             break;
@@ -1243,7 +1243,7 @@ fn crowded_together_they_run_red_and_a_view_full_of_columns_gives_it_a_pulse() {
 
     // a tap on the river stands a column up out of it
     let river = &g.world.burst.river;
-    let slot = crate::burst::river::LANES * 12 + 1;
+    let slot = burst::river::LANES * 12 + 1;
     let (x, z) = river.slot_pos(slot);
     let (px, py) = g.screen_of(v3(x, fusion::FLOOR_Y, z));
     g.pointer_down(60, px, py);
@@ -1255,15 +1255,15 @@ fn crowded_together_they_run_red_and_a_view_full_of_columns_gives_it_a_pulse() {
     assert!(!g.world.burst.whole());
 
     // drag along it, lane by lane, until the view is full of them
-    for lane in 0..crate::burst::river::LANES {
+    for lane in 0..burst::river::LANES {
         let id = 61 + lane as i32;
         let at = |g: &Game, row: usize| {
-            let (x, z) = g.world.burst.river.slot_pos(row * crate::burst::river::LANES + lane);
+            let (x, z) = g.world.burst.river.slot_pos(row * burst::river::LANES + lane);
             g.screen_of(v3(x, fusion::FLOOR_Y, z))
         };
         let (x0, y0) = at(&g, 0);
         g.pointer_down(id, x0, y0);
-        for row in 1..crate::burst::river::ROWS {
+        for row in 1..burst::river::ROWS {
             let (x, y) = at(&g, row);
             g.pointer_move(id, x, y, 1.0 / 60.0);
             g.update(1.0 / 60.0);
