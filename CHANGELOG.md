@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.12] - 2026-10-30
+
+### Fixed
+- Hearing, sight and words hold up better: a camera opened again is not taken for a covered lens; a real finger takes over from a spoken verb instead of squeezing with it; it does not flinch twice as often with both senses open; its own hum is not taken for your singing; silence no longer stops words for the visit; the microphone is let go of on every path; a line that replaces an offer no longer opens the prompt. (#92)
+
 ## [1.22.11] - 2026-10-30
 
 ### Fixed
@@ -494,7 +499,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.11...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.12...HEAD
+[1.22.12]: https://github.com/antoniwan/the-object/compare/v1.22.11...v1.22.12
 [1.22.11]: https://github.com/antoniwan/the-object/compare/v1.22.10...v1.22.11
 [1.22.10]: https://github.com/antoniwan/the-object/compare/v1.22.9...v1.22.10
 [1.22.9]: https://github.com/antoniwan/the-object/compare/v1.22.8...v1.22.9
