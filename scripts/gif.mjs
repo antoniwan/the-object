@@ -139,8 +139,49 @@ async function quiet() {
 const STEP = 20; // ms of its time per frame: under the speed at which it starts drawing less.
 const every = Math.max(1, Math.round(1000 / fps / STEP));
 
+// The few seconds before it appears can't run on the clock above: the page is still arriving.
+// So they are filmed as they happen, on a slow network, with the page's own time and its CSS
+// slowed to `slow` (a software GPU then keeps up), and the film sped back up.
+async function arrive(name, scene, gif, [w, h]) {
+  const slow = scene.slow || 0.25;
+  const dir = await mkdtemp(join(tmpdir(), `gif-${name}-`));
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const context = await browser.newContext({ viewport: { width: w, height: h }, recordVideo: { dir, size: { width: w, height: h } } });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => console.error(`${name}: page error: ${e.message}`));
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: (scene.bps || 1.6e6) * slow / 8, uploadThroughput: 1e5 });
+  await cdp.send('Animation.enable');
+  await cdp.send('Animation.setPlaybackRate', { playbackRate: slow });
+  await page.addInitScript((slow) => {
+    const real = performance.now.bind(performance);
+    const t0 = real();
+    performance.now = () => t0 + (real() - t0) * slow;
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => raf(() => cb(performance.now()));
+  }, slow);
+  await page.goto(url, { waitUntil: 'commit' });
+  await page.waitForFunction(() => document.body?.classList.contains('awake'), null, { timeout: 120000, polling: 100 });
+  await page.waitForTimeout(((scene.after || 2.5) * 1000) / slow);
+  const video = await page.video().path();
+  await context.close();
+  await browser.close();
+  const scale = w === width ? '' : `scale=${width}:-1:flags=lanczos,`;
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', video,
+    '-vf', `setpts=PTS*${slow},fps=${fps},${scale}split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
+    '-loop', '0', gif]);
+  await rm(dir, { recursive: true });
+}
+
 async function record(name, scene) {
   const [w, h] = scene.size || [width, Math.round((width * 5) / 8)];
+  if (scene.arrival) {
+    await mkdir(out, { recursive: true });
+    const gif = join(out, `${name}.gif`);
+    await arrive(name, scene, gif, [w, h]);
+    console.log(`${gif}  ${Math.round((await stat(gif)).size / 1024)} KB`);
+    return;
+  }
   // A scene with `voice` gets a microphone, given without asking, that hears a quiet room.
   const ears = scene.voice ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${await quiet()}`, '--autoplay-policy=no-user-gesture-required'] : [];
   const browser = await chromium.launch({ channel: 'chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', ...ears] });
