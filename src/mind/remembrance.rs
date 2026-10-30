@@ -253,6 +253,9 @@ pub struct Remembrance {
     scar: (V3, f32),
     /// Whether the scar has been handed to the world yet this visit.
     scar_shown: bool,
+    /// The flower spun nearly dizzy: how many times it kept, and the way it learned you turn it
+    /// (+1 or -1; 0 not yet) (forms/spin.rs).
+    spun: (u32, f32),
     // ---- what it was watching last frame
     upset: bool,
     held: f32,
@@ -283,6 +286,7 @@ impl Remembrance {
             greeting: Greeting::Done,
             scar: (V3::UP, 0.0),
             scar_shown: false,
+            spun: (0, 0.0),
             upset: false,
             held: 0.0,
             hummed: false,
@@ -313,6 +317,13 @@ impl Remembrance {
                         let dir = v3(x, y, z);
                         if dir.len() > 0.5 {
                             m.scar = (dir.norm(), k.clamp(0.0, 1.0));
+                        }
+                    }
+                }
+                "spun" => {
+                    if let Some((n, s)) = v.split_once(',') {
+                        if let (Ok(n), Ok(s)) = (n.parse::<u32>(), s.parse::<f32>()) {
+                            m.spun = (n.min(99), if s > 0.0 { 1.0 } else if s < 0.0 { -1.0 } else { 0.0 });
                         }
                     }
                 }
@@ -355,6 +366,9 @@ impl Remembrance {
         let (dir, k) = self.scar;
         if k > 0.0 {
             s.push_str(&format!(";scar={:.3},{:.3},{:.3},{:.2}", dir.x, dir.y, dir.z, k));
+        }
+        if self.spun.0 > 0 {
+            s.push_str(&format!(";spun={},{}", self.spun.0, self.spun.1));
         }
         s
     }
@@ -424,6 +438,9 @@ pub fn step(g: &mut Game, dt: f32) {
         m.scar_shown = true;
         g.world.wound.dir = m.scar.0;
         g.world.wound.scar = m.scar.1;
+        let sp = &mut g.world.forms.spin;
+        sp.nearly = m.spun.0;
+        sp.learned = Some(m.spun.1).filter(|s| *s != 0.0);
     }
     let agitation = g.world.agitation;
     let mut hurt = false;
@@ -477,6 +494,12 @@ pub fn step(g: &mut Game, dt: f32) {
     let w = &g.world.wound;
     if g.remembrance.scar != (w.dir, w.scar) {
         g.remembrance.scar = (w.dir, w.scar);
+        g.remembrance.dirty = true;
+    }
+    let sp = &g.world.forms.spin;
+    let spun = (sp.nearly, sp.learned.unwrap_or(0.0));
+    if g.remembrance.spun != spun {
+        g.remembrance.spun = spun;
         g.remembrance.dirty = true;
     }
     greet(g);

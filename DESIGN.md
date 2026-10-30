@@ -190,7 +190,7 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`); pulled further it spins the flower, unless it goes 0.25 canvas heights while hardly going round (under 0.12 of a turn), which looks around |
 | dizzy | gathers as `0.08 ×` its speed (radians a second), drains as `0.3 ×` itself, a second; its speed fades at 1 / s | a brisk turn a second makes the flower dizzy in about four seconds; half that only brings it near. Dizzy, it leans up to 0.38 rad, the lean going round (`forms/spin.rs`) |
-| `EDGE` / `CLEAR` / `LEARN_AFTER` | 0.6 / 0.25 / 3 | dizzier than the edge and back under clear without tipping is nearly; three nearlies in a visit and it knows your turn. Braced against you, dizziness gathers at 0.6 and your turn counts 0.55; with you, it turns on at 1.4 rad/s; against, it turns back at 1.1 rad/s for 3 s |
+| `EDGE` / `CLEAR` / `LEARN_AFTER` / `PER_VISIT` | 0.6 / 0.25 / 5 / 2 | dizzier than the edge and back under clear without tipping is nearly; it keeps two a visit, between visits (`remembrance.rs`), and five kept, three visits at the least, it knows your turn for good. Glad of you now, it turns with you; not, against. Braced against you, dizziness gathers at 0.6 and your turn counts 0.55; with you, it turns on at 1.4 rad/s; against, it turns back at 1.1 rad/s for 3 s |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
 | `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
 | `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
@@ -334,7 +334,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once; or two fingers closed together on it, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
 | short tug, let go at once; or two fingers closed together on it | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
-| drag round and round | the flower | spin | dizzy, it sways. Left past dizzy: its petals wind into ropes that fly out, unwind, lie down and are taken back in, and it is the liquid again. Right past dizzy: it lays flat, whirls up off the floor and spirals back down a flower. Nearly dizzy, again and again: it learns your turn, and turns with you, or back | `forms/spin.rs` |
+| drag round and round | the flower | spin | dizzy, it sways. Left past dizzy: its petals wind into ropes that fly out, unwind, lie down and are taken back in, and it is the liquid again. Right past dizzy: it lays flat, whirls up off the floor and spirals back down a flower. Nearly dizzy, again and again, over several visits: it learns your turn, and turns with you, or back | `forms/spin.rs` |
 | tap, again and again | the mound | tend | it takes root by itself; tended, it grows into branches, leaves and blossom; left alone, it draws back | `forms/growth.rs` |
 | drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |

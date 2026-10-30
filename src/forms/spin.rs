@@ -10,9 +10,11 @@
 //!   in the air turning, then comes down slowly in a wide spiral, the way a seed comes down from a
 //!   tree, and cups its petals again where it lands.
 //!
-//! Brought to the edge of dizzy and let go of, again and again (three times in a visit), it
-//! learns which way you turn it. If it is glad of you (remembrance.rs), it turns on with you by
-//! itself once your hand stops; if not, it turns back against you, and is harder to make dizzy.
+//! Brought to the edge of dizzy and let go of, again and again, over several visits (it only
+//! keeps two a visit, and remembers them between), it learns which way you turn it, and keeps
+//! that too. Then, if it is glad of you (remembrance.rs), it turns on with you by itself once
+//! your hand stops; if not, it turns back against you, and is harder to make dizzy. Which of
+//! the two is decided by how it feels about you now, not when it learned.
 //!
 //! Like the other forms, `Phase` only decides which 0..1 values move; the shader blends them.
 
@@ -30,8 +32,10 @@ const HAND_SECS: f32 = 0.5;
 /// Dizzier than `EDGE` and back under `CLEAR` without tipping over: nearly.
 pub const EDGE: f32 = 0.6;
 const CLEAR: f32 = 0.25;
-/// Nearly this many times in a visit and it knows which way you turn it.
-pub const LEARN_AFTER: u32 = 3;
+/// Nearly this many times, ever, and it knows which way you turn it; only `PER_VISIT` of them a
+/// visit count, so it takes three visits at the least.
+pub const LEARN_AFTER: u32 = 5;
+pub const PER_VISIT: u32 = 2;
 /// Once it braces against you, dizziness gathers this much slower, and your turn counts this much
 /// less while it is against its own.
 const BRACED_GAIN: f32 = 0.6;
@@ -85,12 +89,16 @@ pub struct Spin {
     hand: f32,
     /// Which way the hand last turned it, +1 or -1.
     sense: f32,
-    /// How many times it was brought near dizzy and let go of, this visit.
+    /// How many times it was brought near dizzy and let go of and kept it, ever (remembrance.rs keeps it).
     pub nearly: u32,
-    /// Once learned: which way you turn it, and whether it turns with you (true) or against you.
-    pub learned: Option<(f32, bool)>,
-    /// Set by the game each frame: whether it is glad of you (remembrance.rs).
+    /// How many of those were this visit.
+    this_visit: u32,
+    /// Once learned, which way you turn it, +1 or -1 (kept between visits too).
+    pub learned: Option<f32>,
+    /// Set by the game each frame: whether it is glad of you (remembrance.rs). Glad, it turns with you; not, against.
     pub glad: bool,
+    /// Whether it has shown you this visit which it does.
+    shown: bool,
     swayed: bool,
     /// Where its lean points, turning round as it sways.
     lean: f32,
@@ -110,8 +118,10 @@ impl Default for Spin {
             hand: 1e3,
             sense: 1.0,
             nearly: 0,
+            this_visit: 0,
             learned: None,
             glad: false,
+            shown: false,
             swayed: false,
             lean: 0.0,
             round: 0.0,
@@ -130,7 +140,7 @@ impl Spin {
         if self.phase != Phase::Calm || turns == 0.0 {
             return;
         }
-        let against = matches!(self.learned, Some((s, false)) if turns * s > 0.0);
+        let against = !self.glad && matches!(self.learned, Some(s) if turns * s > 0.0);
         self.vel += turns * std::f32::consts::TAU * DRAG * if against { BRACED_HAND } else { 1.0 };
         self.hand = 0.0;
         self.sense = turns.signum();
@@ -158,12 +168,16 @@ impl Spin {
             return Phase::Calm;
         }
         let turning = self.hand < HAND_SECS;
+        if self.learned.is_some() && !turning && !self.shown && self.hand < BACK_SECS {
+            self.shown = true;
+            self.events.push(Event::Learned { with: self.glad });
+        }
         match self.learned {
-            Some((s, true)) if !turning => self.vel = ease(self.vel, WITH_SPEED * s, -1.2 * dt),
-            Some((s, false)) if !turning && self.hand < BACK_SECS => self.vel = ease(self.vel, -BACK_SPEED * s, -1.5 * dt),
+            Some(s) if !turning && self.glad => self.vel = ease(self.vel, WITH_SPEED * s, -1.2 * dt),
+            Some(s) if !turning && self.hand < BACK_SECS => self.vel = ease(self.vel, -BACK_SPEED * s, -1.5 * dt),
             _ => self.vel = fade(self.vel, -DRAG * dt),
         }
-        let gain = if matches!(self.learned, Some((_, false))) { GAIN * BRACED_GAIN } else { GAIN };
+        let gain = if self.learned.is_some() && !self.glad { GAIN * BRACED_GAIN } else { GAIN };
         let fed = if turning { gain * self.vel.abs() } else { 0.0 };
         self.dizzy = (self.dizzy + dt * (fed - LEAK * self.dizzy)).max(0.0);
         self.peak = self.peak.max(self.dizzy);
@@ -184,11 +198,13 @@ impl Spin {
         if self.dizzy < CLEAR {
             self.swayed = false;
             if self.peak >= EDGE {
-                self.nearly += 1;
                 self.events.push(Event::Nearly);
+                if self.this_visit < PER_VISIT {
+                    self.this_visit += 1;
+                    self.nearly += 1;
+                }
                 if self.nearly >= LEARN_AFTER && self.learned.is_none() {
-                    self.learned = Some((self.sense, self.glad));
-                    self.events.push(Event::Learned { with: self.glad });
+                    self.learned = Some(self.sense);
                 }
             }
             self.peak = 0.0;
@@ -319,16 +335,27 @@ mod tests {
         assert!(s.whole() && s.dizzy < 1.0);
     }
 
+    /// A new visit: what it kept, and nothing of this one.
+    fn visit(s: &Spin) -> Spin {
+        Spin { nearly: s.nearly, learned: s.learned, glad: s.glad, ..Spin::default() }
+    }
+
     #[test]
-    fn brought_near_dizzy_three_times_it_learns_your_turn() {
+    fn brought_near_dizzy_over_several_visits_it_learns_your_turn() {
         let mut s = Spin { glad: true, ..Spin::default() };
-        for _ in 0..LEARN_AFTER {
-            turn_for(&mut s, 1.0, 2.7);
-            assert!(s.whole() && s.dizzy > EDGE);
-            rest(&mut s, 6.0);
+        for v in 0..3 {
+            for _ in 0..3 {
+                turn_for(&mut s, 1.0, 2.7);
+                assert!(s.whole() && s.dizzy > EDGE);
+                rest(&mut s, 6.0);
+            }
+            assert_eq!(s.nearly, ((v + 1) * PER_VISIT).min(LEARN_AFTER + 1), "only two a visit count");
+            if v < 2 {
+                assert!(s.learned.is_none(), "not yet, on visit {v}");
+                s = visit(&s);
+            }
         }
-        assert_eq!(s.nearly, LEARN_AFTER);
-        assert_eq!(s.learned, Some((1.0, true)));
+        assert_eq!(s.learned, Some(1.0));
         assert!(s.events.contains(&Event::Learned { with: true }));
         // with you: it keeps turning your way by itself, and not dizzily
         turn_for(&mut s, 0.5, 0.5);
@@ -338,7 +365,7 @@ mod tests {
 
     #[test]
     fn not_glad_of_you_it_turns_back_and_is_harder_to_tip() {
-        let mut s = Spin { learned: Some((1.0, false)), ..Spin::default() };
+        let mut s = Spin { learned: Some(1.0), ..Spin::default() };
         turn_for(&mut s, 1.0, 6.0);
         assert!(s.whole(), "what tipped it before does not now");
         rest(&mut s, 1.5);
