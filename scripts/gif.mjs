@@ -9,16 +9,12 @@
 //
 // Needs Playwright and its Chromium (npm i -g playwright; NODE_PATH=$(npm root -g)) and ffmpeg.
 // devlog/README.md says how a post uses them.
-import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { extname, join, normalize, resolve } from 'node:path';
+import { mkdtemp, mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import scenes from './gif-scenes.mjs';
-
-// Through require, so a global Playwright is found with NODE_PATH=$(npm root -g).
-const { chromium } = createRequire(import.meta.url)('playwright');
+import { SOFTWARE_GPU, chromium, root, serve } from './web-server.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -37,21 +33,10 @@ if (args.includes('--list') || !args.length) {
 const wanted = args.includes('all') ? Object.keys(scenes) : args;
 for (const name of wanted) if (!scenes[name]) throw new Error(`no scene "${name}" (--list)`);
 
-const root = new URL('../web/', import.meta.url).pathname;
 await stat(join(root, 'pkg')).catch(() => {
   throw new Error('web/pkg is missing: run ./build.sh first');
 });
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon' };
-const server = createServer(async (req, res) => {
-  const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
-  try {
-    const body = await readFile(join(root, path.endsWith('/') ? path + 'index.html' : path));
-    res.writeHead(200, { 'content-type': types[extname(path) || '.html'] || 'application/octet-stream' }).end(body);
-  } catch {
-    res.writeHead(404).end();
-  }
-}).listen(0);
-const url = `http://localhost:${server.address().port}/`;
+const { url, server } = serve();
 
 // Runs in the page before anything else. Time is `now`, moved only by __step; every frame
 // callback waits for it. Event times read the same clock, so a drag's speed is what the scene
@@ -139,13 +124,18 @@ async function quiet() {
 const STEP = 20; // ms of its time per frame: under the speed at which it starts drawing less.
 const every = Math.max(1, Math.round(1000 / fps / STEP));
 
+// The ffmpeg filter that ends every GIF: scaled to --width if filmed at another size, then one
+// palette of --colors for the whole film.
+const palette = (w) =>
+  `${w === width ? '' : `scale=${width}:-1:flags=lanczos,`}split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`;
+
 // The few seconds before it appears can't run on the clock above: the page is still arriving.
 // So they are filmed as they happen, on a slow network, with the page's own time and its CSS
 // slowed to `slow` (a software GPU then keeps up), and the film sped back up.
 async function arrive(name, scene, gif, [w, h]) {
   const slow = scene.slow || 0.25;
   const dir = await mkdtemp(join(tmpdir(), `gif-${name}-`));
-  const browser = await chromium.launch({ channel: 'chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const browser = await chromium.launch({ channel: 'chromium', args: SOFTWARE_GPU });
   const context = await browser.newContext({ viewport: { width: w, height: h }, recordVideo: { dir, size: { width: w, height: h } } });
   const page = await context.newPage();
   page.on('pageerror', (e) => console.error(`${name}: page error: ${e.message}`));
@@ -166,10 +156,7 @@ async function arrive(name, scene, gif, [w, h]) {
   const video = await page.video().path();
   await context.close();
   await browser.close();
-  const scale = w === width ? '' : `scale=${width}:-1:flags=lanczos,`;
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', video,
-    '-vf', `setpts=PTS*${slow},fps=${fps},${scale}split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
-    '-loop', '0', gif]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', video, '-vf', `setpts=PTS*${slow},fps=${fps},${palette(w)}`, '-loop', '0', gif]);
   await rm(dir, { recursive: true });
 }
 
@@ -184,7 +171,7 @@ async function record(name, scene) {
   }
   // A scene with `voice` gets a microphone, given without asking, that hears a quiet room.
   const ears = scene.voice ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${await quiet()}`, '--autoplay-policy=no-user-gesture-required'] : [];
-  const browser = await chromium.launch({ channel: 'chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', ...ears] });
+  const browser = await chromium.launch({ channel: 'chromium', args: [...SOFTWARE_GPU, ...ears] });
   const page = await browser.newPage({ viewport: { width: w, height: h }, permissions: scene.voice ? ['microphone'] : [] });
   page.on('pageerror', (e) => console.error(`${name}: page error: ${e.message}`));
   await page.addInitScript(clockwork, { saved: scene.saved || {}, voice: !!scene.voice });
@@ -280,10 +267,8 @@ async function record(name, scene) {
   if (!shot) throw new Error(`${name}: nothing was filmed (call t.roll())`);
   await mkdir(out, { recursive: true });
   const gif = join(out, `${name}.gif`);
-  const scale = w === width ? '' : `scale=${width}:-1:flags=lanczos,`;
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(1000 / (STEP * every)), '-i', join(frames, 'f%05d.png'),
-    '-vf', `${scale}split[a][b];[a]palettegen=max_colors=${colors}:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`,
-    '-loop', '0', gif]);
+    '-vf', palette(w), '-loop', '0', gif]);
   await rm(frames, { recursive: true });
   const kb = Math.round((await stat(gif)).size / 1024);
   console.log(`${gif}  ${shot} frames, ${(shot / (1000 / (STEP * every))).toFixed(1)} s, ${kb} KB, ${((Date.now() - t0) / 1000).toFixed(0)} s to make`);

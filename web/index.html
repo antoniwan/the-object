@@ -102,20 +102,20 @@
   #toast { left: 0; right: 0; top: 9vh; text-align: center; opacity: 0; transform: translateY(-6px); transition: opacity .6s, transform .6s; }
   #toast.show { opacity: 1; transform: none; }
   #toast b { display: block; font: normal 500 13px/1.4 var(--words); color: #4a4a52; letter-spacing: .5em; margin: 0 0 6px .5em; }
-  /* Its reply at contact: signs, not letters (src/contact.rs). */
+  /* Its reply at contact: signs, not letters (src/mind/contact.rs). */
   #toast .alien { font-family: "Glyphs", var(--mono); font-style: normal; letter-spacing: .4em; color: rgb(var(--tint)); text-shadow: 0 0 .6em rgb(var(--tint) / .4); }
-  /* What it is thinking: under it, wherever it is, quieter than anything found (src/thoughts.rs). */
+  /* What it is thinking: under it, wherever it is, quieter than anything found (src/mind/thoughts.rs). */
   #thought { left: clamp(28%, var(--ox, 50%), 72%); bottom: 15vh; width: min(84vw, 30em); transform: translate(-50%, 4px); text-align: center; font-size: 15px; letter-spacing: .1em; color: #9a9aa3; opacity: 0; transition: opacity 2.4s ease-in-out, transform 2.4s ease-in-out, left 3s ease-in-out, color 3s; }
   #thought.show { opacity: .8; transform: translate(-50%, 0); }
-  /* Its word when it asks to hear or see you (src/senses.rs): the only words that can be tapped. */
+  /* Its word when it asks to hear or see you (src/input/senses/): the only words that can be tapped. */
   /* It reaches further than it looks, so a thumb finds it. */
   #toast .offer { display: inline-block; padding: 14px 22px; margin: -14px -22px; touch-action: manipulation; }
   #toast.show .offer { pointer-events: auto; cursor: pointer; animation: breathe 3.5s ease-in-out infinite; }
-  /* Under its word for words, where they must leave the page: what the tap allows (src/web.rs AWAY). */
+  /* Under its word for words, where they must leave the page: what the tap allows (src/platform/web/hud.rs AWAY). */
   #toast .away { display: block; max-width: 30em; margin: 10px auto 0; padding: 0 16px; font: 400 10px/1.4 var(--mono); font-style: normal; letter-spacing: normal; text-transform: none; color: #9a9aa3; }
   #toast.show .away { pointer-events: auto; cursor: pointer; }
   /* While it hears or sees: one mark each, opposite the count. Tapped, it stops. A mark it asked
-     for and was not given stays faint and still; tapped, the browser asks (src/web.rs show_marks).
+     for and was not given stays faint and still; tapped, the browser asks (src/platform/web/page.rs show_marks).
      The padding is only reach: the marks sit 16px in and 14px up, clear of a phone's rounded edge. */
   #senses { left: calc(4px + env(safe-area-inset-left, 0px)); bottom: calc(2px + env(safe-area-inset-bottom, 0px)); padding: 12px; font: 400 10px/1 "Glyphs", var(--mono); letter-spacing: .3em; font-style: normal; color: rgb(var(--tint)); opacity: 0; transition: opacity 1.2s, left 1.2s ease-in-out; pointer-events: none; touch-action: manipulation; }
   #senses.on, #senses.wait { opacity: .7; pointer-events: auto; cursor: pointer; }
@@ -198,7 +198,7 @@
     #seed { scale: none; opacity: calc(.35 + .65 * var(--g, 0)); }
     #veil.full #seed .whole { opacity: 0; transition: opacity 1s; }
     /* Words fade in and out where they stand; the hint stops breathing. The room's own shake is
-       quieter too (camera.rs still). */
+       quieter too (src/camera.rs still). */
     #hint { animation: none; opacity: .7; }
     #toast, #toast.show { transform: none; }
     #thought, #thought.show { transform: translate(-50%, 0); }

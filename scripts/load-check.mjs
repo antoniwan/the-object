@@ -6,27 +6,9 @@
 //
 // "safari" has a speech recognizer but no navigator.userAgentData, which once took the page down
 // on load (1.16.7). Add a browser here when one of them breaks the page in a new way.
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
-import { createRequire } from 'node:module';
+import { SOFTWARE_GPU, chromium, serve } from './web-server.mjs';
 
-// Through require, so a global Playwright is found with NODE_PATH=$(npm root -g).
-const { chromium } = createRequire(import.meta.url)('playwright');
-
-const root = new URL('../web/', import.meta.url).pathname;
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon' };
-
-const server = createServer(async (req, res) => {
-  const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^(\.\.[/\\])+/, '');
-  try {
-    const body = await readFile(join(root, path.endsWith('/') ? path + 'index.html' : path));
-    res.writeHead(200, { 'content-type': types[extname(path) || '.html'] || 'application/octet-stream' }).end(body);
-  } catch {
-    res.writeHead(404).end();
-  }
-}).listen(0);
-const url = `http://localhost:${server.address().port}/`;
+const { url, server } = serve();
 
 const hide = (name) => `Object.defineProperty(Navigator.prototype, ${JSON.stringify(name)}, { get: () => undefined, configurable: true });`;
 const browsers = {
@@ -35,7 +17,7 @@ const browsers = {
   firefox: hide('userAgentData') + 'delete window.SpeechRecognition; delete window.webkitSpeechRecognition;',
 };
 
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await chromium.launch({ args: SOFTWARE_GPU });
 let bad = 0;
 for (const [name, script] of Object.entries(browsers)) {
   const context = await browser.newContext({ viewport: { width: 96, height: 64 } });
