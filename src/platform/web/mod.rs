@@ -154,11 +154,11 @@ impl App {
                 // Only while the sound is loud: most of each one is gone in under a second.
                 self.game.senses.deafen(if *s == Sound::Discover { 1.6 } else { 0.6 });
             }
-            // Nor the voices that keep sounding (audio.rs `follow`, `hum`): the warm hum while
-            // held still, a held letter's note, the night's drone. Each fades over a moment
-            // once it stops, so it stays deaf a little past the last frame of it.
-            let w = &self.game.world;
-            if w.warming || w.night > 0.02 || self.game.keys.hum().is_some() {
+            // Nor the voices that keep sounding while the player holds on (audio.rs `follow`,
+            // `hum`): the warm hum while held still, a held letter's note. Each fades over a
+            // moment once it stops, so it stays deaf a little past the last frame of it. The
+            // night's drone is left out: it lasts the whole night, and it must still hear then.
+            if self.game.world.warming || self.game.keys.hum().is_some() {
                 self.game.senses.deafen(0.6);
             }
         }
