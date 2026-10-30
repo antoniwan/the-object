@@ -516,7 +516,13 @@ impl Discovery {
 #[derive(Default)]
 pub struct Progress {
     found: Vec<Discovery>,
+    /// Names this build does not know, from a save made by a newer one (another tab, left open
+    /// across a release): never counted, but written back, so this build never erases them.
+    unknown: Vec<String>,
 }
+
+/// The most unknown names kept, so a hand-edited save cannot grow without end.
+const UNKNOWN_KEPT: usize = 64;
 
 impl Progress {
     /// Returns true the first time something is discovered.
@@ -538,22 +544,40 @@ impl Progress {
 
     /// Comma-separated names, for saving between visits.
     pub fn save(&self) -> String {
-        self.found.iter().map(|d| d.name()).collect::<Vec<_>>().join(",")
+        let known = self.found.iter().map(|d| d.name());
+        known.chain(self.unknown.iter().map(String::as_str)).collect::<Vec<_>>().join(",")
     }
 
     /// Takes in what another tab kept: what was found only grows, so nothing found in one is lost
     /// to a save from the other. Returns how many were new here.
     pub fn merge(&mut self, saved: &str) -> usize {
         let kept = Progress::load(saved);
+        for n in kept.unknown {
+            self.keep_unknown(n);
+        }
         kept.found.into_iter().filter(|d| self.discover(*d)).count()
     }
 
-    /// Unknown names are skipped and repeats counted once, so a hand-edited or
+    fn keep_unknown(&mut self, name: String) {
+        if self.unknown.len() < UNKNOWN_KEPT && !self.unknown.contains(&name) {
+            self.unknown.push(name);
+        }
+    }
+
+    /// Unknown names are kept aside, never counted, and repeats counted once, so a hand-edited or
     /// stale save can never inflate the count the contact arc is gated on.
     pub fn load(saved: &str) -> Progress {
         let mut p = Progress::default();
-        for d in saved.split(',').filter_map(|n| ALL.iter().copied().find(|d| d.name() == n.trim())) {
-            p.discover(d);
+        for n in saved.split(',').map(str::trim) {
+            match ALL.iter().copied().find(|d| d.name() == n) {
+                Some(d) => {
+                    p.discover(d);
+                }
+                None if !n.is_empty() && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') => {
+                    p.keep_unknown(n.to_string());
+                }
+                None => {}
+            }
         }
         p
     }
@@ -562,6 +586,16 @@ impl Progress {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn what_a_newer_build_found_is_kept_but_not_counted() {
+        let mut here = Progress::default();
+        here.discover(ALL[0]);
+        here.merge(&format!("{},somethingnew", ALL[1].name()));
+        assert_eq!(here.count(), 2);
+        assert!(here.save().split(',').any(|n| n == "somethingnew"));
+        assert_eq!(Progress::load(&here.save()).count(), 2);
+    }
 
     #[test]
     fn what_another_tab_found_is_kept() {
