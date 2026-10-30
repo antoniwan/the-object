@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.9] - 2026-10-30
+
+### Fixed
+- The cells no longer flicker at the moment they become one ball, a blend that some phones (iPhone's fast math) could get wrong. (#89)
+
 ## [1.22.8] - 2026-10-30
 
 ### Changed
@@ -479,7 +484,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.8...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.9...HEAD
+[1.22.9]: https://github.com/antoniwan/the-object/compare/v1.22.8...v1.22.9
 [1.22.8]: https://github.com/antoniwan/the-object/compare/v1.22.7...v1.22.8
 [1.22.7]: https://github.com/antoniwan/the-object/compare/v1.22.6...v1.22.7
 [1.22.6]: https://github.com/antoniwan/the-object/compare/v1.22.5...v1.22.6
