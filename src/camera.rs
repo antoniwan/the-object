@@ -1,9 +1,18 @@
-//! The orbit camera: where the player looks from, how it drifts, and the screen shake.
+//! The orbit camera: where the player looks from, how it drifts, how far the lens leans in, and the screen shake.
 
 use crate::math::*;
 
-/// Focal length used by both the picker and the shader.
+/// Focal length at rest. The picker and the shader both use the camera's own `focal`, which
+/// only leaves this while the lens leans in.
 pub const FOCAL: f32 = 1.9;
+/// How far the lens leans in, at most: the focal length it eases toward while it is held still
+/// with nobody's hand on it. A fifth of the way with less motion asked for.
+pub const LEAN: f32 = 2.3;
+const LEAN_STILL: f32 = 0.2;
+/// It leans in this slowly (rate a second: most of the way in about five seconds), and back
+/// a little faster, so that a finger set down on it stops it soon but never in one frame.
+const LEAN_IN: f32 = 0.6;
+const LEAN_OUT: f32 = 1.2;
 /// The shake dies away at this rate a second, toward a little under nothing (`SHAKE_UNDER`, world
 /// units) so that it ends: the hardest (a burst, 0.12) in under a second, a slam in about 0.9 s.
 const SHAKE_RATE: f32 = 4.0;
@@ -27,6 +36,8 @@ pub struct Camera {
     /// The player asked for less motion: the room shakes a fifth as far, and the flash and
     /// ring of a shock come at 40%.
     pub still: bool,
+    /// Focal length now: `FOCAL`, or on the way to `LEAN` and back.
+    pub focal: f32,
 }
 
 pub struct Basis {
@@ -49,7 +60,17 @@ impl Camera {
             shock: (0.0, 9.0),
             last_shake: 0.0,
             still: false,
+            focal: FOCAL,
         }
+    }
+
+    /// Each frame: the lens leans in toward `goal` (0..1 of the way to `LEAN`), or back out,
+    /// eased; with less motion asked for, only a fifth as far.
+    pub fn lean(&mut self, goal: f32, dt: f32) {
+        let reach = if self.still { LEAN_STILL } else { 1.0 };
+        let want = FOCAL + (LEAN - FOCAL) * goal.clamp(0.0, 1.0) * reach;
+        let rate = if want > self.focal { LEAN_IN } else { LEAN_OUT };
+        self.focal += (want - self.focal) * (1.0 - (-rate * dt).exp());
     }
 
     pub fn basis(&self) -> Basis {
@@ -78,7 +99,7 @@ impl Camera {
         let b = self.basis();
         let ux = (2.0 * px - w) / h;
         let uy = (h - 2.0 * py) / h;
-        (b.pos, (b.right * ux + b.up * uy + b.fwd * FOCAL).norm())
+        (b.pos, (b.right * ux + b.up * uy + b.fwd * self.focal).norm())
     }
 
     /// Where a point in the room lands on screen, in the units `ray` takes: from the middle of
@@ -87,7 +108,7 @@ impl Camera {
         let b = self.basis();
         let d = p - b.pos;
         let z = d.dot(b.fwd).max(0.1);
-        (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z)
+        (d.dot(b.right) * self.focal / z, d.dot(b.up) * self.focal / z)
     }
 
     pub fn orbit(&mut self, dx: f32, dy: f32) {
@@ -182,5 +203,43 @@ mod tests {
         let moved = |c: &Camera| (c.basis().pos - rest).len();
         assert!(moved(&b) < moved(&a) * 0.25 && moved(&b) > 0.0);
         assert!(b.shock().0 < a.shock().0 * 0.5 && b.shock().0 > 0.0);
+    }
+
+    #[test]
+    fn the_leaned_lens_still_points_where_it_draws() {
+        let mut c = Camera::new();
+        c.focal = LEAN;
+        let (w, h) = (800.0, 600.0);
+        for p in [v3(0.0, 0.0, 0.0), v3(0.7, 0.3, -0.4), v3(-1.1, -0.5, 0.6)] {
+            let (ux, uy) = c.project(p);
+            let (ro, rd) = c.ray((ux * h + w) * 0.5, (h - uy * h) * 0.5, w, h);
+            let off = (p - ro) - rd * (p - ro).dot(rd);
+            assert!(off.len() < 1e-4, "{p:?} is {} off its own ray", off.len());
+        }
+    }
+
+    #[test]
+    fn the_lens_leans_slowly_and_comes_back() {
+        let mut c = Camera::new();
+        let mut last = c.focal;
+        for _ in 0..600 {
+            c.lean(1.0, 1.0 / 60.0);
+            assert!(c.focal >= last && c.focal - last < 0.005, "no jump: {last} to {}", c.focal);
+            last = c.focal;
+        }
+        assert!((c.focal - LEAN).abs() < 0.02, "most of the way in ten seconds: {}", c.focal);
+        for _ in 0..600 {
+            c.lean(0.0, 1.0 / 60.0);
+            assert!(c.focal <= last && last - c.focal < 0.01);
+            last = c.focal;
+        }
+        assert!((c.focal - FOCAL).abs() < 1e-3, "{}", c.focal);
+        // with less motion asked for, a fifth of the way
+        let mut c = Camera::new();
+        c.still = true;
+        for _ in 0..1200 {
+            c.lean(1.0, 1.0 / 60.0);
+        }
+        assert!((c.focal - (FOCAL + (LEAN - FOCAL) * 0.2)).abs() < 1e-3, "{}", c.focal);
     }
 }
