@@ -409,7 +409,7 @@ pub fn give_way(g: &mut Game, id: i32) {
         return;
     }
     if g.words.pressing() {
-        g.pointer_up(HAND);
+        g.drop_hand(HAND);
     }
     g.words.doing = None;
     g.words.wait = GAP;
@@ -641,5 +641,18 @@ mod tests {
         g.words.hear(0, 0, "hola");
         run(&mut g, 0.5);
         assert_eq!(g.remembrance.ledger().get(Deed::Greeted).count, before + 1);
+    }
+
+    #[test]
+    fn a_spoken_hold_cut_short_by_a_finger_is_not_a_poke() {
+        let mut g = game();
+        g.words.hear(0, 0, "hold");
+        run(&mut g, 10.0 / 60.0);
+        assert!(g.words.pressing());
+        assert!(!g.progress.has(Discovery::Poke));
+        // a real finger on empty space, far from the body
+        g.pointer_down(1, 5.0, 5.0);
+        assert_eq!(g.contact.habits[0], 0, "the cut-short hold landed as a poke");
+        assert!(!g.progress.has(Discovery::Poke), "the cut-short hold landed as a poke");
     }
 }

@@ -1,7 +1,7 @@
 // The answers to the object's question. POST {v: 1..5} from the page; GET the aggregate,
 // which web/index.html puts into the page's structured data. Stored in Vercel Blob (private):
 // ratings/summary.json holds the counts, ratings/visitors/<hash>.json each visitor's last answer.
-import { get, put, BlobPreconditionFailedError } from '@vercel/blob';
+import { get, put, BlobError } from '@vercel/blob';
 import { AGAIN_AFTER, aggregate, allowedOrigin, clientIp, parseAnswer, tally, visitor } from './_rating.js';
 
 const SUMMARY = 'ratings/summary.json';
@@ -14,13 +14,22 @@ async function read(pathname) {
   return { data: JSON.parse(await new Response(r.stream).text()), etag: r.blob.etag };
 }
 
+// Writes over `etag` only if the blob is still that one; with no etag, only if there is none yet.
+// Either way a write that lost a race throws a BlobError, and the caller reads again.
 function write(pathname, data, etag) {
   return put(pathname, JSON.stringify(data), {
     access: 'private',
     addRandomSuffix: false,
     contentType: 'application/json',
-    ...(etag ? { ifMatch: etag } : { allowOverwrite: true }),
+    ...(etag ? { ifMatch: etag, allowOverwrite: true } : { allowOverwrite: false }),
   });
+}
+
+// Whether a failed write lost to another one: the blob is no longer what it was read as.
+async function lost(e, pathname, etag) {
+  if (!(e instanceof BlobError)) return false;
+  const now = await read(pathname);
+  return (now?.etag ?? null) !== (etag ?? null);
 }
 
 export async function GET() {
@@ -55,19 +64,26 @@ export async function POST(request) {
     const before = await read(who);
     const prev = before?.data.v ?? null;
     if (before && Date.now() - before.data.at < AGAIN_AFTER) return json({ error: 'again later' }, 429);
+    // The visitor's answer is claimed first, against what was read: of several answers sent at
+    // once, only one gets past here, so one visitor is never counted twice.
+    try {
+      await write(who, { v, at: Date.now() }, before?.etag);
+    } catch (e) {
+      if (await lost(e, who, before?.etag)) return json({ error: 'again later' }, 429);
+      throw e;
+    }
     if (prev !== v) {
-      // Two answers at once would race on the counts; the loser reads again.
+      // Two visitors at once would race on the counts; the loser reads again.
       for (let tries = 0; ; tries++) {
         const s = await read(SUMMARY);
         try {
           await write(SUMMARY, { counts: tally(s?.data.counts, prev, v) }, s?.etag);
           break;
         } catch (e) {
-          if (!(e instanceof BlobPreconditionFailedError) || tries >= 4) throw e;
+          if (tries >= 4 || !(await lost(e, SUMMARY, s?.etag))) throw e;
         }
       }
     }
-    await write(who, { v, at: Date.now() });
     return new Response(null, { status: 204 });
   } catch (e) {
     console.error(e);

@@ -299,6 +299,15 @@ impl Senses {
         true
     }
 
+    /// Its word was cut short before it was taken up: it is no longer on offer, so a sight mark
+    /// can wait at once.
+    pub fn withdraw(&mut self, kind: Kind) {
+        let l = self.leave(kind);
+        if matches!(l, Leave::Offered(_)) {
+            *l = Leave::Closed;
+        }
+    }
+
     /// The browser gave it what it asked for.
     pub fn opened(&mut self, kind: Kind) {
         let l = self.leave(kind);
@@ -328,6 +337,8 @@ impl Senses {
             Kind::Hear => {
                 self.heard = Heard::default();
                 self.hum = None;
+                self.note = (0.0, 0.0);
+                (self.voiced, self.unvoiced, self.whisper, self.shout, self.blow) = (0.0, 0.0, 0.0, 0.0, 0.0);
             }
             Kind::See => {
                 self.seen = None;
@@ -462,7 +473,6 @@ impl Senses {
             }
             if t >= HUM_SECS {
                 self.hum = None;
-                self.loud = 0.0;
             }
             return;
         }
@@ -470,7 +480,6 @@ impl Senses {
         if self.deaf > 0.0 {
             self.deaf -= dt;
             self.note = (0.0, 0.0);
-            self.loud = 0.0;
             return;
         }
         let h = self.heard;

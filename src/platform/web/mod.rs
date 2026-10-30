@@ -193,7 +193,8 @@ impl App {
     /// A line that cuts the toast short. If it was asking, the asking is over: a tap or Enter
     /// on the new line does not answer it (the waiting mark still can).
     fn urgent(&mut self, line: Line) {
-        if self.offer.take().is_some() {
+        if let Some((kind, _)) = self.offer.take() {
+            self.game.senses.withdraw(kind);
             self.hud.queue.retain(|l| !matches!(l, Line::Offer(_)));
         }
         self.hud.urgent(line);

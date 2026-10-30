@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.15] - 2026-10-30
+
+### Fixed
+- A spoken hold or tear cut short by a finger is let go, not finished as a poke or a throw. A steady loud voice is no longer taken for a sudden sound after each of its own sounds. A note cut off by closing hearing is not sung back on reopening. A word cut short by another line leaves its mark free at once. Recognition stopped from outside the page restarts only a few times. One visitor's answers sent at once are counted once (#95)
+
 ## [1.22.14] - 2026-10-30
 
 ### Fixed
@@ -509,7 +514,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.14...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.15...HEAD
+[1.22.15]: https://github.com/antoniwan/the-object/compare/v1.22.14...v1.22.15
 [1.22.14]: https://github.com/antoniwan/the-object/compare/v1.22.13...v1.22.14
 [1.22.13]: https://github.com/antoniwan/the-object/compare/v1.22.12...v1.22.13
 [1.22.12]: https://github.com/antoniwan/the-object/compare/v1.22.11...v1.22.12

@@ -522,6 +522,29 @@ impl Game {
         }
     }
 
+    /// A hand taken away without finishing what it began: no tap, no pinch, no throw, no call.
+    pub(crate) fn drop_hand(&mut self, id: i32) {
+        let before = self.pointers.len();
+        self.pointers.retain(|p| p.0 != id);
+        if self.pointers.len() == before {
+            return;
+        }
+        match std::mem::replace(&mut self.gesture, Gesture::Idle) {
+            Gesture::Stretching { handle, .. } => self.world.release_handle(handle),
+            Gesture::Dragging { drop, .. } => {
+                self.world.release_drop(drop);
+            }
+            Gesture::Shard { i, carried: true, .. } => {
+                self.world.burst.release(i, self.world.body.radius());
+            }
+            Gesture::Other { .. } => self.world.other.release(V3::ZERO),
+            _ => {}
+        }
+        self.trace.clear();
+        self.world.warming = false;
+        self.world.forms.dust.press = 0.0;
+    }
+
     pub fn pointer_up(&mut self, id: i32) {
         let Some(i) = self.pointers.iter().position(|p| p.0 == id) else { return };
         self.pointers.remove(i);

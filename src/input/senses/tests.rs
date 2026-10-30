@@ -411,3 +411,35 @@ fn hearing_and_seeing_at_once_it_still_waits_to_flinch_again() {
     let f = run(&mut s, &mut w, &l, 1.3, |s| s.seen(Seen { light: 0.5, motion: 0.4, at: Some((0.0, 0.0)) }));
     assert!(!f.contains(&Discovery::Startle), "flinched again after 1.3 s");
 }
+
+#[test]
+fn a_steady_loud_voice_is_not_sudden_after_its_own_sound() {
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    let l = look(Stage::Initiative, 5.0);
+    let loud = hear(&tone(220.0, 0.4), RATE);
+    assert!(loud.level > 0.22);
+    // the voice starts (it may flinch once at the start), and keeps on, steady
+    run(&mut s, &mut w, &l, 3.0, |s| s.heard(loud));
+    // well past the flinch wait, it makes a sound of its own, the voice going on all the while
+    s.deafen(0.6);
+    let f = run(&mut s, &mut w, &l, 1.5, |s| s.heard(loud));
+    assert!(!f.contains(&Discovery::Startle), "a voice that never changed was taken for a sudden sound");
+}
+
+#[test]
+fn a_note_cut_off_by_closing_is_not_sung_back_on_reopening() {
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    let l = look(Stage::Initiative, 5.0);
+    let note = hear(&tone(220.0, 0.05), RATE);
+    // a note held well past HELD_SECS, then hearing is stopped mid-note (Escape, tab hidden)
+    let f = run(&mut s, &mut w, &l, 1.2, |s| s.heard(note));
+    assert!(!f.contains(&Discovery::Sing));
+    s.close(Kind::Hear);
+    run(&mut s, &mut w, &l, 5.0, |_| {});
+    // let hear again, in a silent room
+    assert!(s.accept_waiting(Kind::Hear));
+    s.opened(Kind::Hear);
+    let f = run(&mut s, &mut w, &l, 1.0, |s| s.heard(Heard::default()));
+    assert!(!f.contains(&Discovery::Sing), "sang back a note from before it was closed");
+    assert!(s.hum().is_none(), "hums a note from before it was closed");
+}
