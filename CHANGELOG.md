@@ -12,10 +12,15 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-30
+
+### Added
+- Watched, or held still with no hand on it, the view slowly narrows on it, and widens again when touched
+
 ## [2.1.0] - 2026-10-30
 
 ### Added
-- Coming back after hours leaves a drop where you last touched it; after days it is warm at first; after longer it is facing away and turns round to you. A long absence is no longer counted only as care
+- Coming back after hours leaves a drop where you last touched it; after days it is warm at first; after longer it is facing away and turns round to you. A long absence is no longer counted only as care (#114)
 
 ## [2.0.0] - 2026-10-30
 
@@ -607,7 +612,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/antoniwan/the-object/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/antoniwan/the-object/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/antoniwan/the-object/compare/v1.25.0...v2.0.0
 [1.25.0]: https://github.com/antoniwan/the-object/compare/v1.24.0...v1.25.0
