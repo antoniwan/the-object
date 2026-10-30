@@ -67,7 +67,8 @@
 //! It also remembers how it was treated (see remembrance.rs): come back, and the first time
 //! a hand comes near it leans toward it, or away; and how glad or wary of you it is lets your
 //! verbs go a little further, or less far (see temper.rs). Hurt it enough and it scars; hurt a
-//! scar and it opens, and what falls out can close it again (see wound.rs).
+//! scar and it opens, and what falls out can close it again (see wound.rs). Come back after hours,
+//! days or longer, and the room shows it, once (see absence.rs).
 //!
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
@@ -188,6 +189,8 @@ pub struct Game {
     pub pad: crate::input::pad::Pad,
     /// What it remembers of what has been done to it, and how that leaves it (see remembrance.rs).
     pub remembrance: crate::mind::remembrance::Remembrance,
+    /// What the room shows of how long the player was away, worked out once (see mind/absence.rs).
+    pub absence: crate::mind::absence::Absence,
     /// Words it hears, and how it has been treated (see words.rs).
     pub words: crate::input::words::Words,
     /// Its mood as the hand now on it found it: how far that hand's verbs go (mind/temper.rs).
@@ -230,6 +233,7 @@ impl Game {
             motion: Default::default(),
             pad: Default::default(),
             remembrance: Default::default(),
+            absence: Default::default(),
             words: Default::default(),
             temper: Default::default(),
         }
@@ -583,6 +587,7 @@ impl Game {
             }
         }
         crate::mind::remembrance::step(self, dt);
+        crate::mind::absence::step(self, dt);
     }
 }
 
