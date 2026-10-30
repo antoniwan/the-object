@@ -18,6 +18,9 @@
 //!   something knocks back; knock three times and the lid opens and everything
 //!   inside gets out. When it has all come home, it forgets its corners.
 //!
+//! After contact, on its own turn, it may begin the flower, the box or the universe by itself and
+//! stop partway, waiting for the verb to take it on (lean.rs).
+//!
 //! Like meiosis.rs, each form's `Phase` only decides which 0..1 values move;
 //! the shader blends those, so no form ever jumps into the next.
 
@@ -27,6 +30,7 @@ pub mod dust;
 pub mod filament;
 pub mod fold;
 pub mod growth;
+pub mod lean;
 pub mod pandora;
 pub mod spin;
 
@@ -156,6 +160,18 @@ impl Forms {
         if self.dust.body_gone() && !self.bloom.whole() {
             self.bloom.scatter();
         }
+    }
+
+    /// Whether it is holding a form partway on its own turn (lean.rs).
+    pub fn leaning(&self) -> bool {
+        self.bloom.lean.leaning() || self.pandora.lean.leaning() || self.cosmos.lean.leaning()
+    }
+
+    /// Something else has started: whatever it began by itself sinks back, from where it is.
+    pub fn sink_leans(&mut self) {
+        self.bloom.lean.sink();
+        self.pandora.lean.sink();
+        self.cosmos.lean.sink();
     }
 
     /// A pinch on the flower: it comes apart over the floor under `pos`.
