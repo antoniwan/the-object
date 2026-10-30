@@ -61,7 +61,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | pollen | `#fac242` | the flower's heart | `formTint()` |
 | rope | `#cc1229`, ridged across, the ridges 28% darker | the flower spun left past dizzy: its petals wound into ropes; fades as they are taken back in | `shader.frag` `ROPE`, `formTint()` |
 | dust | `#ccc7d4`, grainy, a few grains still glinting in the film's colors | the flower let go of; drifts on the floor, and the cloud they fall from | `shader.frag` `DUST`, `dustFloor()` |
-| bark / leaf / blossom | `#6e666f` / `#9ec78c` / `#ed6b9e` | what grows out of the mound: bark from the mound's own grey, pale leaves, and late, the flower's pink again | `BARK`, `LEAF`, `BLOSSOM`, `treeSdf()` |
+| bark / leaf / blossom | `#6e6670` / `#9ec78c` / `#ed6b9e` | what grows out of the mound: bark from the mound's own grey, pale leaves, and late, the flower's pink again | `BARK`, `LEAF`, `BLOSSOM`, `treeSdf()` |
 | mound | `#b3abb3`, faint layers, the film back at its grazing edges; lit from inside while pressed | the dust heaped and settled; the only thing it is that stands on the ground | `MOUND`, `shadeHeap()` |
 | fold | `#080412` the dark between, then a cosine run through `#e50839` `#6b00db` `#0091e0` `#6b9f3e` (`foldPal()`), squared, so mostly the violet and blue of the galaxy's arms come through, on an orbit-trap fractal | the galaxy's own colors let out into the room; each copy of it takes a different turn of the run | `shader.frag` fold block |
 | fold seams | `#f2d9ff`, flaring on a new mirror | where the mirrors meet | `foldSky()` |
@@ -71,7 +71,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | the other, kept | the first's color at the time it was given back, 60% each time, glowing faintly at its grazing faces | what it took from inside the first | `other.rs` `kept` |
 | cold | `#9ea3f5` | the first cools toward this while it holds the other inside | `other.rs` `COLD` |
 | scar | `#5c3338`, a thin seam | where it was hurt most, kept between visits; fainter (35%) once healed, never gone | `shader.frag` `scarAt()`, `wound.rs` |
-| wound | `#6b0d0d` raw (the river's `BLOOD`), filling toward what was given it | the scar opened | `sceneColor()` `uWoundCol` |
+| wound | `#6b050d` raw (the river's `BLOOD`), filling toward what was given it | the scar opened | `sceneColor()` `uWoundCol` |
 | its pieces | the whole hue wheel, soft (`hue()`: 75% color over 20% white), once round every 10 s, each from its own place | small spiked pieces of it on the floor around an open wound | `wound.rs` `hue()` |
 | green | hue one third, ±0.07 | the one color the wound takes back. Green is chosen on purpose, against the rule of earned color: people already read it as safe and well (a traffic light, a leaf), so it needs no words (the user's call, 2026-10-29) | `wound.rs` `GREEN` |
 
@@ -91,7 +91,7 @@ Every shock (whatever shakes the room: a cut, a slam, the burst, the lid, the sl
 
 ### The twelve
 
-When it bursts, each piece is its own material. Index-matched in `burst.rs` `CONSISTENCIES`, `landscape.rs` `TINTS` and the shader's `TCOL`; change all three together.
+When it bursts, each piece is its own material. Index-matched in `burst/mod.rs` `CONSISTENCIES`, `landscape.rs` `TINTS` and the shader's `TCOL`; change all three together.
 
 | # | Material | Hex | | # | Material | Hex |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -231,7 +231,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | Token | Value | Meaning |
 | --- | --- | --- |
 | agitation | `exp(-dt / 3.0)` | an upset fades over about three seconds |
-| wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst.rs`) |
+| wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst/mod.rs`) |
 | after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |
 | light under two | goes over 0.8 s once two cells become many | the light focused under it never goes out in one frame (`morula.rs` `first_light`) |
 | the eye | opens and closes at rate 0.8 / s; its cell killed, it shuts at 7 / s, well before the cell is shed | it never blinks out in one frame (`morula.rs`) |
@@ -328,7 +328,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 
 | Gesture | On | Verb | If pushed further, it becomes | Module |
 | --- | --- | --- | --- | --- |
-| tap | the liquid | poke | twelve pokes unhealed: burst into the twelve | `burst.rs` |
+| tap | the liquid | poke | twelve pokes unhealed: burst into the twelve | `burst/mod.rs` |
 | tap | empty space | call | it reaches toward the place | `sim/` |
 | press and drag | the liquid | stretch | far enough: tear off a drop | `sim/` |
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
@@ -405,7 +405,7 @@ A checklist. Most of it is enforced by review, some of it by tests.
 2. **Give it its own file** in `src/forms/` (or its own module for something larger), with a header comment in the house tone. Add it to `forms/mod.rs`'s list and `game/mod.rs`'s gesture list.
 3. **Gate it** on `World::ordinary()` so it cannot start inside another form, and add it to `Forms::whole()` so other forms cannot start inside it.
 4. **Phase and Blend.** A `Phase` enum decides which 0..1 values move; a `Blend` struct carries them to the shader. The shader only mixes. Arrival 2 – 4 s, departure a little shorter, both smoothstepped. Follow `meiosis.rs`.
-5. **Shader, inside the budget.** Add the shape inside `scene()` and the material inside the existing `shadeLiquid()` call. No new calls to `scene()`, `shadeLiquid()` or `calcNormal()`. Every loop starts from `ZERO`. Measure the first frame at 48×32 before and after. Pick colors from section 2, or add the new one to section 2 in the same pull request.
+5. **Shader, inside the budget.** Add the shape inside `scene()` and the material inside the existing `shadeLiquid()` call. No new calls to `scene()` or `shadeLiquid()`. Every loop starts from `ZERO`. Measure the first frame at 48×32 before and after. Pick colors from section 2, or add the new one to section 2 in the same pull request.
 6. **A way back.** The opposite or gentle verb returns it to the ordinary liquid, with its own blend.
 7. **Discoveries.** Usually three: becoming, an interaction inside the form, and leaving it. Append to the end of `Discovery`, `ALL`, `name()` and `line()`. Write the lines against section 7.
 8. **Sound.** `Sound::Become` on arrival; a new `Sound` only if the form has an action of its own (pluck, knock), built from the same envelope.
@@ -416,7 +416,7 @@ A checklist. Most of it is enforced by review, some of it by tests.
 
 These are in `CONTRIBUTING.md` in full. They are here because they limit what a design may ask for.
 
-- **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()`/`calcNormal()` call sites, measure before and after. An effect that does not need the shader goes in the page.
+- **Shader compile budget.** One shader draws everything, and it must compile in under a second on a slow Windows/Edge machine. Loops from `ZERO`, no new `scene()`/`shadeLiquid()` call sites, measure before and after. An effect that does not need the shader goes in the page.
 - **Quality tier.** When frames stall and the page drops below 0.75 of its resolution (`pace.rs`), the bent light and the focus fade out (`uFine`, eased, never switched); the film and the moment stay. A design may not depend on them being there.
 - **Module per form.** Many threads work at once; separate files keep merges clean. `game/` and `sim/` changes stay small.
 - **No engine, no images, no samples.** Every shape is an equation, every sound is synthesized, every word decodes. Keep it that way.
