@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.22] - 2026-10-30
+
+### Fixed
+- With two tabs open, what one finds and what contact has come to are never undone by a save from the other. An answer whose mark failed stays known as counted however many answers come after (#102)
+
 ## [1.22.21] - 2026-10-30
 
 ### Fixed
@@ -544,7 +549,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.21...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.22...HEAD
+[1.22.22]: https://github.com/antoniwan/the-object/compare/v1.22.21...v1.22.22
 [1.22.21]: https://github.com/antoniwan/the-object/compare/v1.22.20...v1.22.21
 [1.22.20]: https://github.com/antoniwan/the-object/compare/v1.22.19...v1.22.20
 [1.22.19]: https://github.com/antoniwan/the-object/compare/v1.22.18...v1.22.19

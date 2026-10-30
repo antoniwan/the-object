@@ -1,6 +1,6 @@
 [package]
 name = "chaos-object"
-version = "1.22.21"
+version = "1.22.22"
 edition = "2021"
 
 [lib]
@@ -36,6 +36,7 @@ features = [
   "WebGlUniformLocation",
   "KeyboardEvent",
   "Storage",
+  "StorageEvent",
   "AudioContext",
   "BaseAudioContext",
   "AudioNode",

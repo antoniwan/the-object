@@ -541,6 +541,13 @@ impl Progress {
         self.found.iter().map(|d| d.name()).collect::<Vec<_>>().join(",")
     }
 
+    /// Takes in what another tab kept: what was found only grows, so nothing found in one is lost
+    /// to a save from the other. Returns how many were new here.
+    pub fn merge(&mut self, saved: &str) -> usize {
+        let kept = Progress::load(saved);
+        kept.found.into_iter().filter(|d| self.discover(*d)).count()
+    }
+
     /// Unknown names are skipped and repeats counted once, so a hand-edited or
     /// stale save can never inflate the count the contact arc is gated on.
     pub fn load(saved: &str) -> Progress {
@@ -555,6 +562,17 @@ impl Progress {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn what_another_tab_found_is_kept() {
+        let mut here = Progress::default();
+        here.discover(ALL[0]);
+        let mut there = Progress::default();
+        there.discover(ALL[1]);
+        there.discover(ALL[0]);
+        assert_eq!(here.merge(&there.save()), 1);
+        assert!(here.has(ALL[0]) && here.has(ALL[1]) && here.count() == 2);
+    }
 
     #[test]
     fn save_and_load_round_trip() {

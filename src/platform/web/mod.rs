@@ -106,11 +106,15 @@ impl App {
         self.resize();
         self.sense(now);
         self.game.update(dt as f32);
+        // Another tab may have kept more since this one read it: what only grows is taken in
+        // first, so neither undoes the other.
         if !self.game.announcements.is_empty() {
+            self.game.progress.merge(&load(KEY_FOUND));
             save(KEY_FOUND, || self.game.progress.save());
         }
         if self.game.contact.dirty {
             self.game.contact.dirty = false;
+            self.game.contact.merge(&load(KEY_CONTACT));
             save(KEY_CONTACT, || self.game.contact.save());
         }
         if self.game.senses.dirty {
@@ -523,6 +527,21 @@ pub fn start() -> Result<(), JsValue> {
                 }
             } else if let Some(audio) = &a.audio {
                 audio.resume();
+            }
+        })?;
+    }
+
+    {
+        // Another tab kept something: this one takes in what only grows, quietly.
+        let app = app.clone();
+        listen(window.as_ref(), "storage", true, move |e: web_sys::StorageEvent| {
+            let mut a = app.borrow_mut();
+            match (e.key().as_deref(), e.new_value()) {
+                (Some(KEY_FOUND), Some(v)) => {
+                    a.game.progress.merge(&v);
+                }
+                (Some(KEY_CONTACT), Some(v)) => a.game.contact.merge(&v),
+                _ => {}
             }
         })?;
     }

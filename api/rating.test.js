@@ -39,7 +39,6 @@ mock.module('@vercel/blob', {
         // Another visitor's answer of 1 lands on top before the answer comes back.
         const cur = JSON.parse(store.get(p).body);
         cur.counts[0] += 1;
-        cur.recent = [...(cur.recent ?? []), 'other'];
         cur.id = 'other';
         take(p, JSON.stringify(cur), { ifMatch: store.get(p).etag, allowOverwrite: true });
         throw new BlobError('lost answer');
@@ -151,4 +150,28 @@ test('counts taken without an answer, then written over by another visitor, are 
   assert.equal(await answer(4, '1.1.1.1'), 204);
   // one from the other visitor (index 0), one from this one (index 3)
   assert.deepEqual(counts(), [1, 0, 0, 1, 0]);
+});
+
+test('an answer whose mark failed is known as counted however many answers come after', async () => {
+  await answer(5, '1.1.1.1');
+  later();
+  faults.markFail = 1;
+  assert.equal(await answer(2, '1.1.1.1'), 204);
+  assert.deepEqual(counts(), [0, 1, 0, 0, 0]);
+  for (let i = 0; i < 256; i++) await answer(1, `10.0.${i >> 8}.${i & 255}`);
+  later();
+  assert.equal(await answer(3, '1.1.1.1'), 204);
+  assert.deepEqual(counts(), [256, 0, 1, 0, 0]);
+});
+
+test('nothing is left pending once answers are marked counted', async () => {
+  await answer(5, '1.1.1.1');
+  faults.markFail = 1;
+  await answer(4, '2.2.2.2');
+  later();
+  await answer(3, '2.2.2.2');
+  await answer(2, '3.3.3.3');
+  const pending = JSON.parse(store.get('ratings/summary.json').body).pending;
+  assert.deepEqual(pending, {});
+  assert.deepEqual(counts(), [0, 1, 1, 0, 1]);
 });
