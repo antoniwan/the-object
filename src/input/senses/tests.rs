@@ -114,21 +114,52 @@ fn given_hearing_early_it_asks_for_words_early() {
 }
 
 #[test]
-fn it_asks_to_feel_first_and_earlier() {
+fn it_asks_to_feel_from_early_in_any_visit() {
     let mut w = World::new();
-    let mut s = Senses { can_hear: true, can_feel: true, ..Default::default() };
-    run(&mut s, &mut w, &look(Stage::Matter, 30.0), 40.0, |_| {});
-    assert!(s.drain_events().is_empty(), "not before regard");
-    run(&mut s, &mut w, &look(Stage::Echo, 30.0), 1.0, |_| {});
-    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Feel)]);
+    let mut s = Senses { can_feel: true, ..Default::default() };
+    run(&mut s, &mut w, &look(Stage::Matter, 30.0), OFFER_NOT_BEFORE - 1.0, |_| {});
+    assert!(s.drain_events().is_empty(), "not in the first moments");
+    run(&mut s, &mut w, &look(Stage::Matter, 0.5), 5.0, |_| {});
+    assert!(s.drain_events().is_empty(), "not while being touched");
+    run(&mut s, &mut w, &look(Stage::Matter, 30.0), 1.0, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Feel)], "before regard");
     assert_eq!(Kind::Feel.word(), "hold the room.");
     assert!(s.accept(Kind::Feel));
     s.refused(Kind::Feel, true);
     assert_eq!(s.drain_events(), vec![Event::Refused(Kind::Feel)]);
-    run(&mut s, &mut w, &look(Stage::Echo, 30.0), OFFER_GAP, |_| {});
-    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Hear)], "then, later, to hear");
     assert_eq!(Senses::load(&s.save()).feel, Leave::Refused);
     assert_eq!(Senses::load("hear=no;see=").feel, Leave::Closed, "an older save still loads");
+    // A kept no is never asked again.
+    let mut next = Senses { can_feel: true, ..Senses::load(&s.save()) };
+    run(&mut next, &mut w, &look(Stage::Initiative, 30.0), 200.0, |_| {});
+    assert!(next.drain_events().is_empty());
+    // Once a visit.
+    let mut s = Senses { can_feel: true, ..Default::default() };
+    run(&mut s, &mut w, &look(Stage::Matter, 30.0), 21.0 + OFFER_WINDOW, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Feel)]);
+    assert_eq!(s.feel, Leave::Closed, "the word went untaken");
+    run(&mut s, &mut w, &look(Stage::Matter, 30.0), 200.0, |_| {});
+    assert!(s.drain_events().is_empty());
+}
+
+#[test]
+fn it_asks_to_hear_before_it_asks_to_feel_and_never_both_at_once() {
+    let mut w = World::new();
+    let mut s = Senses { can_hear: true, can_feel: true, ..Default::default() };
+    run(&mut s, &mut w, &look(Stage::Echo, 30.0), 21.0, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Hear)]);
+    run(&mut s, &mut w, &look(Stage::Echo, 30.0), OFFER_GAP - 2.0, |_| {});
+    assert!(s.drain_events().is_empty(), "the second word waits the whole gap");
+    run(&mut s, &mut w, &look(Stage::Echo, 30.0), 3.0, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Feel)], "then, later, to feel");
+    // Before it echoes there is no word to hear, so feeling is asked alone, and hearing after.
+    let mut s = Senses { can_hear: true, can_feel: true, ..Default::default() };
+    run(&mut s, &mut w, &look(Stage::Regard, 30.0), 21.0, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Feel)]);
+    run(&mut s, &mut w, &look(Stage::Echo, 30.0), OFFER_GAP - 2.0, |_| {});
+    assert!(s.drain_events().is_empty());
+    run(&mut s, &mut w, &look(Stage::Echo, 30.0), 3.0, |_| {});
+    assert_eq!(s.drain_events(), vec![Event::Offer(Kind::Hear)]);
 }
 
 #[test]

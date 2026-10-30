@@ -5,7 +5,7 @@
 //! - `division`, `floor`, `burst`, `forms`, `wound`, `other`: what it can become, one module each.
 //! - `input`: keyboard, phone, words, hearing and sight. `mind`: what it learns of the player.
 //! - `progress`, `aura`, `camera`, `math`, `version`: small shared pieces; `pace`: how much of
-//!   the screen is drawn.
+//!   the screen is drawn; `wake`: whether the screen is kept on.
 
 pub mod aura;
 pub mod burst;
@@ -22,6 +22,7 @@ pub mod pace;
 pub mod progress;
 pub mod sim;
 pub mod version;
+pub mod wake;
 pub mod wound;
 
 #[cfg(target_arch = "wasm32")]

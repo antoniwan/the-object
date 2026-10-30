@@ -86,6 +86,7 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two, and left alone at a screen's steady thirty a second; the canvas follows in small steps, and the finest light fades with it. |
 | `src/math.rs` | Small vector math, so the simulation has no dependencies. |
+| `src/wake.rs` | Whether the screen is kept on: from the first press or key, let go after three minutes with nobody there (no hand, no key, the phone not moved, nothing heard or seen) and while the page is hidden. Plain Rust; `platform/web/keep.rs` asks the browser (the Screen Wake Lock). |
 | `src/version.rs` | The version from `Cargo.toml`, and the tests that keep the page, `llms.txt` and the changelog saying the same. |
 
 ### What it becomes
@@ -131,9 +132,9 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 
 | File | What it holds |
 | --- | --- |
-| `src/platform/web/` | Browser glue: canvas, input, the frame loop (`mod.rs`), the hint, the toast, the count and its thoughts (`hud.rs`), the page's colors and marks, failing quietly and sending the answer on (`page.rs`), asking for and feeding the senses (`sensing.rs`), canvas size, waiting behind the loader and how fast a pointer moved (`frame.rs`), the `localStorage` keys and reading and writing them (`storage.rs`). |
+| `src/platform/web/` | Browser glue: canvas, input, the frame loop (`mod.rs`), the hint, the toast, the count and its thoughts (`hud.rs`), the page's colors and marks, failing quietly and sending the answer on (`page.rs`), asking for and feeding the senses (`sensing.rs`), canvas size, waiting behind the loader and how fast a pointer moved (`frame.rs`), the `localStorage` keys and reading and writing them (`storage.rs`), keeping the screen on as `wake.rs` says (`keep.rs`, `navigator.wakeLock`, silent where the browser has none or refuses). |
 | `src/platform/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
-| `src/platform/audio.rs` | Synthesized sounds, no samples. |
+| `src/platform/audio.rs` | Synthesized sounds, no samples; and, where Safari lets the page say so (`navigator.audioSession`), how the phone plays them: `ambient` at rest, `play-and-record` while the microphone is open. |
 | `src/platform/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
 | `src/platform/speech.rs` | Browser side of the same (wasm only): the browser's speech recognition, on the device (`processLocally`) as soon as it hears where the browser can, otherwise only after the player taps `say something.`; the text goes to `words.rs` and is dropped. |
 

@@ -82,6 +82,9 @@ impl App {
         match kind {
             Kind::Feel => devices::ask_to_feel(self.feel_answers.clone()),
             Kind::Hear => {
+                // Routed for listening before the browser asks, so what it plays back goes to
+                // the speaker and not the earpiece.
+                self.route(true);
                 self.let_ear_context_go();
                 self.ear_ctx = devices::ear_context();
                 devices::ask(kind, self.answers.clone());
@@ -169,6 +172,7 @@ impl App {
             }
         }
         let f = std::mem::take(&mut *self.felt.borrow_mut());
+        self.wake.felt(f.held.map(|h| (h.0, h.1)), f.push.map(|p| p.len()));
         self.game.motion.feel(f);
         if let Some(ears) = &mut self.ears {
             let heard = ears.listen();
