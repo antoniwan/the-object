@@ -104,6 +104,24 @@ const IDLE_WATCH: f32 = 12.0;
 
 /// A flick faster than this, in canvas heights per second, throws the object.
 const THROW_SPEED: f32 = 2.2;
+/// A flick this share of `THROW_SPEED` or faster, but short of it, only lurches it that way.
+const LURCH_FROM: f32 = 0.5;
+/// The most a lurch pushes it, in world units per second: well short of what slams it into the floor.
+const LURCH_PUSH: f32 = 4.0;
+/// How long (seconds) the hand may go without moving before its speed starts to die away,
+/// and how fast it then does (rate a second): a flick stopped and held is not a flick.
+const STOPPED_SECS: f32 = 0.05;
+const STOPPED_RATE: f32 = 12.0;
+/// How much of a poke the body gives at once under a press; the tap, let go, gives the rest.
+const PRESS: f32 = 0.3;
+/// A press's dent let go of sooner than this (seconds) is taken into the poke's own ripple.
+const PRESS_FOLD_SECS: f32 = 0.25;
+/// How far it rises toward a finger held on it (as the swell of watching), under regard's lean,
+/// and over how long (seconds) it gets there.
+const PALM: f32 = 0.18;
+const PALM_RISE: f32 = 0.5;
+/// How fast (rate a second) the swell turns toward the finger it rises into.
+const PALM_TURN: f32 = 6.0;
 /// Camera distance from which the whole slab can be seen.
 const SLAB_DIST: f32 = 9.0;
 
@@ -129,8 +147,11 @@ pub struct Game {
     /// Real seconds left of the freeze right after a cut.
     hit_stop: f32,
     snapped: bool,
-    /// Smoothed pointer velocity, in canvas pixels per second.
+    /// Smoothed pointer velocity, in canvas pixels per second, and when (real time) it last moved.
     pvel: (f32, f32),
+    moved_at: f32,
+    /// Where the body gave under the press now on it, if it did (a ripple's direction).
+    press: Option<V3>,
     /// New discoveries for the HUD to announce.
     pub announcements: Vec<Discovery>,
     pub sounds: Vec<Sound>,
@@ -184,6 +205,8 @@ impl Game {
             hit_stop: 0.0,
             snapped: false,
             pvel: (0.0, 0.0),
+            moved_at: 0.0,
+            press: None,
             announcements: Vec::new(),
             sounds: Vec::new(),
             question: Vec::new(),
@@ -242,6 +265,10 @@ impl Game {
 
     pub fn update(&mut self, dt: f32) {
         self.clock += dt;
+        if self.clock - self.moved_at > STOPPED_SECS {
+            self.pvel = (fade(self.pvel.0, -STOPPED_RATE * dt), fade(self.pvel.1, -STOPPED_RATE * dt));
+        }
+        self.rise_into_palm(dt);
         if let Gesture::Pending { start, hit, since } = self.gesture {
             if self.world.time - since > HOLD {
                 self.gesture = Gesture::Warming { start, hit, since: self.world.time };
