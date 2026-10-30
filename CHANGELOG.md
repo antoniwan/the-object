@@ -21,8 +21,8 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [2.3.0] - 2026-10-30
 
 ### Added
-- Tip the room, with the arrows or the phone, while the twelve lie on the ground, and they slide downhill: a group together and slowly, a piece alone a little further and aside, and groups that meet are one (#PREV)
-- A breath let out over the dust, with space or blown once it hears, moves the drifts away from you over the floor (#PREV)
+- Tip the room, with the arrows or the phone, while the twelve lie on the ground, and they slide downhill: a group together and slowly, a piece alone a little further and aside, and groups that meet are one (#116)
+- A breath let out over the dust, with space or blown once it hears, moves the drifts away from you over the floor (#116)
 
 ## [2.2.0] - 2026-10-30
 
