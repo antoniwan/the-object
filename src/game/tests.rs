@@ -1122,13 +1122,27 @@ fn the_flower_spun_right_past_dizzy_rises_and_lands_a_flower() {
 }
 
 #[test]
-fn brought_near_dizzy_again_and_again_it_learns_which_way_you_turn_it() {
-    let mut g = game();
-    flower(&mut g);
-    for _ in 0..3 {
-        stir(&mut g, 2.7);
-        wait(&mut g, 6.0);
+fn brought_near_dizzy_again_and_again_over_several_visits_it_learns_which_way_you_turn_it() {
+    let mut kept = String::new();
+    for visit in 0..3 {
+        let mut g = game();
+        g.remembrance = crate::mind::remembrance::Remembrance::load(&kept, 0.0);
+        g.update(1.0 / 60.0);
+        flower(&mut g);
+        for _ in 0..3 {
+            stir(&mut g, 2.7);
+            wait(&mut g, 6.0);
+        }
+        assert!(g.world.forms.spin.whole());
+        if visit < 2 {
+            assert!(g.world.forms.spin.learned.is_none(), "not in one visit, nor two");
+        } else {
+            assert_eq!(g.world.forms.spin.learned, Some(1.0));
+            stir(&mut g, 0.6);
+            wait(&mut g, 1.0);
+            assert!(g.progress.has(Discovery::Braced) || g.progress.has(Discovery::InStep));
+        }
+        kept = g.remembrance.save();
+        assert!(kept.contains("spun="), "{kept}");
     }
-    assert!(g.world.forms.spin.whole());
-    assert!(g.progress.has(Discovery::Braced) || g.progress.has(Discovery::InStep));
 }
