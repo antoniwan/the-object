@@ -217,6 +217,8 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | `BREATH_SLOW` | 1.2 s | space held this long is a breath; three in a row, none more than 9 s apart, and it follows |
 | `FULL_TILT` / `DEAD` | 18° / 3° | a phone tipped this far tips the room all the way; less is only a hand (`motion.rs`) |
 | `SETTLE` (tilt) | 20 s | however the phone is held slowly becomes level |
+| `GRIP` / `GROUP_SPEED` / `LOOSE_SPEED` (twelve) | 0.3 of a full tip / 1.0 / 1.6 units / s | the twelve on the ground: tipped less than this, the ground holds them; tipped all the way, a group slides this fast, a piece alone this fast and up to 0.45 rad aside; taken up and let go at 1.2 / s; they slow to a stop over the last 4 units before 20 out (`burst/tilt.rs`) |
+| `SPEED` / `PUFF_SECS` (gust) | 1.2 units / s / 0.9 s | the dust under the hardest breath drifts away from you this fast, the lighter drifts a little further (`1 − 0.35 ×` their share), taken up and let go at 3 / s; space let out over it blows this long, as hard as the breath was long (`forms/gust.rs`) |
 | `JOLT` | 13 m/s² beyond gravity | a push this hard is a jolt; walking is under it |
 | `SHAKE_JOLTS` / `SHAKE_WINDOW` | 3 in 1.2 s | that many jolts is a shake |
 | `SHED_AFTER` / `SHED_EVERY` | 1.2 s / 0.4 s | shaken this long without stopping, it comes loose, a drop each this often |
@@ -356,6 +358,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | drag round and round | the flower | spin | dizzy, it sways. Left past dizzy: its petals wind into ropes that fly out, unwind, lie down and are taken back in, and it is the liquid again. Right past dizzy: it lays flat, whirls up off the floor and spirals back down a flower. Nearly dizzy, again and again, over several visits: it learns your turn, and turns with you, or back | `forms/spin.rs` |
 | tap, again and again | the mound | tend | it takes root by itself; tended, it grows into branches, leaves and blossom; left alone, it draws back | `forms/growth.rs` |
 | drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
+| hold space and let go, or blow once it hears | the dust | (gust) | the drifts move away from you over the floor, as far as the breath was strong; blown into each other they run together | `forms/gust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
 | keep stirring the same way | the universe | (stir on) | the room folds: it is everywhere in mirrors; tap: another mirror; hold still: its time runs backward; stir back: the room folds up | `forms/fold.rs` |
 | draw a square | around it | (corners) | a box; knock three times | `forms/pandora.rs` |
@@ -365,6 +368,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | pinch (on the screen or a trackpad) or wheel | anywhere | squeeze | on cells: rejoin, or stone | `meiosis.rs`, `morula.rs` |
 | drag | a drop | carry / fling | six drops free: night | `sim/` |
 | set pieces down close together | the twelve | (kin) | as many groups as you like: carry one and its group follows; pull it away fast and it comes loose; a fast sweep across the ground between them parts them; touch one and the rest feel it after | `kin.rs` |
+| arrow keys, or tip the phone | the twelve, on the ground | (downhill) | a group slides downhill together, slowly; a piece alone goes a little further and aside; groups that meet on the way are one; a planted piece holds its group; nothing goes past the edge, and sliding alone never makes them run | `burst/tilt.rs` |
 | crowd the twelve together | anywhere but the middle | (river) | tap: a column; drag: a row; raise thirty at once and it beats | `river.rs` |
 | drag | empty space | look around | | `camera.rs` |
 | nothing | | patience | it watches; later it takes its turn | `sim/`, `contact.rs` |
@@ -392,6 +396,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | hold a note, then stop | sing | hums the note back, the same pitch, lower | `senses/` |
 | whisper | whisper | goes still and leans in | `senses/` |
 | blow | blow | a drop comes off the far side | `senses/` |
+| blow, over the dust | gust | the drifts move away from you over the floor | `forms/gust.rs` |
 | shout, keep shouting | shout | upset, shaking harder the longer it goes | `senses/` |
 | a sudden loud sound, or a fast movement | startle | flinches away | `senses/` |
 | move in front of it | seen | turns toward where you moved | `senses/` |
@@ -405,7 +410,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 
 **A phone in the hand** is the room. Tipping it tips the room and shaking it shakes the room; the object is what stays behind. Most phones let the page feel this without asking, and then it simply works; where the browser must ask first (iOS), it asks once a visit, by the same rules as `speak.` (20 s into the visit, untouched 5 s, 40 s from any other word) but at any point in the arc, and after `speak.` when both are due, in its voice: `hold the room.` A no is answered (`it will stay where it is put.`) and kept, like the others. Two angles and one push a frame, used and dropped. On a desk nothing arrives and it never asks.
 
-**The keyboard** is not a second mouse. Nothing on the pointer side is mapped to keys; each key reaches it from somewhere of its own (a letter from its place on the keyboard, space as breath, the arrows as the floor). Keys are read by place (`KeyboardEvent.code`), so the places hold on any layout. Like everything else, they act only on the ordinary liquid, and nothing explains them.
+**The keyboard** is not a second mouse. Nothing on the pointer side is mapped to keys; each key reaches it from somewhere of its own (a letter from its place on the keyboard, space as breath, the arrows as the floor). Keys are read by place (`KeyboardEvent.code`), so the places hold on any layout. Like everything else, they act only on the ordinary liquid (but for the two crossings below), and nothing explains them.
 
 **The grammar's rules**
 
@@ -413,6 +418,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 - A form is earned by doing a verb more, longer or harder than needed, never by finding a hidden button.
 - Every form has a way back, and the way back is the verb's opposite or a gentle version of it (stir back, hold to wind, tap to fold, squeeze to rejoin, hold to thaw).
 - Forms start only from the ordinary liquid: gate the gesture on `World::ordinary()`. One form at a time.
+- The senses (the keyboard, the phone, hearing, sight, words) act only on the ordinary liquid, with two exceptions, made on purpose and kept to these two: the room tipped while the twelve lie on the ground slides them downhill (`burst/tilt.rs`), and a breath, let out with space or blown once it hears, moves the dust over the floor (`forms/gust.rs`). Both only move what is already lying on the floor; neither starts, ends or changes a form, and with the room level and nobody breathing, nothing about either form is different. Any further crossing is a design decision, written here first.
 - The contact arc (`contact.rs`) watches all of this and unlocks by count: regard at 6 discoveries, echo at 14, its turn at 24, contact at 36. It acts only while the world is ordinary.
 - Remembrance (`remembrance.rs`) watches how it is treated, not what is found: a ledger of deeds kept between visits (held, hummed to, sung to, answered, greeted, returned to, stayed with; hurt, broken), and how glad or wary of you it is, worked out from that ledger and never stored. It shows only once a visit, from regard on, when a hand first comes near: it leans toward a hand that was kind to it (`remembered`) and pulls away from one that was not (`wary`). No number of it is ever shown. Other verbs may ask it whether it is glad of you (`kind()`), never tell the player. Hurt it enough, ever, and it scars where it is struck most (`wound.rs`); time alone never takes a scar away, only tending its wound fades it, and never all the way.
 

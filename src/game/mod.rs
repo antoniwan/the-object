@@ -31,6 +31,7 @@
 //!   go of at once, pinch it too, between them (and the flower)
 //! - pinch the flower: it comes apart into dust on the floor (too slowly, its petals only flinch); drag through the dust to sweep it,
 //!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
+//!   breathe over it (space, or a breath once it hears) and it drifts away from you (see forms/gust.rs);
 //!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)
 //! - spin the flower (drag round and round it): it grows dizzy and sways; left past dizzy its petals
 //!   wind into ropes that fly out and come undone, right past dizzy it whirls up and comes back down;
@@ -46,7 +47,9 @@
 //!   anywhere else and they run as a river: tap it and a column stands up, drag along it
 //!   for a row, and fill the view with them (see river.rs); set some close together and they
 //!   keep together, as many groups as you like: carry one and its group follows, yank it
-//!   and it comes loose, cut fast across the ground between them and they part (see kin.rs)
+//!   and it comes loose, cut fast across the ground between them and they part (see kin.rs);
+//!   tip the room and they slide downhill, groups together, and groups that meet are one
+//!   (see tilt.rs)
 //!
 //! - and from the keyboard: type, hold a letter, breathe with space, tip the room with
 //!   the arrows (see keys.rs)
@@ -370,6 +373,9 @@ impl Game {
         }
         crate::input::motion::step(self, dt);
         crate::input::keys::step(self, dt);
+        // the two places the senses reach past the ordinary liquid: the twelve, the dust
+        burst::tilt::step(self, dt);
+        forms::gust::step(self, dt);
         crate::input::words::step(self, dt);
 
         let sub = 3;

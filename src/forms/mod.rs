@@ -6,7 +6,8 @@
 //!   out and come undone, turned right it whirls up off the floor and comes back down (spin.rs).
 //!   Pinch the flower and it comes apart into dust on the floor; sweep the dust
 //!   together and it heaps into a mound; something takes root in it and grows as far as it
-//!   is tended (growth.rs); hold the mound and it rises (see dust.rs).
+//!   is tended (growth.rs); hold the mound and it rises (see dust.rs). Breathe over the
+//!   dust and it drifts away from you (gust.rs).
 //! - stretch it and hold it taut without letting it tear: it stops resisting
 //!   and draws out into one thread, longer than the room. Tap the thread to
 //!   pluck it; where you pluck decides the harmonic. Hold it still and it winds back.
@@ -27,6 +28,7 @@ pub mod dust;
 pub mod filament;
 pub mod fold;
 pub mod growth;
+pub mod gust;
 pub mod pandora;
 pub mod spin;
 
@@ -122,6 +124,8 @@ pub struct Forms {
     pub fold: Fold,
     pub dust: Dust,
     pub spin: Spin,
+    /// Breath over the dust (gust.rs).
+    pub gust: gust::Gust,
 }
 
 impl Forms {
