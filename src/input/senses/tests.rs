@@ -252,6 +252,40 @@ fn a_whisper_at_arms_length_is_heard_and_a_steady_room_is_not() {
     assert!(found.contains(&Discovery::Voice));
 }
 
+/// Air across a microphone: loud, and nearly all low rumble.
+fn wind(amp: f32) -> Vec<f32> {
+    let k = 1.0 - (-std::f32::consts::TAU * 80.0 / RATE).exp();
+    let mut y = 0.0;
+    hiss(1.0).into_iter().map(|x| {
+        y += (x - y) * k;
+        y * amp * 3.0
+    }).collect()
+}
+
+#[test]
+fn wind_is_a_breath_not_a_voice() {
+    let h = hear(&wind(1.0), RATE);
+    assert!(h.low > BLOW_LOW && h.level > BLOW, "{h:?}");
+    assert!(hear(&tone(220.0, 0.1), RATE).clarity > BLOW_CLARITY);
+    // A low voice, with its overtones, is still a voice, however low.
+    let voice: Vec<f32> = (0..2048)
+        .map(|i| (1..8).map(|k| (i as f32 / RATE * 110.0 * k as f32 * std::f32::consts::TAU).sin() * 0.08 / k as f32).sum())
+        .collect();
+    let v = hear(&voice, RATE);
+    assert!(v.pitch.is_some() && !(v.low > BLOW_LOW && v.clarity < BLOW_CLARITY), "{v:?}");
+
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    let l = look(Stage::Echo, 0.0);
+    let found = run(&mut s, &mut w, &l, 1.0, |s| s.heard(hear(&wind(1.0), RATE)));
+    assert!(found.contains(&Discovery::Blow), "{found:?}");
+    assert!(!found.iter().any(|d| matches!(d, Discovery::Voice | Discovery::Shout | Discovery::Startle)), "{found:?}");
+    assert!(w.body.pos.z < -0.08, "pushed away from you: {:?}", w.body.pos);
+    // even a soft one is felt at once, as ripples on the near side
+    let (mut w, mut s) = (World::new(), open(Kind::Hear));
+    run(&mut s, &mut w, &l, 0.2, |s| s.heard(hear(&wind(0.25), RATE)));
+    assert!(!w.ripples.is_empty());
+}
+
 #[test]
 fn its_own_sounds_are_not_yours() {
     let (mut w, mut s) = (World::new(), open(Kind::Hear));

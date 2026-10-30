@@ -151,7 +151,8 @@ impl App {
         if self.audio.as_ref().is_some_and(|a| !a.muted) {
             // A microphone near the speaker would hear these; it is not to take them for the player.
             for s in &self.game.sounds {
-                self.game.senses.deafen(if *s == crate::game::Sound::Discover { 3.0 } else { 1.2 });
+                // Only while the sound is loud: most of each one is gone in under a second.
+                self.game.senses.deafen(if *s == crate::game::Sound::Discover { 1.6 } else { 0.6 });
             }
         }
         if let Some(a) = &self.audio {

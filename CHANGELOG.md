@@ -12,6 +12,13 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.2] - 2026-10-30
+
+### Changed
+- A breath blown at it is felt at once, and no longer taken for a voice or a shout. The side nearest you is pressed in, ripple after ripple, and the whole of it is pushed away, harder the harder it is blown. Kept up, it still takes a drop off the far side.
+- A whisper shows: the side nearest you shivers while it leans in to listen.
+- It stops listening for less time after each of its own sounds, so it hears you again sooner.
+
 ## [1.22.1] - 2026-10-30
 
 ### Changed
@@ -442,7 +449,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.2...HEAD
+[1.22.2]: https://github.com/antoniwan/the-object/compare/v1.22.1...v1.22.2
 [1.22.1]: https://github.com/antoniwan/the-object/compare/v1.22.0...v1.22.1
 [1.22.0]: https://github.com/antoniwan/the-object/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/antoniwan/the-object/compare/v1.20.3...v1.21.0
