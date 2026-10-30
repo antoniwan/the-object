@@ -27,6 +27,8 @@ pub struct Renderer {
     ready: bool,
     /// Uniform locations, looked up once: asking the driver by name every frame costs more than the draw's setup.
     locs: RefCell<HashMap<&'static str, Option<WebGlUniformLocation>>>,
+    /// A held tip trembling, only as it is shown: which tendril, and how far off (`Game::tremble`).
+    pub tremble: Option<(u32, V3)>,
 }
 
 /// GL_COMPLETION_STATUS_KHR.
@@ -50,7 +52,7 @@ impl Renderer {
             gl.attach_shader(&program, s);
         }
         gl.link_program(&program);
-        Ok(Renderer { gl, program, shaders, parallel, ready: false, locs: RefCell::new(HashMap::new()) })
+        Ok(Renderer { gl, program, shaders, parallel, ready: false, locs: RefCell::new(HashMap::new()), tremble: None })
     }
 
     pub fn gl(&self) -> &GL {
@@ -187,7 +189,10 @@ impl Renderer {
         let (mut ha, mut hb, mut bulb) = (Vec::new(), Vec::new(), Vec::new());
         for h in world.handles.iter().take(MAX_HANDLES) {
             let (base, neck, bulb_r) = h.radii(body);
-            let (a, tip) = (h.anchor(body), h.shown_tip(body));
+            let (a, mut tip) = (h.anchor(body), h.shown_tip(body));
+            if let Some((_, off)) = self.tremble.filter(|(id, _)| *id == h.id) {
+                tip += off;
+            }
             ha.extend([a.x, a.y, a.z, base]);
             hb.extend([tip.x, tip.y, tip.z, neck]);
             bulb.push(bulb_r);

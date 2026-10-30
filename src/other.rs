@@ -24,7 +24,7 @@
 //! never smoothly: the two never melt into each other. Its material is `shadeOther()`.
 
 use crate::floor::fusion::FLOOR_Y;
-use crate::game::{Game, Sound};
+use crate::game::{Form, Game, Sound};
 use crate::math::*;
 use crate::progress::Discovery;
 use crate::sim::World;
@@ -607,7 +607,7 @@ impl Game {
         for e in self.world.other.drain_events() {
             match e {
                 Event::Arrived => {
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Itself });
                     self.sounds.push(Sound::Ring { pitch: 0.0 });
                     self.discover(Discovery::Another);
                 }
@@ -627,7 +627,7 @@ impl Game {
                 Event::TookIn => {
                     self.world.other.met.inside += 1;
                     self.world.other.dirty = true;
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Itself });
                     self.discover(Discovery::Inside);
                 }
                 Event::GaveBack => {

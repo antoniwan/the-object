@@ -109,7 +109,11 @@ impl Game {
         match std::mem::replace(&mut self.gesture, Gesture::Idle) {
             Gesture::Pending { hit, .. } => self.poke(hit),
             Gesture::Warming { .. } => self.world.warming = false,
-            Gesture::Stretching { handle, since, reach, hit, pressed, .. } => {
+            Gesture::Stretching { handle, since, reach, hit, pressed, taut, .. } => {
+                // Held taut more than halfway to a thread and let go: the hand hears how near it came.
+                if taut > filament::TAUT_SECS * 0.5 && !self.sounds.contains(&Sound::Almost) {
+                    self.sounds.push(Sound::Almost);
+                }
                 let stage = self.stage();
                 let dir = self.world.handles.iter().find(|h| h.id == handle).map(|h| h.dir);
                 self.world.release_handle(handle);

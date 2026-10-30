@@ -37,7 +37,7 @@ impl Game {
                         contact::Turn::Offer => self.discover(Discovery::Offer),
                         contact::Turn::Beckon => self.sounds.push(Sound::Call),
                         contact::Turn::Form(_) => {
-                            self.sounds.push(Sound::Become);
+                            self.sounds.push(Sound::Become { form: Form::Itself });
                             self.discover(Discovery::ShownBack);
                         }
                         contact::Turn::Hum => {
@@ -55,9 +55,9 @@ impl Game {
                     self.world.ripple_both(0.6);
                     self.discover(Discovery::Answer);
                 }
-                C::Reaching => self.sounds.push(Sound::Become),
+                C::Reaching => self.sounds.push(Sound::Become { form: Form::Itself }),
                 C::Recalled => {
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Itself });
                     self.discover(Discovery::Recall);
                 }
                 C::Said => {
