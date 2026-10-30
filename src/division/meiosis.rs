@@ -101,8 +101,11 @@ impl Division {
             Phase::Two => dividing(DIVIDE_SECS),
             Phase::Many => {
                 let look = self.morula.as_ref().map(|m| m.look()).unwrap_or_default();
-                // Thawing, it stops being cells as it stops being stone.
-                Blend { flash: 0.0, cell: 1.0 - look.thaw, ..dividing(DIVIDE_SECS) }
+                // Thawing, it stops being cells as it stops being stone, and the camera
+                // eases back out with it, so nothing is left to drop when it is whole again.
+                let k = 1.0 - look.thaw;
+                let d = dividing(DIVIDE_SECS);
+                Blend { flash: 0.0, furrow: d.furrow * k, split: d.split * k, cell: k, zoom: d.zoom * k }
             }
             // Run the division backwards, without replaying the cut.
             Phase::Rejoining { t } => {

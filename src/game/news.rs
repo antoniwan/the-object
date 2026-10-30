@@ -155,6 +155,13 @@ impl Game {
             let k = 1.0 - (-2.5 * dt).exp();
             self.cam.yaw += (self.look_from.0 - self.cam.yaw) * k;
             self.cam.pitch += (self.look_from.1 - self.cam.pitch) * k;
+            // Back where it was, it lets go, so whatever frames it next is not pulled against;
+            // and it gives way at once to the floor, the landscape or the cells, which frame it themselves.
+            let home = (self.look_from.0 - self.cam.yaw).abs() < 1e-3 && (self.look_from.1 - self.cam.pitch).abs() < 1e-3;
+            let w = &self.world;
+            if home || !(w.fusion.whole() && w.burst.whole() && w.division.whole()) {
+                self.look_back = false;
+            }
         }
         // The camera rises to look into the flower, and stays up to look down on the dust.
         let open = self.world.forms.bloom.open().max(self.world.forms.dust.view());

@@ -197,6 +197,7 @@ impl World {
         let melt = 1.0 - 0.5 * self.fusion.blend().sink;
         // Squeezed it flattens; pulled (fingers spread, the wheel turned up) it stands a little taller.
         let squash_goal = if b.squeeze > 0.0 { (1.0 + b.squeeze * 0.3) * melt } else { (1.0 + b.squeeze * 0.55).max(0.45).min(melt) };
+        let squash_was = b.squash;
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.5, 1.9);
 
@@ -207,7 +208,8 @@ impl World {
             let b = &mut self.body;
             b.vel = V3::ZERO;
             b.pos = b.pos.lerp(home, 1.0 - (-4.0 * dt).exp());
-            b.squash = 1.0;
+            // It rounds out over a moment rather than in one frame, and the squeeze no longer reaches it.
+            b.squash = squash_was + (1.0 - squash_was) * (1.0 - (-6.0 * dt).exp());
             b.squash_vel = 0.0;
         }
         self.fusion.step(dt);

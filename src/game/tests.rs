@@ -130,6 +130,48 @@ fn cut_again_and_again_it_multiplies_one_cell_dies_and_squeezed_it_turns_to_ston
 }
 
 #[test]
+fn thawed_back_to_one_body_the_camera_comes_home_without_a_jump() {
+    let mut g = game();
+    swipe_down(&mut g, 1, 400.0);
+    swipe_down(&mut g, 2, 577.0);
+    for _ in 0..120 {
+        g.wheel(-200.0);
+        g.update(1.0 / 60.0);
+    }
+    wait(&mut g, 7.0);
+    assert!(g.progress.has(Discovery::Slab));
+    g.pointer_down(20, 400.0, 300.0);
+    wait(&mut g, 3.0);
+    g.pointer_up(20);
+    let mut last = g.cam.dist;
+    let mut worst = 0.0f32;
+    for _ in 0..(60 * 5) {
+        g.update(1.0 / 60.0);
+        worst = worst.max((g.cam.dist - last).abs());
+        last = g.cam.dist;
+    }
+    assert!(g.world.division.morula.is_none());
+    assert!(worst < 0.2, "camera moved {worst} in one frame");
+}
+
+#[test]
+fn squeezed_into_stone_it_flattens_and_rounds_out_smoothly() {
+    let mut g = game();
+    swipe_down(&mut g, 1, 400.0);
+    swipe_down(&mut g, 2, 577.0);
+    let mut last = g.world.body.squash;
+    let mut worst = 0.0f32;
+    for _ in 0..240 {
+        g.wheel(-200.0);
+        g.update(1.0 / 60.0);
+        worst = worst.max((g.world.body.squash - last).abs());
+        last = g.world.body.squash;
+    }
+    assert!(g.progress.has(Discovery::Stone));
+    assert!(worst < 0.08, "squash moved {worst} in one frame");
+}
+
+#[test]
 fn a_slow_drag_across_the_body_only_orbits() {
     let mut g = game();
     g.pointer_down(1, 400.0, 20.0);
@@ -309,6 +351,17 @@ fn holding_still_warms_instead_of_poking() {
 }
 
 #[test]
+fn the_page_can_tell_a_finger_is_resting_so_the_canvas_keeps_its_size_until_it_lifts() {
+    let mut g = game();
+    assert!(!g.held());
+    g.pointer_down(1, 400.0, 300.0);
+    wait(&mut g, 0.5);
+    assert!(g.held(), "a still finger is still a hand on it");
+    g.pointer_up(1);
+    assert!(!g.held());
+}
+
+#[test]
 fn left_alone_it_watches() {
     let mut g = game();
     for _ in 0..(60 * 25) {
@@ -458,6 +511,20 @@ fn held_still_the_lake_freezes_and_breaks_under_taps_and_pushed_down_it_comes_up
     assert!(g.world.fusion.whole());
     assert!(g.world.body.pos.len() < 0.2);
     assert!(g.world.fusion.mere.coat_mix().1 > 0.9);
+}
+
+#[test]
+fn a_finger_slid_along_the_lake_and_back_does_not_freeze_it() {
+    let mut g = slammed();
+    g.pointer_down(2, 400.0, 560.0);
+    // well off along the floor and back, never holding still
+    for i in 0..40 {
+        let x = 400.0 + 120.0 * ((i as f32 + 1.0) / 40.0 * std::f32::consts::PI).sin();
+        g.pointer_move(2, x, 560.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+    }
+    wait(&mut g, 0.34);
+    assert!(!g.progress.has(Discovery::Freeze), "froze though the finger never held still");
 }
 
 #[test]
@@ -821,6 +888,41 @@ fn a_square_drawn_around_it_makes_a_box_that_opens_on_the_third_knock() {
     assert!(g.world.ordinary());
 }
 
+#[test]
+fn once_the_camera_has_drifted_back_from_the_box_it_lets_the_floor_tilt_it() {
+    let mut g = game();
+    let corners = [(150.0, 80.0), (650.0, 80.0), (650.0, 520.0), (150.0, 520.0), (150.0, 80.0)];
+    g.pointer_down(1, corners[0].0, corners[0].1);
+    for w in corners.windows(2) {
+        for k in 1..=25 {
+            let f = k as f32 / 25.0;
+            g.pointer_move(1, w[0].0 + (w[1].0 - w[0].0) * f, w[0].1 + (w[1].1 - w[0].1) * f, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+    }
+    g.pointer_up(1);
+    wait(&mut g, 2.6);
+    for i in 0..3 {
+        g.pointer_down(10 + i, 400.0, 300.0);
+        g.pointer_up(10 + i);
+        wait(&mut g, 0.3);
+    }
+    wait(&mut g, 153.0);
+    assert!(g.world.ordinary());
+    // thrown into the floor, the camera tilts down to the lake as it would have without the box
+    g.pointer_down(1, 400.0, 300.0);
+    for i in 1..=4 {
+        g.pointer_move(1, 400.0, 300.0 + i as f32 * 40.0, 1.0 / 120.0);
+        g.update(1.0 / 120.0);
+    }
+    g.pointer_up(1);
+    wait(&mut g, 10.0);
+    assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
+    let mut h = slammed();
+    wait(&mut h, 4.0);
+    assert!((g.cam.pitch - h.cam.pitch).abs() < 0.05, "pitch {} with the box first, {} without", g.cam.pitch, h.cam.pitch);
+}
+
 fn burst_it(g: &mut Game) {
     for i in 0..12 {
         g.pointer_down(i, 400.0, 300.0);
@@ -905,6 +1007,27 @@ fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
     assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
     assert!(g.world.burst.whole());
     assert!(g.world.body.color != crate::sim::PEARL);
+}
+
+#[test]
+fn a_drop_out_when_it_bursts_waits_for_the_body_to_gather_before_falling_back_in() {
+    let mut g = game();
+    assert!(g.world.spill(v3(2.5, 0.5, 0.0), V3::ZERO, 0.2, crate::sim::PEARL));
+    for d in &mut g.world.drops {
+        d.age = 0.0;
+    }
+    burst_it(&mut g);
+    g.sounds.clear();
+    let before = g.world.drops.len();
+    assert!(before > 0);
+    let mut merged = 0;
+    for _ in 0..(60 * 30) {
+        g.update(1.0 / 60.0);
+        merged += g.sounds.drain(..).filter(|s| matches!(s, Sound::Merge)).count();
+    }
+    assert!(g.world.burst.body_gone());
+    assert_eq!(merged, 0, "a drop fell into a body that is not there");
+    assert_eq!(g.world.drops.len(), before);
 }
 
 /// Drag piece `i` slowly over the ground to `to`, and let go.

@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.13] - 2026-10-30
+
+### Fixed
+- Nothing jumps where it used to: the view no longer leaps when the stone thaws, a squeezed cluster eases round as it turns to stone, a held finger is not misread when the screen's sharpness changes, the view after the box lets later framings in, a finger that wanders on the lake and back does not freeze it, and drops no longer vanish into a body that is not there. (#93)
+
 ## [1.22.12] - 2026-10-30
 
 ### Fixed
@@ -499,7 +504,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.12...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.13...HEAD
+[1.22.13]: https://github.com/antoniwan/the-object/compare/v1.22.12...v1.22.13
 [1.22.12]: https://github.com/antoniwan/the-object/compare/v1.22.11...v1.22.12
 [1.22.11]: https://github.com/antoniwan/the-object/compare/v1.22.10...v1.22.11
 [1.22.10]: https://github.com/antoniwan/the-object/compare/v1.22.9...v1.22.10
