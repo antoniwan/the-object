@@ -67,3 +67,30 @@ fn tearing_never_leaves_less_than_the_smallest_body() {
     run(&mut w, 1.0);
     assert!(w.body.radius() >= MIN_BODY_RADIUS, "{}", w.body.radius());
 }
+
+#[test]
+fn a_pull_past_the_most_stumps_lets_go_of_the_one_nearest_settled() {
+    let mut w = World::new();
+    let r = w.body.radius();
+    let dir = |k: usize| v3((k as f32 * 1.4).cos(), (k as f32 * 1.4).sin(), 0.3).norm();
+    // one pulled until it tears, still springing back
+    let h = w.begin_stretch(w.body.pos + dir(0) * r).unwrap();
+    w.pull_handle(h, w.body.pos + dir(0) * (r * 2.5));
+    run(&mut w, 0.3);
+    w.release_handle(h);
+    run(&mut w, 0.05);
+    // and the rest only drawn out a little
+    for k in 1..MAX_HANDLES {
+        let h = w.begin_stretch(w.body.pos + dir(k) * (r * 0.82)).unwrap();
+        w.pull_handle(h, w.body.pos + dir(k) * (r * 0.86));
+        run(&mut w, 0.1);
+        w.release_handle(h);
+        run(&mut w, 0.05);
+    }
+    run(&mut w, 0.15);
+    assert_eq!(w.handles.len(), MAX_HANDLES);
+    let before: Vec<(u32, f32, f32)> = w.handles.iter().map(|h| (h.id, (h.tip - h.rest(&w.body)).len(), h.vel.len())).collect();
+    w.begin_stretch(w.body.pos + dir(MAX_HANDLES) * r).unwrap();
+    let (_, off, speed) = before.into_iter().find(|b| !w.handles.iter().any(|h| h.id == b.0)).unwrap();
+    assert!(off < 0.03 && speed < 0.3, "a stump {off} out from rest at {speed} a second vanished in one frame");
+}

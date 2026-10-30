@@ -4,6 +4,9 @@
 use super::{Event, Handle, Hit, Target, World, MAX_HANDLES, PROVOKE_POKES, PROVOKE_WINDOW};
 use crate::math::*;
 
+/// How fast a let-go stump swings back and forth about its rest, radians a second (`step_handles`).
+const STUMP_SWING: f32 = 10.5;
+
 impl World {
     fn handle_mut(&mut self, id: u32) -> Option<&mut Handle> {
         self.handles.iter_mut().find(|h| h.id == id)
@@ -47,8 +50,14 @@ impl World {
 
     pub fn begin_stretch(&mut self, at: V3) -> Option<u32> {
         if self.handles.len() >= MAX_HANDLES {
-            // Let go of the oldest stump that is still settling, if there is one.
-            let i = self.handles.iter().position(|h| h.target.is_none())?;
+            // Of the stumps let go of, if any, the one nearest settled goes, so what
+            // vanishes in that frame is as little as it can be.
+            let body = &self.body;
+            // how far it will still swing out, where it is and how fast it is going together
+            let unsettled = |h: &Handle| (h.tip - h.rest(body)).len().hypot(h.vel.len() / STUMP_SWING);
+            let i = (0..self.handles.len())
+                .filter(|&i| self.handles[i].target.is_none())
+                .min_by(|&a, &b| unsettled(&self.handles[a]).total_cmp(&unsettled(&self.handles[b])))?;
             self.handles.remove(i);
         }
         let id = self.id();

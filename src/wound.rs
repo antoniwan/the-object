@@ -592,4 +592,45 @@ mod tests {
         run(&mut g, 0.5);
         assert_eq!(g.world.wound.caltrops.len(), CALTROPS, "it came back out");
     }
+
+    #[test]
+    fn a_free_drop_beside_a_resting_piece_is_not_swallowed_by_it() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        let c = g.world.wound.caltrops[0];
+        let d = g.world.drops.iter().find(|d| d.id == c.id).unwrap();
+        let (at, r0) = (d.pos, d.r);
+        let col = g.world.body.color;
+        assert!(g.world.spill(at + v3(0.17, 0.0, 0.0), V3::ZERO, 0.1, col));
+        let free = g.world.drops.last().unwrap().id;
+        g.world.drop_mut(free).unwrap().age = 1.0;
+        run(&mut g, 2.0 / 60.0);
+        let still = g.world.drops.iter().any(|d| d.id == free);
+        let r1 = g.world.drops.iter().find(|d| d.id == c.id).unwrap().r;
+        assert!(still && (r1 - r0).abs() < 1e-6, "free drop gone: {}, piece radius {r0} -> {r1}", !still);
+    }
+
+    #[test]
+    fn a_carried_drop_brushing_a_piece_does_not_send_it_out_of_the_wound() {
+        let mut g = scarred();
+        let (p, col) = (g.world.body.pos, g.world.body.color);
+        assert!(g.world.spill(p + v3(0.0, 2.0, 2.0), V3::ZERO, 0.2, col));
+        let mine = g.world.drops[0].id;
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        assert!(g.world.drops.iter().any(|d| d.id == mine), "still out");
+        let c = g.world.wound.caltrops[0];
+        let at = g.world.drops.iter().find(|d| d.id == c.id).unwrap().pos;
+        // carried onto the piece, as a finger does
+        for _ in 0..30 {
+            if let Some(d) = g.world.drop_mut(mine) {
+                d.target = Some(at + v3(0.05, 0.0, 0.0));
+            }
+            run(&mut g, 1.0 / 60.0);
+        }
+        let n = g.world.wound.caltrops.iter().filter(|k| k.id == c.id).count();
+        let flung = g.world.wound.caltrops.iter().any(|k| k.flung > 0.0);
+        assert!(n == 1 && !flung, "piece left its place: still there {n}, one spat out {flung}");
+    }
 }

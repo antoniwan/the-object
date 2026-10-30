@@ -158,7 +158,6 @@ impl Game {
             Gesture::Dust { .. } => {}
             Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Spin { .. } | Gesture::Idle => {}
         }
-        self.world.forms.dust.press = 0.0;
     }
 
     /// Where `(x, y)` is around the flower on screen, radians, counterclockwise.
@@ -542,7 +541,6 @@ impl Game {
         }
         self.trace.clear();
         self.world.warming = false;
-        self.world.forms.dust.press = 0.0;
     }
 
     pub fn pointer_up(&mut self, id: i32) {

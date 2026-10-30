@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.16] - 2026-10-30
+
+### Fixed
+- A resting wound piece no longer swallows a drop that passes it, and is not sent back out of the wound. The pressed mound's light fades when let go, slid off or joined by a second finger. A fifth quick pull lets go of the stump nearest settled, not the one still springing (#96)
+
 ## [1.22.15] - 2026-10-30
 
 ### Fixed
@@ -514,7 +519,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.15...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.16...HEAD
+[1.22.16]: https://github.com/antoniwan/the-object/compare/v1.22.15...v1.22.16
 [1.22.15]: https://github.com/antoniwan/the-object/compare/v1.22.14...v1.22.15
 [1.22.14]: https://github.com/antoniwan/the-object/compare/v1.22.13...v1.22.14
 [1.22.13]: https://github.com/antoniwan/the-object/compare/v1.22.12...v1.22.13

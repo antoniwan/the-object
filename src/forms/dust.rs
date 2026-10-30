@@ -27,6 +27,8 @@ const RISE_SECS: f32 = 2.6;
 const HEAP_AT: f32 = 0.9;
 /// Pressing the mound this long brings it back up.
 pub const RISE_HOLD_SECS: f32 = 1.2;
+/// Once let go, the light the pressed mound holds goes out over this long.
+const PRESS_FADE_SECS: f32 = 0.25;
 /// Untouched this long, the dust starts to drift together by itself.
 const GATHER_SELF_AFTER: f32 = 40.0;
 /// How wide a finger sweeps, in world units.
@@ -68,8 +70,11 @@ pub struct Dust {
     swept: bool,
     /// The mound answering a tap, 0..1.
     pub thud: f32,
-    /// How long the mound has been pressed, 0..1 of what it takes to come back up.
+    /// How long the mound has been pressed, 0..1 of what it takes to come back up, as it is lit:
+    /// it follows a finger at once, and once let go fades over `PRESS_FADE_SECS`.
     pub press: f32,
+    /// How long the finger on the mound has held it, 0..1; 0 when none does (`hold`).
+    pressing: f32,
     /// What grows out of the mound once it has settled.
     pub growth: Growth,
     /// The mound as it stands, following the fullest drift (`heap`).
@@ -92,7 +97,7 @@ const MOUND_RATE: f32 = 2.0;
 
 impl Default for Dust {
     fn default() -> Self {
-        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, growth: Growth::default(), mound: Mound::default(), events: Vec::new() }
+        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, pressing: 0.0, growth: Growth::default(), mound: Mound::default(), events: Vec::new() }
     }
 }
 
@@ -342,8 +347,15 @@ impl Dust {
         true
     }
 
+    /// A finger on the mound for `held` of what it takes to come back up, or 0 once none is.
+    pub fn hold(&mut self, held: f32) {
+        self.pressing = held;
+        self.press = self.press.max(held);
+    }
+
     pub fn step(&mut self, dt: f32) {
         self.thud = fade(self.thud, -5.0 * dt);
+        self.press = (self.press - dt / PRESS_FADE_SECS).max(self.pressing);
         self.idle += dt;
         self.phase = match self.phase {
             Phase::Whole => Phase::Whole,
@@ -402,7 +414,6 @@ impl Dust {
             Phase::Rising { t } if t + dt >= RISE_SECS => {
                 self.clumps = [Clump::default(); CLUMPS];
                 self.growth = Growth::default();
-                self.press = 0.0;
                 self.events.push(Event::Unearthed);
                 Phase::Whole
             }

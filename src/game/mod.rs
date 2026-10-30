@@ -387,9 +387,13 @@ impl Game {
             felt: self.motion.alive && self.senses.is_open(senses::Kind::Feel),
         };
         self.thoughts.step(dt, self.idle, &mind);
-        if let Gesture::Dust { since, mound: true, moved: false, .. } = self.gesture {
-            let held = (self.clock - since) / forms::dust::RISE_HOLD_SECS;
-            self.world.forms.dust.press = held.min(1.0);
+        // Lit while a finger holds the mound still; any other gesture lets the light fade.
+        let held = match self.gesture {
+            Gesture::Dust { since, mound: true, moved: false, .. } => Some((self.clock - since) / forms::dust::RISE_HOLD_SECS),
+            _ => None,
+        };
+        self.world.forms.dust.hold(held.map_or(0.0, |h| h.min(1.0)));
+        if let Some(held) = held {
             if held >= 1.0 && self.world.forms.dust.rise() {
                 self.sounds.push(Sound::Become);
                 self.gesture = Gesture::Idle;

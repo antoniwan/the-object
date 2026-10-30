@@ -703,8 +703,8 @@ fn the_flower_tugged_a_little_too_slowly_only_flinches() {
     assert!(!g.world.forms.dust.whole());
 }
 
-#[test]
-fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
+/// A flower pinched to dust and swept into a mound; where the mound is on screen.
+fn mounded() -> (Game, (f32, f32)) {
     let mut g = game();
     flower(&mut g);
     // pulled a long way, the flower only looks around
@@ -753,6 +753,12 @@ fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
     assert!(g.progress.has(Discovery::Mound), "{:?}", g.world.forms.dust.clumps);
     let (hx, hz, _, h) = g.world.forms.dust.heap();
     let on = g.screen_of(floor(hx, hz) + V3::UP * (h * 0.5));
+    (g, on)
+}
+
+#[test]
+fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
+    let (mut g, on) = mounded();
     g.pointer_down(4, on.0, on.1);
     g.pointer_up(4);
     assert!(g.world.forms.dust.thud > 0.5, "it answers a tap");
@@ -1259,5 +1265,42 @@ fn brought_near_dizzy_again_and_again_over_several_visits_it_learns_which_way_yo
         }
         kept = g.remembrance.save();
         assert!(kept.contains("spun="), "{kept}");
+    }
+}
+
+#[test]
+fn the_mound_let_go_of_early_fades_its_light() {
+    let (mut g, on) = mounded();
+    g.pointer_down(5, on.0, on.1);
+    wait(&mut g, 1.0);
+    let held = g.world.forms.dust.press;
+    assert!(held > 0.5, "lit while pressed: {held}");
+    g.pointer_up(5);
+    g.update(1.0 / 60.0);
+    let after = g.world.forms.dust.press;
+    assert!(held - after < 0.1, "pressed light {held} -> {after} in one frame");
+    wait(&mut g, 0.5);
+    assert_eq!(g.world.forms.dust.press, 0.0, "and it goes out");
+}
+
+#[test]
+fn the_mound_slid_off_or_joined_by_a_second_finger_fades_its_light() {
+    for second in [false, true] {
+        let (mut g, on) = mounded();
+        g.pointer_down(5, on.0, on.1);
+        wait(&mut g, 0.8);
+        let held = g.world.forms.dust.press;
+        assert!(held > 0.4, "lit while pressed: {held}");
+        if second {
+            g.pointer_down(6, on.0 + 60.0, on.1);
+        } else {
+            g.pointer_move(5, on.0 + 40.0, on.1, 1.0 / 60.0);
+        }
+        g.update(1.0 / 60.0);
+        let after = g.world.forms.dust.press;
+        assert!(held - after < 0.1, "pressed light {held} -> {after} in one frame");
+        wait(&mut g, 0.5);
+        assert_eq!(g.world.forms.dust.press, 0.0, "and it goes out");
+        assert!(!g.world.forms.dust.whole(), "it did not rise");
     }
 }
