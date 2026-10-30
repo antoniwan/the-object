@@ -147,7 +147,7 @@ impl Game {
             for d in self.world.drops.iter_mut().filter(|d| d.target.is_none()) {
                 d.vel += (home - d.pos).norm() * (pull * dt);
             }
-            if self.world.drops.is_empty() {
+            if self.world.loose() == 0 {
                 self.world.forms.pandora.round();
             }
         }
