@@ -130,6 +130,48 @@ fn cut_again_and_again_it_multiplies_one_cell_dies_and_squeezed_it_turns_to_ston
 }
 
 #[test]
+fn thawed_back_to_one_body_the_camera_comes_home_without_a_jump() {
+    let mut g = game();
+    swipe_down(&mut g, 1, 400.0);
+    swipe_down(&mut g, 2, 577.0);
+    for _ in 0..120 {
+        g.wheel(-200.0);
+        g.update(1.0 / 60.0);
+    }
+    wait(&mut g, 7.0);
+    assert!(g.progress.has(Discovery::Slab));
+    g.pointer_down(20, 400.0, 300.0);
+    wait(&mut g, 3.0);
+    g.pointer_up(20);
+    let mut last = g.cam.dist;
+    let mut worst = 0.0f32;
+    for _ in 0..(60 * 5) {
+        g.update(1.0 / 60.0);
+        worst = worst.max((g.cam.dist - last).abs());
+        last = g.cam.dist;
+    }
+    assert!(g.world.division.morula.is_none());
+    assert!(worst < 0.2, "camera moved {worst} in one frame");
+}
+
+#[test]
+fn squeezed_into_stone_it_flattens_and_rounds_out_smoothly() {
+    let mut g = game();
+    swipe_down(&mut g, 1, 400.0);
+    swipe_down(&mut g, 2, 577.0);
+    let mut last = g.world.body.squash;
+    let mut worst = 0.0f32;
+    for _ in 0..240 {
+        g.wheel(-200.0);
+        g.update(1.0 / 60.0);
+        worst = worst.max((g.world.body.squash - last).abs());
+        last = g.world.body.squash;
+    }
+    assert!(g.progress.has(Discovery::Stone));
+    assert!(worst < 0.08, "squash moved {worst} in one frame");
+}
+
+#[test]
 fn a_slow_drag_across_the_body_only_orbits() {
     let mut g = game();
     g.pointer_down(1, 400.0, 20.0);
