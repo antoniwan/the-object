@@ -1,8 +1,8 @@
 still cc8cd3c5a775dfe0
-torn 36430ea72655bb91
-stirred b3bb97b286b746db
-folded 58cf2d40428e5596
+torn ee73f3ad9c21bf24
+stirred fa7f01d5850c05f5
+folded 70ed418af57d9d37
 cells 2151d79d964be63e
-landscape 7bfa322f2e07e2b1
-senses 00ac71c47459b669
-analysis 24d3355edd5ccd57
+landscape e218a738b2fc5007
+senses 07633c95fdfa2266
+analysis e4e50266efbb0cae

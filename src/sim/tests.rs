@@ -201,3 +201,40 @@ fn a_stump_with_nothing_out_leaves_it_round() {
         }
     }
 }
+
+#[test]
+fn flight_stretch_grows_with_vertical_speed_and_stops_at_a_quarter() {
+    assert_eq!(flight_stretch(0.0, 0.0), 0.0);
+    assert!((flight_stretch(-2.0, 0.0) - 0.08).abs() < 1e-6);
+    assert_eq!(flight_stretch(3.0, 0.0), flight_stretch(-3.0, 0.0));
+    assert_eq!(flight_stretch(40.0, 0.0), 0.25);
+    // held squeezed, the squeeze has it, not the flight
+    assert_eq!(flight_stretch(-5.0, 1.0), 0.0);
+    assert_eq!(flight_stretch(-5.0, -1.0), 0.0);
+}
+
+#[test]
+fn falling_fast_it_draws_out_and_lands_flattened_without_a_jump() {
+    let mut w = World::new();
+    w.body.pos = v3(0.0, 1.5, 0.0);
+    w.body.vel = v3(0.0, -5.0, 0.0);
+    let (mut tallest, mut flattest) = (1.0f32, 1.0f32);
+    let mut bounced = false;
+    let mut last = w.body.squash;
+    for _ in 0..120 {
+        let falling = w.body.vel.y < -2.0;
+        w.step(1.0 / 120.0);
+        if falling && !bounced {
+            tallest = tallest.max(w.body.squash);
+        }
+        bounced |= falling && w.body.vel.y > 0.0;
+        if bounced {
+            flattest = flattest.min(w.body.squash);
+        }
+        assert!((w.body.squash - last).abs() < 0.1, "squash jumped {last} -> {}", w.body.squash);
+        last = w.body.squash;
+    }
+    assert!(bounced, "it never reached the floor");
+    assert!(tallest > 1.03, "in flight it should draw out, was {tallest}");
+    assert!(flattest < 0.9, "it should land flattened, was {flattest}");
+}
