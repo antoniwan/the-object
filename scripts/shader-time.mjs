@@ -15,12 +15,20 @@ const { url, server } = serve();
 
 const times = [];
 for (let i = 0; i < runs; i++) {
-  const browser = await chromium.launch({ channel: 'chromium', args: [...SOFTWARE_GPU, '--disable-gpu-shader-disk-cache'] });
+  const browser = await chromium.launch({
+    channel: 'chromium',
+    args: [...SOFTWARE_GPU, '--disable-gpu-shader-disk-cache'],
+  });
   const page = await browser.newPage({ viewport: { width: 48, height: 32 } });
   const t0 = Date.now();
   await page.goto(url);
-  await page.waitForFunction(() => document.body.classList.contains('awake') || document.body.classList.contains('failed'), null, { timeout: 60000, polling: 10 });
-  if (await page.evaluate(() => document.body.classList.contains('failed'))) throw new Error('the page gave up (body.failed)');
+  await page.waitForFunction(
+    () => document.body.classList.contains('awake') || document.body.classList.contains('failed'),
+    null,
+    { timeout: 60000, polling: 10 },
+  );
+  if (await page.evaluate(() => document.body.classList.contains('failed')))
+    throw new Error('the page gave up (body.failed)');
   times.push(Date.now() - t0);
   await browser.close();
 }

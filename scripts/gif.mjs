@@ -95,7 +95,15 @@ function clockwork({ saved, voice }) {
     const c = document.querySelector('canvas');
     const r = c.getBoundingClientRect();
     const at = { clientX: r.left + r.width / 2 + x * r.height, clientY: r.top + r.height / 2 + y * r.height };
-    const init = { pointerId: id, pointerType: 'touch', isPrimary: id === 1, ...at, bubbles: true, cancelable: true, buttons: type === 'pointerup' ? 0 : 1 };
+    const init = {
+      pointerId: id,
+      pointerType: 'touch',
+      isPrimary: id === 1,
+      ...at,
+      bubbles: true,
+      cancelable: true,
+      buttons: type === 'pointerup' ? 0 : 1,
+    };
     c.dispatchEvent(new PointerEvent(type, init));
   };
 }
@@ -136,11 +144,19 @@ async function arrive(name, scene, gif, [w, h]) {
   const slow = scene.slow || 0.25;
   const dir = await mkdtemp(join(tmpdir(), `gif-${name}-`));
   const browser = await chromium.launch({ channel: 'chromium', args: SOFTWARE_GPU });
-  const context = await browser.newContext({ viewport: { width: w, height: h }, recordVideo: { dir, size: { width: w, height: h } } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    recordVideo: { dir, size: { width: w, height: h } },
+  });
   const page = await context.newPage();
   page.on('pageerror', (e) => console.error(`${name}: page error: ${e.message}`));
   const cdp = await context.newCDPSession(page);
-  await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: (scene.bps || 1.6e6) * slow / 8, uploadThroughput: 1e5 });
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 150,
+    downloadThroughput: ((scene.bps || 1.6e6) * slow) / 8,
+    uploadThroughput: 1e5,
+  });
   await cdp.send('Animation.enable');
   await cdp.send('Animation.setPlaybackRate', { playbackRate: slow });
   await page.addInitScript((slow) => {
@@ -156,7 +172,18 @@ async function arrive(name, scene, gif, [w, h]) {
   const video = await page.video().path();
   await context.close();
   await browser.close();
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', video, '-vf', `setpts=PTS*${slow},fps=${fps},${palette(w)}`, '-loop', '0', gif]);
+  execFileSync('ffmpeg', [
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    video,
+    '-vf',
+    `setpts=PTS*${slow},fps=${fps},${palette(w)}`,
+    '-loop',
+    '0',
+    gif,
+  ]);
   await rm(dir, { recursive: true });
 }
 
@@ -170,9 +197,19 @@ async function record(name, scene) {
     return;
   }
   // A scene with `voice` gets a microphone, given without asking, that hears a quiet room.
-  const ears = scene.voice ? ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${await quiet()}`, '--autoplay-policy=no-user-gesture-required'] : [];
+  const ears = scene.voice
+    ? [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+        `--use-file-for-fake-audio-capture=${await quiet()}`,
+        '--autoplay-policy=no-user-gesture-required',
+      ]
+    : [];
   const browser = await chromium.launch({ channel: 'chromium', args: [...SOFTWARE_GPU, ...ears] });
-  const page = await browser.newPage({ viewport: { width: w, height: h }, permissions: scene.voice ? ['microphone'] : [] });
+  const page = await browser.newPage({
+    viewport: { width: w, height: h },
+    permissions: scene.voice ? ['microphone'] : [],
+  });
   page.on('pageerror', (e) => console.error(`${name}: page error: ${e.message}`));
   await page.addInitScript(clockwork, { saved: scene.saved || {}, voice: !!scene.voice });
   await page.goto(url);
@@ -244,7 +281,12 @@ async function record(name, scene) {
       throw new Error(`${name}: waited ${secs} s for ${test}`);
     },
     // Waits, at most `secs`, until a line on the page says `words`.
-    asked: (words, secs) => t.until((w) => [...document.querySelectorAll('[data-glyph]')].some((e) => e.textContent.includes(w)), words, secs),
+    asked: (words, secs) =>
+      t.until(
+        (w) => [...document.querySelectorAll('[data-glyph]')].some((e) => e.textContent.includes(w)),
+        words,
+        secs,
+      ),
     // Taps a word on the page (its id).
     click: (id) => page.evaluate((id) => document.getElementById(id).click(), id),
     // Words, as if said aloud: for a scene with `voice`, once it has been let hear them.
@@ -256,22 +298,50 @@ async function record(name, scene) {
       await mkdir(out, { recursive: true });
       await page.screenshot({ path: join(out, `${name}-${label}.png`) });
     },
-    key: (code, secs = 0.1) => page.keyboard.down(code).then(() => t.wait(secs)).then(() => page.keyboard.up(code)),
+    key: (code, secs = 0.1) =>
+      page.keyboard
+        .down(code)
+        .then(() => t.wait(secs))
+        .then(() => page.keyboard.up(code)),
     page,
   };
-  await page.waitForFunction(() => document.body.classList.contains('awake') || document.body.classList.contains('failed') || (window.__step(20, 1, true), false), null, { timeout: 120000, polling: 50 }).catch(() => {});
-  if (await page.evaluate(() => !document.body.classList.contains('awake'))) throw new Error(`${name}: the page never woke`);
+  await page
+    .waitForFunction(
+      () =>
+        document.body.classList.contains('awake') ||
+        document.body.classList.contains('failed') ||
+        (window.__step(20, 1, true), false),
+      null,
+      { timeout: 120000, polling: 50 },
+    )
+    .catch(() => {});
+  if (await page.evaluate(() => !document.body.classList.contains('awake')))
+    throw new Error(`${name}: the page never woke`);
   const t0 = Date.now();
   await scene.play(t);
   await browser.close();
   if (!shot) throw new Error(`${name}: nothing was filmed (call t.roll())`);
   await mkdir(out, { recursive: true });
   const gif = join(out, `${name}.gif`);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(1000 / (STEP * every)), '-i', join(frames, 'f%05d.png'),
-    '-vf', palette(w), '-loop', '0', gif]);
+  execFileSync('ffmpeg', [
+    '-y',
+    '-loglevel',
+    'error',
+    '-framerate',
+    String(1000 / (STEP * every)),
+    '-i',
+    join(frames, 'f%05d.png'),
+    '-vf',
+    palette(w),
+    '-loop',
+    '0',
+    gif,
+  ]);
   await rm(frames, { recursive: true });
   const kb = Math.round((await stat(gif)).size / 1024);
-  console.log(`${gif}  ${shot} frames, ${(shot / (1000 / (STEP * every))).toFixed(1)} s, ${kb} KB, ${((Date.now() - t0) / 1000).toFixed(0)} s to make`);
+  console.log(
+    `${gif}  ${shot} frames, ${(shot / (1000 / (STEP * every))).toFixed(1)} s, ${kb} KB, ${((Date.now() - t0) / 1000).toFixed(0)} s to make`,
+  );
   if (kb > 2000) console.log(`  over 2 MB, and it is committed: try --width 360, --fps 10 or a shorter take`);
 }
 

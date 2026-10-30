@@ -1,0 +1,13 @@
+# Prettier formats the JavaScript only: the page's scripts, the function and the build scripts.
+# The HTML, CSS, Markdown and JSON are kept by hand.
+*
+!*/
+!web/*.js
+!api/*.js
+!scripts/*.js
+!scripts/*.mjs
+!eslint.config.js
+web/pkg/
+target/
+dist/
+node_modules/

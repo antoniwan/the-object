@@ -2,14 +2,22 @@
   "name": "the-object",
   "private": true,
   "type": "module",
-  "description": "Only for api/ (the serverless function that keeps the answers to the object's question) and the tests of the pages pasted into itch.io.",
+  "description": "Only for api/ (the serverless function that keeps the answers to the object's question), the tests of the pages pasted into itch.io, and the lints and formatting of all the JavaScript.",
   "scripts": {
-    "test": "node --test --experimental-test-module-mocks api/_rating.test.js api/rating.test.js scripts/itch-html.test.js"
+    "test": "node --test --experimental-test-module-mocks api/_rating.test.js api/rating.test.js scripts/itch-html.test.js",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write . && eslint --fix ."
   },
   "dependencies": {
     "@vercel/blob": "2.8.2"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10"
   }
 }

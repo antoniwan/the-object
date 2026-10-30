@@ -14,7 +14,13 @@ async function flower(t) {
     const a = (i * TAU) / 5;
     const [dx, dy] = [Math.cos(a), Math.sin(a)];
     const [x0, y0] = [dx * 0.083, dy * 0.083];
-    await t.drag([[x0, y0], [x0 + dx * 0.07, y0 + dy * 0.07]], 0.06);
+    await t.drag(
+      [
+        [x0, y0],
+        [x0 + dx * 0.07, y0 + dy * 0.07],
+      ],
+      0.06,
+    );
     await t.wait(0.6);
   }
   await t.wait(4);
@@ -44,7 +50,14 @@ async function sweep(t, strokes, secs) {
 }
 
 // A slice from above the view to below it, through the middle.
-const cut = (t, x = 0) => t.drag([[x, -0.47], [x, 0.48]], 0.1);
+const cut = (t, x = 0) =>
+  t.drag(
+    [
+      [x, -0.47],
+      [x, 0.48],
+    ],
+    0.1,
+  );
 
 // Two fingers that begin at `a` and `b` and close to `a2` and `b2` over `secs`, then lift.
 async function twoFingers(t, a, b, a2, b2, secs) {
@@ -142,13 +155,27 @@ export default {
       await t.wait(1);
       t.roll();
       await t.wait(0.4);
-      await t.drag([[0.12, -0.04], [0.19, -0.065]], 0.15, 1, { lift: false });
+      await t.drag(
+        [
+          [0.12, -0.04],
+          [0.19, -0.065],
+        ],
+        0.15,
+        1,
+        { lift: false },
+      );
       await t.wait(0.45);
       await t.up(1, 0.19, -0.065);
       await t.wait(0.35);
       await t.snap('nearly');
       await t.wait(1.6);
-      await t.drag([[0.12, -0.04], [0.19, -0.065]], 0.06);
+      await t.drag(
+        [
+          [0.12, -0.04],
+          [0.19, -0.065],
+        ],
+        0.06,
+      );
       await t.wait(0.5);
       await t.snap('bud');
       await t.wait(1.2);
@@ -177,13 +204,27 @@ export default {
       await flower(t);
       t.roll();
       await t.wait(0.5);
-      await t.drag([[0, 0], [0, 0.042]], 0.06, 1, { lift: false });
+      await t.drag(
+        [
+          [0, 0],
+          [0, 0.042],
+        ],
+        0.06,
+        1,
+        { lift: false },
+      );
       await t.wait(0.5);
       await t.up(1, 0, 0.042);
       await t.wait(0.3);
       await t.snap('flinch');
       await t.wait(1.6);
-      await t.drag([[0, 0], [0, 0.042]], 0.04);
+      await t.drag(
+        [
+          [0, 0],
+          [0, 0.042],
+        ],
+        0.04,
+      );
       await t.wait(2.5);
     },
   },
@@ -193,9 +234,21 @@ export default {
       await t.wait(1);
       t.roll();
       await t.wait(0.3);
-      await t.drag([[0.12, -0.47], [-0.06, 0.48]], 0.1);
+      await t.drag(
+        [
+          [0.12, -0.47],
+          [-0.06, 0.48],
+        ],
+        0.1,
+      );
       await t.wait(4);
-      await t.drag([[-0.5, -0.1], [0.5, 0.05]], 0.1);
+      await t.drag(
+        [
+          [-0.5, -0.1],
+          [0.5, 0.05],
+        ],
+        0.1,
+      );
       await t.wait(1.8);
     },
   },
@@ -218,7 +271,13 @@ export default {
       t.roll(3);
       for (let i = 0; i < 8; i++) {
         const a = (i * TAU) / 8;
-        await t.drag([[Math.cos(a) * 0.1, Math.sin(a) * 0.1], [Math.cos(a) * 0.6, Math.sin(a) * 0.6]], 1);
+        await t.drag(
+          [
+            [Math.cos(a) * 0.1, Math.sin(a) * 0.1],
+            [Math.cos(a) * 0.6, Math.sin(a) * 0.6],
+          ],
+          1,
+        );
         await t.wait(0.3);
       }
       t.roll();
@@ -232,7 +291,13 @@ export default {
       await flower(t);
       t.roll();
       await t.wait(0.6);
-      await t.drag([[0, 0], [0, 0.042]], 0.04);
+      await t.drag(
+        [
+          [0, 0],
+          [0, 0.042],
+        ],
+        0.04,
+      );
       await t.wait(4.5);
     },
   },
@@ -241,7 +306,13 @@ export default {
     async play(t) {
       await t.wait(1);
       await flower(t);
-      await t.drag([[0, 0], [0, 0.042]], 0.04);
+      await t.drag(
+        [
+          [0, 0],
+          [0, 0.042],
+        ],
+        0.04,
+      );
       await t.wait(4);
       t.roll(2);
       await sweep(t, 16, 0.25);
@@ -254,7 +325,13 @@ export default {
     async play(t) {
       await t.wait(1);
       await flower(t);
-      await t.drag([[0, 0], [0, 0.042]], 0.04);
+      await t.drag(
+        [
+          [0, 0],
+          [0, 0.042],
+        ],
+        0.04,
+      );
       await t.wait(4);
       await sweep(t, 16, 0.25);
       await t.wait(8);
@@ -284,7 +361,8 @@ export default {
     about: 'greeted by someone it remembers kindly, it turns and answers in its own signs',
     voice: true,
     saved: {
-      'the-object.found': 'poke,stretch,tear,merge,squeeze,fling,look around,warm,mix,provoke,patience,open,close,return,call,divide',
+      'the-object.found':
+        'poke,stretch,tear,merge,squeeze,fling,look around,warm,mix,provoke,patience,open,close,return,call,divide',
       'the-object.remembrance': 'v=1;f=1;born=NOW;seen=NOW;at=NOW;held=15,15;sang=6,6',
     },
     async play(t) {
@@ -302,7 +380,8 @@ export default {
     },
   },
   mic: {
-    about: 'from the first moment, the microphone waits in the corner; tapped and allowed, it fades and the mark for hearing comes',
+    about:
+      'from the first moment, the microphone waits in the corner; tapped and allowed, it fades and the mark for hearing comes',
     voice: true,
     async play(t) {
       await t.wait(2);
@@ -331,7 +410,16 @@ export default {
     async play(t) {
       await t.wait(1.5);
       t.roll();
-      await t.drag([[-0.417, -0.367], [0.417, -0.367], [0.417, 0.367], [-0.417, 0.367], [-0.417, -0.367]], 1.7);
+      await t.drag(
+        [
+          [-0.417, -0.367],
+          [0.417, -0.367],
+          [0.417, 0.367],
+          [-0.417, 0.367],
+          [-0.417, -0.367],
+        ],
+        1.7,
+      );
       await t.wait(3);
     },
   },

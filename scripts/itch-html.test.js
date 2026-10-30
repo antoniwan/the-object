@@ -13,7 +13,11 @@ for (const page of pages()) {
   test(`${page} has its HTML, up to date`, () => {
     const html = page.replace(/\.md$/, '.html');
     assert.ok(existsSync(root + html), `${html} is missing: node scripts/itch-html.mjs ${page}`);
-    assert.equal(readFileSync(root + html, 'utf8'), toHtml(readFileSync(root + page, 'utf8')), `${html} is out of date: node scripts/itch-html.mjs ${page}`);
+    assert.equal(
+      readFileSync(root + html, 'utf8'),
+      toHtml(readFileSync(root + page, 'utf8')),
+      `${html} is out of date: node scripts/itch-html.mjs ${page}`,
+    );
   });
   test(`${page} shows only pictures that are here`, () => {
     for (const [, url] of readFileSync(root + page, 'utf8').matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
