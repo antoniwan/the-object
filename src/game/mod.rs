@@ -411,6 +411,8 @@ impl Game {
             }
         }
         self.update_forms(dt, orbiting);
+        let lean = self.lean_goal(base);
+        self.cam.lean(lean, dt);
         let b = self.cam.basis();
         let look = crate::other::Look {
             due: self.contact.contacted || self.progress.count() >= crate::other::ARRIVE_FOUND,
@@ -421,7 +423,7 @@ impl Game {
             up: b.up,
             fwd: b.fwd,
             aspect: self.w / self.h.max(1.0),
-            view: self.cam.dist / FOCAL,
+            view: self.cam.dist / self.cam.focal,
         };
         crate::other::step(&mut self.world, dt, &look);
         self.other_news();
