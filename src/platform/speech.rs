@@ -192,10 +192,10 @@ impl Speech {
                     w.set(false);
                     n.borrow_mut().push(Note::Gone);
                 }
-                // Nothing said for a while, or stopped on purpose: nothing is wrong, and it
-                // is started again when it ends.
-                "no-speech" | "aborted" => {}
-                // A lost connection: it is started again when it ends, a few times.
+                // Nothing said for a while: nothing is wrong, and it is started again when it ends.
+                "no-speech" => {}
+                // Stopped from outside the page (its own stops come after the handlers are off), or
+                // a lost connection: it is started again when it ends, a few times in a row.
                 _ => f.set(f.get() + 1),
             }
         });
