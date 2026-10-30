@@ -239,6 +239,8 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | light under two | goes over 0.8 s once two cells become many | the light focused under it never goes out in one frame (`morula.rs` `first_light`) |
 | the eye | opens and closes at rate 0.8 / s; its cell killed, it shuts at 7 / s, well before the cell is shed | it never blinks out in one frame (`morula.rs`) |
 | the pressed mound | lights as the finger holds it; let go, slid off or joined by a second finger, goes out over 0.25 s | its light never goes out in one frame (`forms/dust.rs` `PRESS_FADE_SECS`) |
+| `STUMP_GROW` | rate 15 / s | a pulled tendril grows out of the body from deep inside it, most of it out in 0.13 s and all of it in 0.2 s, while its tip already follows the hand; it tears only once all of it is out (`sim/liquid.rs`) |
+| `STUMP_FADE` | rate 8 / s | a stump let go and settled sinks back into the body over 0.38 s; one more pull than there can be stumps waits, unseen, while the nearest settled sinks back the same way. No stump comes or goes in one frame |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
 | remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |

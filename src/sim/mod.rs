@@ -29,6 +29,12 @@ pub const MAX_DROPS: usize = 12;
 const MIN_BODY_RADIUS: f32 = 0.45;
 /// A tendril pinches off once it is this many body radii past its rest point.
 const TEAR_RATIO: f32 = 1.35;
+/// How fast a tendril grows out of the body once pulled, a second: most of it out in 0.13 s,
+/// all of it in 0.2 s (`step_handles`).
+const STUMP_GROW: f32 = 15.0;
+/// How fast a stump sinks back into the body, a second: gone in 0.38 s. Let go and settled,
+/// or making way for a pull past the most there can be.
+const STUMP_FADE: f32 = 8.0;
 /// Freshly torn or merged drops can't merge again until they are this old (seconds).
 const MERGE_COOLDOWN: f32 = 0.5;
 /// Smoothing radii for the liquid joins, as a fraction of the body radius.

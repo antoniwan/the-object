@@ -1,13 +1,13 @@
 //! The liquid's own motion each frame: tendrils springing and tearing into drops, drops
 //! drifting home, pushing apart, falling back into the body and running together.
 
-use super::{Drop, Event, World, MAX_DROPS, MERGE_COOLDOWN, MIN_BODY_RADIUS, TEAR_RATIO};
+use super::{Drop, Event, World, MAX_DROPS, MAX_HANDLES, MERGE_COOLDOWN, MIN_BODY_RADIUS, STUMP_FADE, STUMP_GROW, TEAR_RATIO};
 use crate::math::*;
 
 impl World {
     pub(super) fn step_handles(&mut self, dt: f32) {
         let mut tears = Vec::new();
-        for h in &mut self.handles {
+        for (i, h) in self.handles.iter_mut().enumerate() {
             let rest = h.rest(&self.body);
             let r = self.body.radius();
             let (k, c) = if h.target.is_some() { (300.0, 24.0) } else { (110.0, 6.0) };
@@ -22,18 +22,27 @@ impl World {
             if h.target.is_some() {
                 // The body leans toward whatever is pulling it.
                 self.body.vel += (h.tip - rest) * (1.5 * dt);
-                if h.stretch(&self.body) > TEAR_RATIO {
+                // It tears only once it has all come out.
+                if h.stretch(&self.body) > TEAR_RATIO && h.weight >= 1.0 {
                     tears.push(h.id);
                 }
+            } else if (h.tip - rest).len() <= 0.004 && h.vel.len() <= 0.05 {
+                // Let go and settled, the stump sinks back into the body.
+                h.fade = h.fade.max(STUMP_FADE);
+            }
+            // Grown in and sunk back over a moment, never in one frame: aimed a little past
+            // either end so it gets there. One past the most that can be shown waits, unseen,
+            // for a stump to make way for it.
+            if h.fade > 0.0 {
+                h.weight += (-0.05 - h.weight) * (1.0 - (-h.fade * dt).exp());
+            } else if i < MAX_HANDLES {
+                h.weight = (h.weight + (1.05 - h.weight) * (1.0 - (-STUMP_GROW * dt).exp())).min(1.0);
             }
         }
         for id in tears {
             self.tear(id);
         }
-        let body = &self.body;
-        self.handles.retain(|h| {
-            h.target.is_some() || (h.tip - h.rest(body)).len() > 0.004 || h.vel.len() > 0.05
-        });
+        self.handles.retain(|h| h.fade == 0.0 || h.weight > 0.0);
     }
 
     fn tear(&mut self, handle_id: u32) {

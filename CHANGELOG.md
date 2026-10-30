@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.20] - 2026-10-30
+
+### Fixed
+- A pull now grows its stump out over a fifth of a second, and a settled stump sinks back before it goes, so the surface never jumps when a pull begins or ends. A fifth pull waits for an old stump to sink back (#100)
+
 ## [1.22.19] - 2026-10-30
 
 ### Fixed
@@ -534,7 +539,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.19...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.20...HEAD
+[1.22.20]: https://github.com/antoniwan/the-object/compare/v1.22.19...v1.22.20
 [1.22.19]: https://github.com/antoniwan/the-object/compare/v1.22.18...v1.22.19
 [1.22.18]: https://github.com/antoniwan/the-object/compare/v1.22.17...v1.22.18
 [1.22.17]: https://github.com/antoniwan/the-object/compare/v1.22.16...v1.22.17
