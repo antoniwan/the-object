@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.21] - 2026-10-30
+
+### Fixed
+- A tendril held taut fades where it is as the thread draws out, instead of vanishing. A trackpad pinch always lets go when the fingers lift. An answer is never counted twice when the store loses a reply or a mark (#101)
+
 ## [1.22.20] - 2026-10-30
 
 ### Fixed
@@ -539,7 +544,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.20...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.21...HEAD
+[1.22.21]: https://github.com/antoniwan/the-object/compare/v1.22.20...v1.22.21
 [1.22.20]: https://github.com/antoniwan/the-object/compare/v1.22.19...v1.22.20
 [1.22.19]: https://github.com/antoniwan/the-object/compare/v1.22.18...v1.22.19
 [1.22.18]: https://github.com/antoniwan/the-object/compare/v1.22.17...v1.22.18

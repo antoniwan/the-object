@@ -1,7 +1,7 @@
 //! What a hand can do to the liquid: poke it, lean it toward something, pull a tendril
 //! out of it, carry a drop and let it go.
 
-use super::{Event, Handle, Hit, Target, World, MAX_HANDLES, PROVOKE_POKES, PROVOKE_WINDOW, STUMP_FADE};
+use super::{Event, Handle, Hit, Target, World, MAX_HANDLES, PROVOKE_POKES, PROVOKE_WINDOW, STUMP_FADE, STUMP_SINK};
 use crate::math::*;
 
 /// How fast a let-go stump swings back and forth about its rest, radians a second (`step_handles`).
@@ -79,6 +79,15 @@ impl World {
     pub fn release_handle(&mut self, id: u32) {
         if let Some(h) = self.handle_mut(id) {
             h.target = None;
+        }
+    }
+
+    /// Has a stretch fade where it is, over a moment, instead of springing back: for when
+    /// something else takes its place.
+    pub fn sink_handle(&mut self, id: u32) {
+        if let Some(h) = self.handle_mut(id) {
+            h.target = Some(h.tip);
+            h.fade = STUMP_SINK;
         }
     }
 

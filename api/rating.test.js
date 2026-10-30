@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 class BlobError extends Error {}
 class BlobPreconditionFailedError extends BlobError {}
 const store = new Map();
-const faults = { countsFail: 0, countsKeptUnanswered: 0 };
+const faults = { countsFail: 0, countsKeptUnanswered: 0, markFail: 0, countsTakenThenOverwritten: 0 };
 let n = 0;
 
 function take(p, body, o) {
@@ -27,6 +27,23 @@ mock.module('@vercel/blob', {
     },
     async put(p, body, o) {
       const counts = p.endsWith('summary.json');
+      const data = JSON.parse(body);
+      // Only the write that marks an answer counted fails.
+      if (!counts && faults.markFail > 0 && data.counted === data.v) {
+        faults.markFail--;
+        throw new BlobError('service unavailable');
+      }
+      if (counts && faults.countsTakenThenOverwritten > 0) {
+        faults.countsTakenThenOverwritten--;
+        take(p, body, o);
+        // Another visitor's answer of 1 lands on top before the answer comes back.
+        const cur = JSON.parse(store.get(p).body);
+        cur.counts[0] += 1;
+        cur.recent = [...(cur.recent ?? []), 'other'];
+        cur.id = 'other';
+        take(p, JSON.stringify(cur), { ifMatch: store.get(p).etag, allowOverwrite: true });
+        throw new BlobError('lost answer');
+      }
       if (counts && faults.countsFail > 0) {
         faults.countsFail--;
         throw new BlobError('service unavailable');
@@ -63,6 +80,8 @@ beforeEach(() => {
   store.clear();
   faults.countsFail = 0;
   faults.countsKeptUnanswered = 0;
+  faults.markFail = 0;
+  faults.countsTakenThenOverwritten = 0;
 });
 
 test('one answer is counted once', async () => {
@@ -113,4 +132,23 @@ test('records from before are read as counted', async () => {
   later();
   await answer(1, '1.1.1.1');
   assert.deepEqual(counts(), [1, 0, 0, 0, 0]);
+});
+
+test('a changed answer whose record could not be marked counted is not counted twice', async () => {
+  await answer(5, '1.1.1.1');
+  await answer(5, '9.9.9.9');
+  later();
+  faults.markFail = 1;
+  assert.equal(await answer(2, '1.1.1.1'), 204);
+  assert.deepEqual(counts(), [0, 1, 0, 0, 1]);
+  later();
+  assert.equal(await answer(3, '1.1.1.1'), 204);
+  assert.deepEqual(counts(), [0, 0, 1, 0, 1]);
+});
+
+test('counts taken without an answer, then written over by another visitor, are not counted again', async () => {
+  faults.countsTakenThenOverwritten = 1;
+  assert.equal(await answer(4, '1.1.1.1'), 204);
+  // one from the other visitor (index 0), one from this one (index 3)
+  assert.deepEqual(counts(), [1, 0, 0, 1, 0]);
 });

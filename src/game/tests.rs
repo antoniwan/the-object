@@ -1364,3 +1364,23 @@ fn the_mound_slid_off_or_joined_by_a_second_finger_fades_its_light() {
         assert!(!g.world.forms.dust.whole(), "it did not rise");
     }
 }
+
+#[test]
+fn held_taut_the_tendril_sinks_back_as_it_becomes_the_thread() {
+    let mut g = game();
+    g.pointer_down(1, 400.0, 300.0);
+    for k in 1..=20 {
+        g.pointer_move(1, 400.0 + 7.5 * k as f32, 300.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+    }
+    let mut last: Option<f32> = None;
+    for f in 0..120 {
+        g.update(1.0 / 60.0);
+        let b = &g.world.body;
+        let shown = g.world.handles.iter().map(|h| (h.shown_tip(b) - h.anchor(b)).len()).fold(0.0, f32::max);
+        if let Some(l) = last {
+            assert!(l - shown < 0.15, "frame {f}: tendril {l} -> {shown}, morph {}", g.world.forms.filament.morph());
+        }
+        last = Some(shown);
+    }
+}
