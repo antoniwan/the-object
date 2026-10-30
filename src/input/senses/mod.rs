@@ -10,8 +10,9 @@
 //! - hearing (offered once it echoes, `speak.`): a voice makes the surface tremble where its
 //!   pitch lands, high notes high on the body. A note held and then let go comes back as a hum
 //!   of the same pitch, low and short; while it hums it does not listen, so it never hears
-//!   itself. A whisper and it goes still and leans in. A breath blown at it takes a drop off the
-//!   far side. A sudden loud sound and it flinches; a shout kept up and it is upset.
+//!   itself. A whisper and it goes still and leans in, its near side shivering. A breath blown at
+//!   it presses in the side nearest you and pushes it away; kept up, it takes a drop off the far
+//!   side. A sudden loud sound and it flinches; a shout kept up and it is upset.
 //! - sight (offered once it takes turns, `show yourself.`): only coarse things, never a face or
 //!   a picture: how much light there is, how much changed since the last look, and where the
 //!   change was. It turns toward wherever you moved last, flinches from a fast movement, and
@@ -49,7 +50,11 @@ const OFFER_GAP: f32 = 40.0;
 const QUIET: f32 = 0.0015;
 /// A voice is loud enough; a breath at the microphone is louder and has no pitch.
 const VOICE: f32 = 0.005;
-const BLOW: f32 = 0.09;
+/// Air blown across the microphone: this loud, and mostly low rumble, or with no clear pitch.
+/// A rumble can look like a low note; only a clear one is a voice.
+const BLOW: f32 = 0.03;
+const BLOW_LOW: f32 = 0.65;
+const BLOW_CLARITY: f32 = 0.9;
 /// A voice this loud, kept up, is shouting.
 const SHOUT: f32 = 0.16;
 /// Rough, quiet, unpitched: a whisper. Roughness is the zero-crossing rate, 0..1.
@@ -465,8 +470,9 @@ impl Senses {
             return;
         }
         let h = self.heard;
-        // Something sudden and loud: it flinches away from the sound.
-        if h.level > 0.22 && h.level > self.loud * 5.0 && self.flinch_wait == 0.0 {
+        let breath = h.level > BLOW && (h.pitch.is_none() || (h.low > BLOW_LOW && h.clarity < BLOW_CLARITY));
+        // Something sudden and loud: it flinches away from the sound. A breath is not sudden.
+        if !breath && h.level > 0.22 && h.level > self.loud * 5.0 && self.flinch_wait == 0.0 {
             self.flinch_wait = 2.5;
             world.body.vel += look.fwd * 1.3;
             world.body.squash_vel -= 1.6;
@@ -478,7 +484,7 @@ impl Senses {
         self.room = (self.room + (h.level - self.room) * (1.0 - (-rise * dt).exp())).max(QUIET * 0.5);
         let over = self.room * OVER_ROOM;
 
-        let voice = h.pitch.filter(|_| h.level > VOICE.max(over));
+        let voice = h.pitch.filter(|_| !breath && h.level > VOICE.max(over));
         if let Some(f) = voice {
             self.voiced += dt;
             self.unvoiced = 0.0;
@@ -528,14 +534,37 @@ impl Senses {
             world.body.vel *= (-5.0 * dt).exp();
             world.agitation *= (-4.0 * dt).exp();
             world.reach(-look.fwd);
+            // The side nearest you shivers, faintly, as the whisper reaches it.
+            self.tremble += dt;
+            if self.tremble > 0.3 {
+                self.tremble = 0.0;
+                let wobble = look.right * ((self.time * 5.0).sin() * 0.3) + look.up * ((self.time * 3.0).cos() * 0.2);
+                world.add_ripple((-look.fwd + wobble).norm(), 0.1);
+            }
             if self.whisper > 0.9 {
                 self.found.push(Discovery::Whisper);
             }
         }
 
-        // A breath blown at it: loud, no pitch, held a moment. It takes a drop off the far side.
-        self.blow = if voice.is_none() && h.level > BLOW { self.blow + dt } else { 0.0 };
-        if self.blow > 0.25 && self.blow_wait == 0.0 && ordinary {
+        // A breath blown at it. At once the side nearest you is pressed in, ripple after
+        // ripple, and the whole of it is pushed away, harder the harder it is blown; held a
+        // moment, it takes a drop off the far side.
+        self.blow = if breath { self.blow + dt } else { 0.0 };
+        if self.blow > 0.0 && ordinary {
+            let push = ((h.level - BLOW) / 0.15).clamp(0.0, 1.0) * 0.6 + 0.4;
+            world.body.vel += look.fwd * (push * 3.5 * dt);
+            world.agitation = world.agitation.max(0.12 * push);
+            self.tremble += dt;
+            if self.tremble > 0.07 {
+                self.tremble = 0.0;
+                let gust = look.right * ((self.time * 11.0).sin() * 0.45) + look.up * ((self.time * 7.0).cos() * 0.35);
+                world.add_ripple((-look.fwd + gust).norm(), 0.2 + 0.3 * push);
+            }
+            if self.blow > 0.8 {
+                self.found.push(Discovery::Blow);
+            }
+        }
+        if self.blow > 0.4 && self.blow_wait == 0.0 && ordinary {
             self.blow_wait = 1.1;
             let r = world.body.radius();
             world.body.vel += look.fwd * 0.7;

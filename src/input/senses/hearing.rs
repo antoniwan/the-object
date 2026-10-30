@@ -12,7 +12,16 @@ pub struct Heard {
     pub pitch: Option<f32>,
     /// Zero crossings per sample, 0..1: high for breath and hiss, low for a voice.
     pub rough: f32,
+    /// How much of the sound is low, below about 300 Hz, 0..1: air blown across a microphone
+    /// is nearly all low rumble.
+    pub low: f32,
+    /// How sure the pitch is, 0..1: near 1 for a voice or a note, lower for a rumble that only
+    /// looks like one.
+    pub clarity: f32,
 }
+
+/// Below this, a sound is low (Hz).
+const LOW: f32 = 300.0;
 
 /// Samples in, three numbers out. Pitch is found by autocorrelation on every other sample.
 pub fn hear(samples: &[f32], rate: f32) -> Heard {
@@ -23,11 +32,21 @@ pub fn hear(samples: &[f32], rate: f32) -> Heard {
     let level = (samples.iter().map(|s| s * s).sum::<f32>() / n as f32).sqrt();
     let crossings = samples.windows(2).filter(|w| (w[0] >= 0.0) != (w[1] >= 0.0)).count();
     let rough = crossings as f32 / n as f32;
-    let pitch = if level < QUIET { None } else { fundamental(samples, rate) };
-    Heard { level, pitch, rough }
+    // One pole, low-pass: what is left is the low part.
+    let k = 1.0 - (-std::f32::consts::TAU * LOW / rate).exp();
+    let (mut y, mut lo) = (0.0f32, 0.0f32);
+    for &x in samples {
+        y += (x - y) * k;
+        lo += y * y;
+    }
+    let all = level * level * n as f32;
+    let low = if all > 0.0 { (lo / all).min(1.0) } else { 0.0 };
+    let (pitch, clarity) = if level < QUIET { (None, 0.0) } else { fundamental(samples, rate) };
+    Heard { level, pitch, rough, low, clarity }
 }
 
-fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
+/// The pitch, if there is a clear one, and how clear the best one was either way.
+fn fundamental(samples: &[f32], rate: f32) -> (Option<f32>, f32) {
     // Every other sample is plenty for a voice, and a quarter of the work.
     // Heard every frame, so both buffers live on the stack.
     let mut halved = [0.0f32; 1024];
@@ -41,7 +60,7 @@ fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
     let lo = (rate / PITCH_HI) as usize;
     let hi = ((rate / PITCH_LO) as usize).min(n / 2);
     if lo < 2 || hi <= lo + 2 {
-        return None;
+        return (None, 0.0);
     }
     let corr = |lag: usize| {
         let (mut xy, mut xx, mut yy) = (0.0, 0.0, 0.0);
@@ -65,14 +84,16 @@ fn fundamental(samples: &[f32], rate: f32) -> Option<f32> {
     let c = &corrs[..lags];
     let best = c.iter().cloned().fold(f32::MIN, f32::max);
     if best < 0.78 {
-        return None;
+        return (None, best.max(0.0));
     }
     // The first peak nearly as good as the best, so a note is not heard an octave low.
-    let i = (1..c.len() - 1).find(|&i| c[i] >= best * 0.95 && c[i] >= c[i - 1] && c[i] >= c[i + 1])?;
+    let Some(i) = (1..c.len() - 1).find(|&i| c[i] >= best * 0.95 && c[i] >= c[i - 1] && c[i] >= c[i + 1]) else {
+        return (None, best);
+    };
     // Between samples: fit a parabola through the peak.
     let (a, b, d) = (c[i - 1], c[i], c[i + 1]);
     let shift = 0.5 * (a - d) / (a - 2.0 * b + d).min(-1e-6);
-    Some(rate / (lo as f32 + i as f32 + shift))
+    (Some(rate / (lo as f32 + i as f32 + shift)), best)
 }
 
 /// The correlation at `lag` .. `lag + 4`, in one pass. Each sum adds the same products in
