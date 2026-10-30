@@ -27,6 +27,12 @@ impl Body {
     }
 }
 
+/// How much taller its squash spring wants it while it moves fast up or down: a little for
+/// each unit of vertical speed, never past a quarter, and less the more it is held squeezed.
+pub(super) fn flight_stretch(vel_y: f32, squeeze: f32) -> f32 {
+    (0.04 * vel_y.abs()).min(0.25) * (1.0 - squeeze.abs()).max(0.0)
+}
+
 /// A tendril of liquid pulled out of the body.
 pub struct Handle {
     pub id: u32,

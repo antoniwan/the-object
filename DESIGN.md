@@ -31,6 +31,9 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | `room-gels` | cold `#4d6b9e` low behind it, warm `#8c5c4d` low to its right | the only color the room has, and only in reflections, `env()` |
 | `night` | `#030308` | the night sky, `nightSky()` `vec3(0.012, 0.010, 0.032)`, with stars; the page background and `theme-color` follow the room toward it, in 32 steps, as night or the fold comes (`platform/web/page.rs` `show_room`), so a phone's own bars darken with it |
 | `room-floor` | the room's white, polished: a soft copy of it lies on the floor below it, 24% of its color, up to 54% where the eye skims the floor, fainter and softer the higher it floats; only while it is round | `shader.frag` `floorLight()` |
+| `room-shadow` | the floor's shadow of the whole body: 40% straight below it, where it rests, and 60% thrown away from the key light (high, left, front), as far as it floats times 0.84, drawn out along that way, longer and fainter the higher it floats; cut, it goes back to straight below over the cut; inside the vignette's fade like every floor shadow | `shader.frag` `floorShadow()` |
+| `room-cyc` | the room up to 2.5% darker in a broad band where the floor turns into the wall, the band its reflection already has (`env()`); gone with night, the landscape and the fold | `shader.frag` `roomWhite()` |
+| `dither` | ±0.5 / 255 of noise fixed to each pixel, never moving, over the final color, so the near-white never bands | `shader.frag` `main()` |
 
 ### The object (its own palettes)
 
@@ -238,6 +241,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 
 | Token | Value | Meaning |
 | --- | --- | --- |
+| weight in flight | its squash spring wants it `0.04 ×` its vertical speed taller, at most 0.25, less the more it is squeezed, only while the floor is whole | falling or rising fast it draws out, and lands flattened; the spring carries it, so it never jumps (`sim/parts.rs` `flight_stretch`) |
 | agitation | `exp(-dt / 3.0)` | an upset fades over about three seconds |
 | wounds heal | after 2.5 s, over 5 s | stop poking and it recovers (`burst/mod.rs`) |
 | after a cut | afraid at once (rate 7 / s) and for 2.5 s, calming at 0.7 / s; sure of itself from 4 s to 10 s (rate 0.9 / s), lost at 3 / s on the next cut | divided, it is afraid, then it is not (`nerve.rs`) |

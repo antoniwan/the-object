@@ -964,8 +964,19 @@ float sphOcc(vec3 pos, vec4 sph) {
 float floorShadow(vec3 p) {
   vec3 off = cellOffset();
   float rs = mix(uBody.w, cellRadius(), uCut.w) * 1.1;
-  float occ = uCut.w < 1e-4 ? sphOcc(p, vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y) * (1.0 - uDust.y)))
+  vec4 whole = vec4(uBody.xyz, uBody.w * 1.1 * (1.0 - uFil2.y) * (1.0 - uDust.y));
+  float occ = uCut.w < 1e-4 ? sphOcc(p, whole)
                             : sphOcc(p, vec4(uBody.xyz - off, rs)) + sphOcc(p, vec4(uBody.xyz + off, rs));
+  // Whole, most of its shadow falls away from the key light: the same sphere moved along
+  // the light to where its center would land, and the floor drawn out toward the light's
+  // far side, longer the higher it floats. What is left straight below is where it rests.
+  float lift = max(uBody.y - FLOOR_Y, 0.0);
+  const vec2 AWAY = vec2(0.743295, -0.668964);
+  vec2 kc = uBody.xz + AWAY * (lift * 0.840851);
+  vec2 rel = p.xz - kc;
+  rel -= AWAY * dot(rel, AWAY) * (1.0 - KEY.y / (1.0 + 0.2 * lift));
+  float keyw = 0.6 * (1.0 - uCut.w);
+  occ = occ * (1.0 - keyw) + keyw * sphOcc(vec3(kc.x + rel.x, p.y, kc.y + rel.y), vec4(kc.x, uBody.y, kc.y, whole.w));
   if (uFil2.y > 0.0) {
     // the thread's shadow: a line of soft beads along it
     for (int i = ZERO; i < 9; i++) {
@@ -1111,9 +1122,17 @@ vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
   return mix(col, bg, smoothstep(6.0, 20.0, length(p - uCamPos)));
 }
 
+// The white room along this ray, before its shadows: darker toward the edges of the screen,
+// and very slightly where the floor turns into the wall, as its reflection already is (env()).
+// Only by day, and only in the room itself.
+vec3 roomWhite(vec2 uv, vec3 rd) {
+  float cyc = 0.025 * (1.0 - uNight) * (1.0 - uBurst.w) * (1.0 - uFold.x);
+  return (FLOOR_WHITE - 0.03 * length(uv) * 0.5) * (1.0 - cyc * exp(-abs(rd.y + 0.05) * 9.0));
+}
+
 // `lake` is the liquid floor where this ray meets it, shaded by main(); `shadow` is floorShadow() there.
 vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
-  vec3 bg = FLOOR_WHITE - 0.03 * length(uv) * 0.5;
+  vec3 bg = roomWhite(uv, rd);
   if (rd.y < 0.0) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
     bg *= shadow;
@@ -1391,7 +1410,7 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
   if (uLake.z > 0.0) {
     // where the floor is hit but hasn't turned liquid yet, it is still the white floor
     float floorness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * (1.0 - lakeMask(p.xz));
-    vec3 bg = FLOOR_WHITE - 0.03 * length(uv) * 0.5;
+    vec3 bg = roomWhite(uv, rd);
     float lakeness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz);
     col = mix(col, lakeFade(col, p, bg), lakeness);
     col = mix(col, bg * shadow, floorness);
@@ -1891,5 +1910,7 @@ void main() {
     col = mix(col, wash * 0.9, clamp(rays * reach * sqrt(uBurst.y) * (1.0 - uBurst.y) * 2.2, 0.0, 0.85));
   }
   col = pow(col, vec3(0.97));
+  // half a step of 8-bit noise, fixed to the pixel so it never crawls: no bands in the near-white
+  col += (fract(52.982919 * fract(dot(gl_FragCoord.xy, vec2(0.0671106, 0.0058372)))) - 0.5) / 255.0;
   outColor = vec4(col, 1.0);
 }
