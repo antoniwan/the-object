@@ -179,15 +179,18 @@ impl App {
             a.follow(&self.game.world);
             a.hum(self.game.keys.hum());
             a.echo(self.game.senses.hum());
+            let strain = self.game.strain();
+            a.strain(strain);
             if !a.muted {
                 // A microphone near the speaker would hear these; it is not to take them for the
                 // player, only while each is loud (audio.rs `play`).
                 self.game.senses.deafen(deaf);
                 // Nor the voices that keep sounding while the player holds on (audio.rs `follow`,
-                // `hum`): the warm hum while held still, a held letter's note. Each fades over a
-                // moment once it stops, so it stays deaf a little past the last frame of it. The
-                // night's drone is left out: it lasts the whole night, and it must still hear then.
-                if self.game.world.warming || self.game.keys.hum().is_some() {
+                // `hum`, `strain`): the warm hum while held still, a held letter's note, a pull's
+                // tone. Each fades over a moment once it stops, so it stays deaf a little past the
+                // last frame of it. The night's drone is left out: it lasts the whole night, and it
+                // must still hear then.
+                if self.game.world.warming || self.game.keys.hum().is_some() || strain.is_some() {
                     self.game.senses.deafen(crate::game::OWN_SOUND_DEAF);
                 }
             }
@@ -209,6 +212,7 @@ impl App {
         self.hud.think(now / 1000.0, thought);
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
+        self.renderer.tremble = self.game.tremble();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height(), self.pace.fine);
     }
 

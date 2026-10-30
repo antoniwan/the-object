@@ -99,7 +99,10 @@ mod tests;
 mod view;
 
 use gesture::Gesture;
-pub use sound::{memory, memory_deaf, signs, Sound, Tone, Wave, OWN_SOUND_DEAF};
+pub use sound::{
+    become_tones, memory, memory_deaf, signs, strain, Form, Pull, Sound, Strain, Tone, Wave, OWN_SOUND_DEAF, SCALE,
+    STRAIN_RELEASE,
+};
 
 /// How far (in canvas pixels, scaled by canvas height) a press can move and still count as a tap.
 const TAP_SLOP: f32 = 0.012;
@@ -318,7 +321,7 @@ impl Game {
                     self.world.forms.filament.restless = self.temper.wary;
                     self.world.sink_handle(handle);
                     self.gesture = Gesture::Idle;
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Thread });
                 }
             }
         }
@@ -455,7 +458,7 @@ impl Game {
         self.world.forms.dust.hold(held.map_or(0.0, |h| h.min(1.0)));
         if let Some(held) = held {
             if held >= 1.0 && self.world.forms.dust.rise() {
-                self.sounds.push(Sound::Become);
+                self.sounds.push(Sound::Become { form: Form::Itself });
                 self.gesture = Gesture::Idle;
             }
         }

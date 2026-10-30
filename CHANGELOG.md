@@ -12,11 +12,17 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-30
+
+### Added
+- A pull is heard as it is drawn out: a quiet tone rising toward the tear, wavering once taut, faster as a thread nears, and rough just before it gives. It rests on the note it knows you by
+- Each form it becomes sounds the same at a pitch of its own
+
 ## [2.3.0] - 2026-10-30
 
 ### Added
-- Tip the room, with the arrows or the phone, while the twelve lie on the ground, and they slide downhill: a group together and slowly, a piece alone a little further and aside, and groups that meet are one
-- A breath let out over the dust, with space or blown once it hears, moves the drifts away from you over the floor
+- Tip the room, with the arrows or the phone, while the twelve lie on the ground, and they slide downhill: a group together and slowly, a piece alone a little further and aside, and groups that meet are one (#116)
+- A breath let out over the dust, with space or blown once it hears, moves the drifts away from you over the floor (#116)
 
 ## [2.2.0] - 2026-10-30
 
@@ -618,7 +624,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/antoniwan/the-object/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/antoniwan/the-object/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/antoniwan/the-object/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/antoniwan/the-object/compare/v2.0.0...v2.1.0
