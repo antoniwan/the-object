@@ -430,9 +430,27 @@ impl Contact {
             }
             self.phrase = None;
             self.mimic = None;
-            self.contact = None;
             self.blush = None;
-            self.ask = None;
+            // Contact cut short before anything was said comes again this visit; after, it still asks.
+            match self.contact.take() {
+                Some(t) if t < CONTACT_SAY => self.contacted_now = false,
+                Some(_) => self.ask = Some(Ask::Soon(0.0)),
+                None => {}
+            }
+            self.ask = match self.ask.take() {
+                // A question not taken up yet is asked again, once it is itself.
+                Some(Ask::Soon(_) | Ask::Held { .. }) => Some(Ask::Soon(0.0)),
+                // A drop still in the hand is an answer still being given; let go, it is given.
+                Some(Ask::Kept { drop, t, steps }) => {
+                    if world.drops.iter().any(|d| d.id == drop && d.target.is_some()) {
+                        Some(Ask::Kept { drop, t, steps })
+                    } else {
+                        self.events.push(Event::Answer(steps));
+                        None
+                    }
+                }
+                None => None,
+            };
             return;
         }
 
@@ -893,6 +911,64 @@ mod tests {
         let e = run(&mut c, &mut w, &s, ASK_WINDOW + 30.0);
         assert!(!e.iter().any(|e| matches!(e, Event::Kept(_) | Event::Answer(_))), "{e:?}");
         assert!(!c.acting() || c.ask.is_none());
+    }
+
+    /// Turns it into something else for a second, and back.
+    fn interrupt(c: &mut Contact, w: &mut World, s: &Sense) {
+        w.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        run(c, w, s, 1.0);
+        w.forms.pandora.phase = crate::forms::pandora::Phase::Whole;
+    }
+
+    #[test]
+    fn contact_cut_short_before_it_speaks_comes_again() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        c.answered = CONTACT_ANSWERS;
+        c.habits = [9, 2, 1, 0, 3];
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        assert!(run(&mut c, &mut w, &s, 3.0).contains(&Event::Reaching));
+        interrupt(&mut c, &mut w, &s);
+        let e = run(&mut c, &mut w, &s, 60.0);
+        assert!(e.contains(&Event::Said), "{e:?}");
+        assert_eq!(e.iter().filter(|e| **e == Event::Said).count(), 1);
+    }
+
+    #[test]
+    fn contact_cut_short_after_it_speaks_still_asks() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        c.answered = CONTACT_ANSWERS;
+        c.habits = [9, 2, 1, 0, 3];
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        assert!(run(&mut c, &mut w, &s, CONTACT_SAY + 1.5).contains(&Event::Said));
+        interrupt(&mut c, &mut w, &s);
+        let e = run(&mut c, &mut w, &s, 30.0);
+        assert!(e.contains(&Event::Asked), "{e:?}");
+        assert!(!e.contains(&Event::Said), "it said it once");
+    }
+
+    #[test]
+    fn a_question_cut_short_is_asked_again() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        asked(&mut c, &mut w, &s);
+        interrupt(&mut c, &mut w, &s);
+        assert!(run(&mut c, &mut w, &s, ASK_AFTER + 2.0).contains(&Event::Asked));
+    }
+
+    #[test]
+    fn a_drop_let_go_while_it_is_something_else_is_still_an_answer() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        let drop = asked(&mut c, &mut w, &s);
+        let at = w.drops.iter().find(|d| d.id == drop).unwrap().pos;
+        w.grab_drop(drop, at);
+        run(&mut c, &mut w, &s, KEEP_STEP * 2.0 + 0.2);
+        w.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        let e = run(&mut c, &mut w, &s, 0.5);
+        assert!(!e.iter().any(|e| matches!(e, Event::Answer(_))), "still in the hand: {e:?}");
+        w.release_drop(drop);
+        let e = run(&mut c, &mut w, &s, 0.5);
+        assert!(e.contains(&Event::Answer(3)), "{e:?}");
     }
 
     #[test]
