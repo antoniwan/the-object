@@ -166,8 +166,7 @@ impl Reach {
             world.release_handle(id);
             return false;
         }
-        let k = (self.t / self.grow).min(1.0);
-        let k = k * k * (3.0 - 2.0 * k);
+        let k = smooth01(self.t / self.grow);
         // rest is at 0.8 radii; it never pulls as far as tearing
         let to = world.body.pos + self.dir * (r * (0.8 + self.len.min(1.1) * k));
         world.pull_handle(id, to);
