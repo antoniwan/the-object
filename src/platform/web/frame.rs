@@ -32,8 +32,14 @@ impl App {
         let (cw, ch) = (cw as f64, ch as f64);
         let mut dpr = self.window.device_pixel_ratio().min(1.5);
         dpr = dpr.min((MAX_PIXELS / (cw * ch).max(1.0)).sqrt()) * self.pace.scale();
-        let w = (cw * dpr).max(1.0) as u32;
-        let h = (ch * dpr).max(1.0) as u32;
+        // A gesture is measured in canvas pixels from where it began: while a hand is on it the
+        // canvas keeps its size (only the pointer scale follows the page), and takes the new one
+        // on the first frame after it lifts.
+        let (w, h) = if self.game.held() {
+            (self.canvas.width().max(1), self.canvas.height().max(1))
+        } else {
+            ((cw * dpr).max(1.0) as u32, (ch * dpr).max(1.0) as u32)
+        };
         if self.canvas.width() != w || self.canvas.height() != h {
             self.canvas.set_width(w);
             self.canvas.set_height(h);

@@ -483,8 +483,9 @@ impl Game {
                     }
                 }
             }
-            Gesture::Lake { start, at, since, .. } => {
-                let moved = self.past_slop(start, x, y);
+            Gesture::Lake { start, at, since, moved } => {
+                // once it has wandered off, coming back to where it started is not holding still
+                let moved = moved || self.past_slop(start, x, y);
                 self.gesture = Gesture::Lake { start, at, since, moved };
                 let up = (start.1 - y) / self.h;
                 if up > 0.12 {
