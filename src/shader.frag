@@ -1,5 +1,5 @@
 #version 300 es
-// Raymarched liquid. sdBody/scene mirror World::sdf in sim.rs, plus cosmetic
+// Raymarched liquid. scene() mirrors World::sdf in sim/geometry.rs, plus cosmetic
 // ripples and idle wobble that only exist here.
 precision highp float;
 // A zero the compiler can't see through. Loops start from it so they stay loops:
@@ -115,6 +115,8 @@ const vec3 MOUND = vec3(0.70, 0.67, 0.70);
 const vec3 BARK = vec3(0.43, 0.40, 0.44);
 const vec3 LEAF = vec3(0.62, 0.78, 0.55);
 const vec3 BLOSSOM = vec3(0.93, 0.42, 0.62);
+// the white floor, before its shadows, light and liquid
+const vec3 FLOOR_WHITE = vec3(0.972, 0.970, 0.962);
 
 // Turns that depend only on uniforms, worked out once per pixel by sceneSetup() so that
 // scene() and the shading need not work them out again at every step.
@@ -334,7 +336,6 @@ float surfaceDisp(vec3 n) {
 // Radius of each cell, and its center's offset from the body center (cell A at -offset).
 float cellRadius() { return uBody.w * mix(1.0 - K_JOIN * 0.25, CELL_SCALE, uCut.w); }
 vec3 cellOffset() { return uCut.xyz * (SEP * uBody.w * uCut.w); }
-
 
 // The i-th of n points spread evenly over the unit sphere, and the nearest of
 // them to p (spherical Fibonacci mapping, Keinert et al. 2015): four candidates
@@ -721,8 +722,6 @@ float treeSdf(vec3 p, out float leaf) {
   return lr > 0.001 ? min(d, leaf) : d;
 }
 
-// Also hands back the body alone, and the nearest piece and its distance, so
-// shade() can use them without compiling bodySurface() and shards() again.
 // One of the wound's pieces (wound.rs): a small core with four spikes, turning slowly, so
 // that however it lies one points up. Not an exact distance, so it is taken at half.
 float caltrop(vec3 q, float r, float seed) {
@@ -735,6 +734,8 @@ float caltrop(vec3 q, float r, float seed) {
   return (length(q) - r * (0.6 + 1.0 * m8 * m8 * m2)) * 0.5;
 }
 
+// Also hands back the body alone, and the nearest piece and its distance, so
+// shade() can use them without compiling bodySurface() and shards() again.
 float scene(vec3 p, out float body, out float piece, out int id) {
   // the fold repeats the body through mirrored space (forms/fold.rs)
   vec3 fsg, fk;
@@ -799,8 +800,6 @@ float scene(vec3 p, out float body, out float piece, out int id) {
   return d;
 }
 
-// Where the ray passes through the sphere at c of radius r, widening span s to take it in;
-// r below zero is no sphere. marchSpan() chooses with step() and pick() instead of branches.
 // a where m is 0, b where m is 1, exactly. A select, not arithmetic: a * (1 - m) + b * m is
 // free for a fast-math compiler to rewrite as a + (b - a) * m, which loses b entirely when a
 // is 1e9. Safari on iPhone does exactly that, and the body's span collapsed to nothing.
@@ -808,6 +807,8 @@ float pick(float a, float b, float m) { return m > 0.5 ? b : a; }
 vec2 pick(vec2 a, vec2 b, float m) { return m > 0.5 ? b : a; }
 vec4 pick(vec4 a, vec4 b, float m) { return m > 0.5 ? b : a; }
 
+// Where the ray passes through the sphere at c of radius r, widening span s to take it in;
+// r below zero is no sphere. marchSpan() chooses with step() and pick() instead of branches.
 vec2 spanSphere(vec3 ro, vec3 rd, vec3 c, float r, vec2 s) {
   vec3 oc = ro - c;
   float b = dot(oc, rd);
@@ -998,7 +999,6 @@ float floorShadow(vec3 p) {
 vec3 shadeLiquid(vec3 p, vec3 rd, vec3 n, float ao, float db, vec3 er);
 vec3 galaxy(vec3 p, vec3 rd);
 vec3 caustic(vec3 p);
-vec3 drama(vec3 col, vec2 uv, vec2 c, vec3 w);
 vec3 floorLight(vec3 p, vec3 rd, vec3 bg);
 vec3 filmColor(float d, float c);
 vec3 shadeHeap(vec3 p, vec3 rd, vec3 n, float ao);
@@ -1023,7 +1023,7 @@ vec3 dustFloor(vec3 p, vec3 bg) {
   vec3 n = normalize(vec3(-grad.x * 0.06, 1.0, -grad.y * 0.06));
   vec3 col = DUST * (0.8 + 0.25 * clamp(dot(n, KEY) / KEY.y, 0.0, 1.2)) * (1.0 - 0.14 * g);
   // the floor's own light and shadow still fall on it
-  col *= bg / vec3(0.972, 0.970, 0.962);
+  col *= bg / FLOOR_WHITE;
   col += filmColor(0.3 + 0.4 * g, 0.6) * step(0.993, hash(floor(vec3(p.xz * 90.0, 7.0)))) * 0.5;
   return mix(bg, col, cover * smoothstep(30.0, 16.0, length(p - uCamPos)));
 }
@@ -1052,7 +1052,7 @@ vec3 riverFloor(vec3 p, vec3 rd, vec3 bg) {
   float a1 = su.x * 1.7 + su.y * 0.6 - f * 2.6;
   float a2 = su.x * 3.1 - su.y * 1.3 - f * 4.0;
   vec2 g = 0.05 * cos(a1) * vec2(1.7, 0.6) + 0.025 * cos(a2) * vec2(3.1, -1.3);
-  vec2 dir = vec2(cos(uRiver.z), sin(uRiver.z));
+  vec2 dir = gRiverDir;
   // far off the ripples are too fine to see, only to shimmer
   g = (dir * g.x + vec2(-dir.y, dir.x) * g.y) * smoothstep(34.0, 14.0, length(p - uCamPos));
   for (int i = ZERO; i < 6; i++) {
@@ -1109,7 +1109,7 @@ vec3 lakeFade(vec3 col, vec3 p, vec3 bg) {
 
 // `lake` is the liquid floor where this ray meets it, shaded by main(); `shadow` is floorShadow() there.
 vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
-  vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
+  vec3 bg = FLOOR_WHITE - 0.03 * length(uv) * 0.5;
   if (rd.y < 0.0) {
     vec3 p = ro + rd * ((FLOOR_Y - ro.y) / rd.y);
     bg *= shadow;
@@ -1147,7 +1147,6 @@ vec3 background(vec3 ro, vec3 rd, vec2 uv, vec3 lake, float shadow) {
   }
   return bg;
 }
-
 
 // ---- Divided (meiosis.rs, morula.rs, nerve.rs): how the cells are drawn ------
 // A pale ground drawn over in lines: where a standing wave over each cell is still.
@@ -1388,7 +1387,7 @@ vec3 shade(vec3 p, vec3 rd, vec2 uv, bool far, vec3 n, float ao, float db, float
   if (uLake.z > 0.0) {
     // where the floor is hit but hasn't turned liquid yet, it is still the white floor
     float floorness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * (1.0 - lakeMask(p.xz));
-    vec3 bg = vec3(0.972, 0.970, 0.962) - 0.03 * length(uv) * 0.5;
+    vec3 bg = FLOOR_WHITE - 0.03 * length(uv) * 0.5;
     float lakeness = smoothstep(0.3, 0.08, p.y - FLOOR_Y) * lakeMask(p.xz);
     col = mix(col, lakeFade(col, p, bg), lakeness);
     col = mix(col, bg * shadow, floorness);
@@ -1491,7 +1490,7 @@ vec3 formTint(vec3 p, vec3 tint) {
     vec3 q = flowerLocal(p);
     float rho = length(q.xz);
     float heart = smoothstep(0.5, 0.36, rho) * step(-0.1, q.y);
-    vec3 petal = mix(vec3(0.93, 0.42, 0.62), vec3(1.0, 0.95, 0.96), smoothstep(0.35, 1.45, rho));
+    vec3 petal = mix(BLOSSOM, vec3(1.0, 0.95, 0.96), smoothstep(0.35, 1.45, rho));
     petal = mix(petal, tint, 0.3);
     vec3 pollen = vec3(0.98, 0.76, 0.26) * (0.85 + 0.15 * hash(floor(p * 60.0)));
     tint = mix(tint, mix(petal, pollen, heart), smoothstep(0.2, 0.7, uBloom.x));
