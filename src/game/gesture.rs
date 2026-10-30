@@ -131,6 +131,7 @@ impl Game {
                         if short && secs < bloom::NEAR_MAX_SECS && self.world.forms.bloom.almost(dir) {
                             self.sounds.push(Sound::Almost);
                         }
+                        self.lurch();
                         self.contact.reached(dir, reach, stage);
                     }
                     _ => {}
@@ -240,10 +241,18 @@ impl Game {
 
     /// A tap on the liquid, or on whatever it has become.
     fn poke(&mut self, hit: Hit) {
+        let press = self.press.take();
         if hit.target == Target::Body && self.tap_form(hit) {
             return;
         }
-        self.world.poke(hit, 1.0);
+        // It already gave some under the press; the tap gives the rest. Rising into the finger
+        // was not watching, so being touched does not startle that out of it.
+        let gaze = self.world.gaze;
+        self.world.poke(hit, if press.is_some() { 1.0 - PRESS } else { 1.0 });
+        if let Some(dir) = press {
+            self.world.gaze = self.world.gaze.max(gaze.min(PALM));
+            self.fold_press(dir);
+        }
         let pitch = ((hit.pos.y - self.world.body.pos.y) / self.world.body.radius() * 0.5 + 0.5).clamp(0.0, 1.0);
         self.sounds.push(Sound::Poke { pitch, size: self.world.body.radius() });
         self.contact.poked((hit.pos - self.world.body.pos).norm(), pitch);
@@ -262,6 +271,42 @@ impl Game {
         }
         self.world.forms.cosmos.ignite();
         self.world.forms.fold.facet();
+    }
+
+    /// A press's dent still young when the tap lands is taken into the tap's ripple, so a tap
+    /// keeps to one of the few ripples there can be.
+    fn fold_press(&mut self, dir: V3) {
+        let rip = &mut self.world.ripples;
+        let Some(last) = rip.len().checked_sub(1) else { return };
+        if let Some(i) = rip[..last].iter().rposition(|r| r.dir == dir && r.age < PRESS_FOLD_SECS) {
+            let dent = rip.remove(i);
+            if let Some(r) = rip.last_mut() {
+                r.amp += dent.amp;
+            }
+        }
+    }
+
+    /// Whether a tap on the body would reach the liquid itself (or its cells), not a form.
+    fn gives(&self) -> bool {
+        let f = &self.world.forms;
+        f.filament.whole() && f.bloom.whole() && f.pandora.whole()
+    }
+
+    /// Held on the ordinary liquid, it rises slowly into the finger, under regard's lean; let go,
+    /// it sinks back as any swell does. A flinch at the press (no dent) does not rise.
+    pub(super) fn rise_into_palm(&mut self, dt: f32) {
+        let held = match self.gesture {
+            Gesture::Pending { since, .. } => smoothstep(0.0, PALM_RISE, self.world.time - since),
+            Gesture::Warming { .. } => 1.0,
+            _ => return,
+        };
+        let Some(dir) = self.press else { return };
+        if !self.world.ordinary() || self.contact.in_contact() {
+            return;
+        }
+        self.world.regard = self.world.regard.max(PALM * held);
+        let turn = 1.0 - (-PALM_TURN * dt).exp();
+        self.world.gaze_dir = self.world.gaze_dir.lerp(dir, turn).norm();
     }
 
     /// A tap on a body that has become something else. Returns true if that form answered it.
@@ -331,6 +376,8 @@ impl Game {
         self.world.watching = false;
         let since = self.world.time;
         self.pvel = (0.0, 0.0);
+        self.moved_at = self.clock;
+        self.press = None;
         if !self.world.burst.whole() {
             self.world.burst.land.touch();
             if self.raise_column(x, y, true) {
@@ -391,7 +438,16 @@ impl Game {
         self.gesture = match self.pick(x, y) {
             Some(hit @ Hit { target: Target::Body, .. }) => {
                 let stage = self.stage();
-                self.contact.touched((hit.pos - self.world.body.pos).norm(), stage, &mut self.world);
+                let flinched = self.contact.touched((hit.pos - self.world.body.pos).norm(), stage, &mut self.world);
+                // It gives under the finger at once; nothing is counted until the tap is let go.
+                if !flinched && self.gives() {
+                    let b = &mut self.world.body;
+                    let dir = self.world.division.ripple_dir(hit.pos, b.pos, b.radius());
+                    b.vel -= dir * (0.9 * PRESS);
+                    b.squash_vel -= 1.2;
+                    self.world.add_ripple(dir, PRESS);
+                    self.press = Some(dir);
+                }
                 Gesture::Pending { start: (x, y), hit, since }
             }
             Some(Hit { target: Target::Drop(drop), pos, .. }) => {
@@ -413,6 +469,7 @@ impl Game {
         if dt > 0.0 {
             let v = ((x - p.1) / dt, (y - p.2) / dt);
             self.pvel = (self.pvel.0 * 0.4 + v.0 * 0.6, self.pvel.1 * 0.4 + v.1 * 0.6);
+            self.moved_at = self.clock;
         }
         p.1 = x;
         p.2 = y;
@@ -714,6 +771,21 @@ impl Game {
         self.world.body.vel += dir * (speed * 4.5).min(16.0);
         self.discover(Discovery::Throw);
         true
+    }
+
+    /// Let go of a stretch with a flick not quite fast enough to throw it: it only lurches that
+    /// way, by as much as the flick came near, never hard enough to slam it into the floor.
+    fn lurch(&mut self) {
+        let (vx, vy) = (self.pvel.0 / self.h, self.pvel.1 / self.h);
+        let near = ((vx.hypot(vy) / THROW_SPEED - LURCH_FROM) / (1.0 - LURCH_FROM)).min(1.0);
+        if near <= 0.0 {
+            return;
+        }
+        let b = self.cam.basis();
+        let was = self.world.body.vel;
+        let mut vel = was + (b.right * vx - b.up * vy).norm() * (LURCH_PUSH * near);
+        vel.y = vel.y.max(was.y.min(-LURCH_PUSH));
+        self.world.body.vel = vel;
     }
 
     /// A pointer moving with nothing pressed: what it would be looking at.
