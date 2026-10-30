@@ -1,4 +1,4 @@
-# On every push to main and every pull request: the formatting, the tests, the lints, the simulation fingerprints,
+# On every push to main and every pull request: the formatting and lints of the Rust and the JavaScript, the tests, the simulation fingerprints,
 # the Node tests, a full build and the itch pack, then the built page loaded in headless Chromium.
 # Hosting is on Vercel, which builds and deploys main on its own.
 name: test
@@ -54,7 +54,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci && npm test
+      - name: The JavaScript lints clean and is formatted as Prettier writes it
+        run: npm ci && npm run lint
+      - run: npm test
       - run: ./build.sh
       - run: ./scripts/itch.sh
       # Only the browser download is kept between runs; the system packages it needs are installed each time.
