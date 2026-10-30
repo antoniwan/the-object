@@ -12,10 +12,15 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-30
+
+### Changed
+- It reaches back once. On later visits it only remembers doing so: shorter, and as far as it knows you. Its question comes once, and once more only if it went unanswered. After that, on its turn, it may begin a flower, a box or a universe you once made, stop partway, and wait
+
 ## [1.25.0] - 2026-10-30
 
 ### Added
-- How it remembers you now reaches your hands, its thoughts and its voice: it lets your verbs go further or less far, thinks about how you have treated it, learns the note you sing and sometimes hums it first, its signs are heard as they appear, and the other one remembers how your meetings ended
+- How it remembers you now reaches your hands, its thoughts and its voice: it lets your verbs go further or less far, thinks about how you have treated it, learns the note you sing and sometimes hums it first, its signs are heard as they appear, and the other one remembers how your meetings ended (#112)
 
 ## [1.24.0] - 2026-10-30
 
@@ -597,7 +602,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.25.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/antoniwan/the-object/compare/v1.25.0...v2.0.0
 [1.25.0]: https://github.com/antoniwan/the-object/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/antoniwan/the-object/compare/v1.23.1...v1.24.0
 [1.23.1]: https://github.com/antoniwan/the-object/compare/v1.23.0...v1.23.1
