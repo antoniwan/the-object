@@ -61,15 +61,25 @@ impl Camera {
         (b.pos, (b.right * ux + b.up * uy + b.fwd * FOCAL).norm())
     }
 
+    /// Where a point in the room lands on screen, in the units `ray` takes: from the middle of
+    /// the canvas, in half its height, y up.
+    pub fn project(&self, p: V3) -> (f32, f32) {
+        let b = self.basis();
+        let d = p - b.pos;
+        let z = d.dot(b.fwd).max(0.1);
+        (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z)
+    }
+
     pub fn orbit(&mut self, dx: f32, dy: f32) {
         self.yaw -= dx;
         self.pitch = (self.pitch + dy).clamp(-1.2, 1.3);
     }
 
-    /// Coast after an orbit flick.
+    /// Each frame: the shake dies down and is noted as a shock, and, unless held, the view
+    /// coasts on after an orbit flick.
     pub fn step(&mut self, dt: f32, held: bool) {
         self.shake_t += dt;
-        // Anything that shakes the room is a shock; the hardest so far (a burst, 0.12) is 1.
+        // Anything that shakes the room is a shock; a slam (0.09) or anything harder is 1.
         if self.shake > self.last_shake + 1e-4 {
             self.shock = ((self.shake / 0.09).min(1.0), 0.0);
         } else {

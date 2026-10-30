@@ -29,7 +29,7 @@ impl World {
         (d, target)
     }
 
-    pub fn normal(&self, p: V3) -> V3 {
+    fn normal(&self, p: V3) -> V3 {
         let e = 0.002;
         let f = |o: V3| self.sdf(p + o).0;
         v3(

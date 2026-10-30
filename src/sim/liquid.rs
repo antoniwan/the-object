@@ -70,9 +70,8 @@ impl World {
                 // Free drops drift slowly home.
                 let to = body_pos - d.pos;
                 // At night they orbit instead, spiralling home slowly.
-                let n = night;
                 let tangent = V3::UP.cross(to).norm();
-                d.vel += (to.norm() * (0.22 * (1.0 - 0.85 * n)) + tangent * (0.05 * n) - d.vel * (1.2 - 1.0 * n)) * dt;
+                d.vel += (to.norm() * (0.22 * (1.0 - 0.85 * night)) + tangent * (0.05 * night) - d.vel * (1.2 - 1.0 * night)) * dt;
                 // Soft wall so nothing floats out of view.
                 let out = d.pos.len() - 3.2;
                 if out > 0.0 {
@@ -110,8 +109,8 @@ impl World {
             if d.age > MERGE_COOLDOWN && gap < d.r * 0.2 {
                 let d = self.drops.remove(i);
                 let v = d.r * d.r * d.r;
-                self.body.vel += d.vel * (v / (self.body.volume + v));
                 let w = v / (self.body.volume + v);
+                self.body.vel += d.vel * w;
                 if (self.body.color - d.color).len() > 0.08 {
                     self.events.push(Event::Mixed);
                 }

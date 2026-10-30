@@ -2,8 +2,11 @@
 
 use super::*;
 
+/// How many beats it keeps after the river, each fainter than the last.
+const HEART_BEATS: u32 = 40;
+
 impl Game {
-    /// What the four other forms ask of the game each frame: their news, the camera, and the box's contents.
+    /// What the forms ask of the game each frame: their news, the camera, and the box's contents.
     pub(super) fn update_forms(&mut self, dt: f32, orbiting: bool) {
         use forms::Event as F;
         self.world.forms.spin.glad = self.remembrance.kind();
@@ -220,7 +223,7 @@ impl Game {
             R::Pulsed => {
                 // it comes up out of the river dark red, and keeps the beat a while
                 self.world.body.color = crate::sim::PEARL.lerp(crate::burst::river::BLOOD, 0.8);
-                self.heart = (self.world.burst.river.rhythm(), 0.0, 40);
+                self.heart = (self.world.burst.river.rhythm(), 0.0, HEART_BEATS);
                 self.sounds.push(Sound::Beat);
                 self.gesture = Gesture::Idle;
             }
@@ -237,7 +240,7 @@ impl Game {
         if *t >= *period {
             *t -= *period;
             *left -= 1;
-            let amp = 0.12 + 0.3 * (*left as f32 / 40.0);
+            let amp = 0.12 + 0.3 * (*left as f32 / HEART_BEATS as f32);
             self.world.add_ripple(V3::UP, amp);
             self.world.add_ripple(-V3::UP, amp * 0.6);
         }

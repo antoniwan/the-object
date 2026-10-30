@@ -25,9 +25,10 @@
 //!   of a mirror it comes up quicksilver, out of the deep it comes up ink
 //! - poke it twelve times without letting it heal: it bursts (see burst.rs);
 //!   then tap a piece to feel its material, or hold still on the ground to gather them
-//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers (see forms/bloom.rs);
-//!   let go a little too late, a bud nearly rises and sinks back; a quick short tug is a pinch, never a throw
-//!   two fingers on it, pinched together and let go of at once, pinch it too, between them (and the flower)
+//! - pinch it (a short tug let go of at once): a bud; five buds and it flowers, and a tap folds
+//!   the flower back (see forms/bloom.rs); let go a little too late, a bud nearly rises and sinks
+//!   back; a quick short tug is a pinch, never a throw; two fingers on it, pinched together and let
+//!   go of at once, pinch it too, between them (and the flower)
 //! - pinch the flower: it comes apart into dust on the floor (too slowly, its petals only flinch); drag through the dust to sweep it,
 //!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
 //!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)
@@ -35,7 +36,8 @@
 //!   wind into ropes that fly out and come undone, right past dizzy it whirls up and comes back down;
 //!   nearly dizzy again and again, over several visits, it learns your turn (see forms/spin.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
-//! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
+//! - stir it (drag a tendril round and round it): it holds a universe; poke it and a star
+//!   ignites; stir back to settle it
 //! - stir the universe on, the same way: the room folds and it is everywhere; poke to add a
 //!   mirror, hold still to run its time backward, stir back to fold the room up (see forms/fold.rs)
 //! - draw a square around it: it becomes a box; knock three times (see forms/pandora.rs)
@@ -100,15 +102,15 @@ const HOLD: f32 = 0.55;
 /// Nobody touching it for this long (seconds) and it starts watching.
 const IDLE_WATCH: f32 = 12.0;
 
-/// Distance between two points on the canvas.
-fn dist(a: (f32, f32), b: (f32, f32)) -> f32 {
-    (b.0 - a.0).hypot(b.1 - a.1)
-}
-
 /// A flick faster than this, in canvas heights per second, throws the object.
 const THROW_SPEED: f32 = 2.2;
 /// Camera distance from which the whole slab can be seen.
 const SLAB_DIST: f32 = 9.0;
+
+/// Distance between two points on the canvas.
+fn dist(a: (f32, f32), b: (f32, f32)) -> f32 {
+    (b.0 - a.0).hypot(b.1 - a.1)
+}
 
 pub struct Game {
     pub world: World,

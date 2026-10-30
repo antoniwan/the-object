@@ -369,8 +369,7 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
         Phase::Arriving { t } => Phase::Arriving { t: t + dt },
         Phase::Taking { t } if t + dt >= TAKE_SECS => {
             o.events.push(Event::TookIn);
-            w.add_ripple(V3::UP, 0.8);
-            w.add_ripple(-V3::UP, 0.8);
+            w.ripple_both(0.8);
             Phase::Inside
         }
         Phase::Taking { t } => Phase::Taking { t: t + dt },
@@ -500,7 +499,6 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::camera::FOCAL;
 
     fn game() -> Game {
         let mut g = Game::new();
@@ -514,14 +512,6 @@ mod tests {
         for _ in 0..(seconds * 60.0) as usize {
             g.update(1.0 / 60.0);
         }
-    }
-
-    fn project(g: &Game, p: V3) -> (f32, f32) {
-        let b = g.cam.basis();
-        let d = p - b.pos;
-        let z = d.dot(b.fwd);
-        let (ux, uy) = (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z);
-        ((ux * g.h + g.w) * 0.5, (g.h - uy * g.h) * 0.5)
     }
 
     fn arrived() -> Game {
@@ -546,7 +536,7 @@ mod tests {
     fn after_contact_it_comes_down_and_rings_when_tapped() {
         let mut g = arrived();
         assert!(g.world.other.pos.y < 3.0);
-        let (x, y) = project(&g, g.world.other.pos);
+        let (x, y) = g.screen_of(g.world.other.pos);
         g.pointer_down(1, x, y);
         g.pointer_up(1);
         g.update(1.0 / 60.0);
@@ -558,11 +548,11 @@ mod tests {
     #[test]
     fn carried_close_the_soft_one_reaches_and_pressed_in_it_is_taken_then_squeezed_out() {
         let mut g = arrived();
-        let (x, y) = project(&g, g.world.other.pos);
+        let (x, y) = g.screen_of(g.world.other.pos);
         g.pointer_down(1, x, y);
         // bring it to just beside the soft one
         let beside = g.world.body.pos + g.cam.basis().right * 1.9;
-        let (bx, by) = project(&g, beside);
+        let (bx, by) = g.screen_of(beside);
         for i in 1..=30 {
             let f = i as f32 / 30.0;
             g.pointer_move(1, x + (bx - x) * f, y + (by - y) * f, 1.0 / 60.0);
@@ -571,7 +561,7 @@ mod tests {
         wait(&mut g, 1.6);
         assert!(g.progress.has(Discovery::Near));
         // then into it, and hold
-        let (cx, cy) = project(&g, g.world.body.pos);
+        let (cx, cy) = g.screen_of(g.world.body.pos);
         for i in 1..=30 {
             let f = i as f32 / 30.0;
             g.pointer_move(1, bx + (cx - bx) * f, by + (cy - by) * f, 1.0 / 60.0);
@@ -610,7 +600,7 @@ mod tests {
     #[test]
     fn hurt_it_and_the_other_comes_between() {
         let mut g = arrived();
-        let (cx, cy) = project(&g, g.world.body.pos);
+        let (cx, cy) = g.screen_of(g.world.body.pos);
         for _ in 0..3 {
             g.pointer_down(1, cx, cy);
             g.pointer_up(1);

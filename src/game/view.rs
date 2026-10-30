@@ -18,15 +18,7 @@ impl Game {
 
     /// Where a point in the world lands on the canvas, in pixels.
     pub(crate) fn screen_of(&self, p: V3) -> (f32, f32) {
-        self.screen(p)
-    }
-
-    /// Where a point in the world lands on the canvas, in pixels.
-    pub(super) fn screen(&self, p: V3) -> (f32, f32) {
-        let b = self.cam.basis();
-        let d = p - b.pos;
-        let z = d.dot(b.fwd).max(0.1);
-        let (ux, uy) = (d.dot(b.right) * FOCAL / z, d.dot(b.up) * FOCAL / z);
+        let (ux, uy) = self.cam.project(p);
         ((ux * self.h + self.w) * 0.5, (self.h - uy * self.h) * 0.5)
     }
 

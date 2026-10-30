@@ -99,6 +99,12 @@ pub fn smooth01(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// An angle, or a difference of two, brought into -pi..pi: the short way round.
+pub fn wrap_angle(a: f32) -> f32 {
+    let pi = std::f32::consts::PI;
+    (a + pi).rem_euclid(2.0 * pi) - pi
+}
+
 /// A fixed scatter from a number: the fractional part of a large multiple of its sine.
 pub fn hash(a: f32) -> f32 {
     (a.sin() * 43_758.547).fract()
