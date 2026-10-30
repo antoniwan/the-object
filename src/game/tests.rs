@@ -660,6 +660,66 @@ fn a_tug_flicked_off_fast_is_still_a_pinch_not_a_throw() {
     assert!(g.progress.has(Discovery::Throw));
 }
 
+/// `tug`, but the browser takes the touch away instead of the finger lifting.
+fn tug_cancelled(g: &mut Game, (x0, y0): (f32, f32), (dx, dy): (f32, f32), px: f32, steps: usize, dt: f32) {
+    g.pointer_down(1, x0, y0);
+    for k in 1..=steps {
+        g.pointer_move(1, x0 + dx * px * k as f32, y0 + dy * px * k as f32, dt);
+        g.update(dt);
+    }
+    g.drop_hand(1);
+}
+
+#[test]
+fn a_cancelled_touch_finishes_nothing() {
+    // pressed and taken away at once: not a poke
+    let mut g = game();
+    g.pointer_down(1, 400.0, 300.0);
+    wait(&mut g, 0.2);
+    g.drop_hand(1);
+    wait(&mut g, 0.6);
+    assert!(!g.progress.has(Discovery::Poke) && g.world.ripples.is_empty());
+    assert!(g.pointers.is_empty() && matches!(g.gesture, Gesture::Idle));
+    // a short tug taken away: not a pinch
+    tug_cancelled(&mut g, (450.0, 300.0), (1.0, 0.0), 24.0, 3, 1.0 / 120.0);
+    wait(&mut g, 0.1);
+    assert!(!g.progress.has(Discovery::Pinch) && g.world.forms.bloom.buds.is_empty());
+    // a long pull flicked as the touch is taken away: not a throw
+    tug_cancelled(&mut g, (400.0, 300.0), (0.0, 1.0), 40.0, 4, 1.0 / 120.0);
+    wait(&mut g, 0.1);
+    assert!(!g.progress.has(Discovery::Throw));
+    assert!(g.world.handles.iter().all(|h| h.target.is_none()), "the tendril was let go");
+    // on empty space: not a call
+    g.pointer_down(1, 60.0, 60.0);
+    g.drop_hand(1);
+    assert!(!g.progress.has(Discovery::Call));
+    assert!(!g.progress.has(Discovery::Poke));
+}
+
+#[test]
+fn a_cancelled_squeeze_finishes_nothing() {
+    let mut g = game();
+    g.pointer_down(1, 420.0, 260.0);
+    g.pointer_down(2, 480.0, 260.0);
+    g.pointer_down(3, 400.0, 500.0);
+    for k in 1..=6 {
+        let f = k as f32 / 6.0;
+        g.pointer_move(1, 420.0 + 20.0 * f, 260.0, 1.0 / 60.0);
+        g.pointer_move(2, 480.0 - 20.0 * f, 260.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+    }
+    // a third finger taken away changes nothing
+    g.drop_hand(3);
+    assert!(matches!(g.gesture, Gesture::Squeezing { .. }));
+    // one of the two taken away: the squeeze is dropped, not a pinch
+    g.drop_hand(1);
+    assert!(matches!(g.gesture, Gesture::Idle));
+    g.pointer_up(2);
+    wait(&mut g, 0.1);
+    assert!(!g.progress.has(Discovery::Pinch) && g.world.forms.bloom.buds.is_empty());
+    assert!(g.pointers.is_empty());
+}
+
 fn flower(g: &mut Game) {
     for i in 0..5 {
         let a = i as f32 * std::f32::consts::TAU / 5.0;

@@ -237,19 +237,7 @@ impl Game {
             2 => {
                 // A second finger turns whatever was happening into a squeeze. What the first
                 // finger began is dropped, not finished: no tap, no pinch, no throw, no call.
-                match std::mem::replace(&mut self.gesture, Gesture::Idle) {
-                    Gesture::Stretching { handle, .. } => self.world.release_handle(handle),
-                    Gesture::Dragging { drop, .. } => {
-                        self.world.release_drop(drop);
-                    }
-                    Gesture::Shard { i, carried: true, .. } => {
-                        self.world.burst.release(i, self.world.body.radius());
-                    }
-                    Gesture::Other { .. } => self.world.other.release(V3::ZERO),
-                    _ => {}
-                }
-                self.trace.clear();
-                self.world.warming = false;
+                self.drop_gesture();
                 let on = self.pinched_on();
                 self.gesture = Gesture::Squeezing { start_dist: self.pinch_dist(), since: self.clock, least: 1.0, on };
                 return;
@@ -522,12 +510,19 @@ impl Game {
     }
 
     /// A hand taken away without finishing what it began: no tap, no pinch, no throw, no call.
+    /// The spoken hand (words.rs), and a touch the browser cancels (platform/web).
     pub(crate) fn drop_hand(&mut self, id: i32) {
-        let before = self.pointers.len();
-        self.pointers.retain(|p| p.0 != id);
-        if self.pointers.len() == before {
+        let Some(i) = self.pointers.iter().position(|p| p.0 == id) else { return };
+        self.pointers.remove(i);
+        // As in `pointer_up`: a third finger of a squeeze coming and going changes nothing.
+        if i >= 2 && matches!(self.gesture, Gesture::Squeezing { .. }) {
             return;
         }
+        self.drop_gesture();
+    }
+
+    /// Whatever the hand was doing stops where it is, without finishing.
+    fn drop_gesture(&mut self) {
         match std::mem::replace(&mut self.gesture, Gesture::Idle) {
             Gesture::Stretching { handle, .. } => self.world.release_handle(handle),
             Gesture::Dragging { drop, .. } => {
@@ -537,6 +532,7 @@ impl Game {
                 self.world.burst.release(i, self.world.body.radius());
             }
             Gesture::Other { .. } => self.world.other.release(V3::ZERO),
+            Gesture::Squeezing { .. } => self.world.body.squeeze = 0.0,
             _ => {}
         }
         self.trace.clear();

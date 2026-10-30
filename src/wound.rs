@@ -7,6 +7,7 @@
 //!   the way with what it brought, dripping toward green
 //! - carry one in at any other color, or anywhere else: it is spat back out, hard, falls,
 //!   bounces on the floor, and goes on turning
+//! - carry one in while it is anything else: it is kept, and spat back out once it is itself
 //! - fill it: the wound closes over, and the scar is fainter than it was. Never gone.
 //!
 //! The pieces are drops (sim/) that it holds in place; a hand can still carry them. The seam
@@ -105,7 +106,8 @@ pub struct Wound {
     /// 0..1, how much of it shows: it is on the plain liquid only, and fades while it is anything else.
     pub shown: f32,
     caltrops: Vec<Caltrop>,
-    /// Pieces of the wrong color taken in, waiting for room to be spat back out.
+    /// Pieces of the wrong color taken in, or anything taken in while it was not itself, waiting
+    /// for room, and for it to be itself, to be spat back out.
     taken: Vec<Caltrop>,
     time: f32,
 }
@@ -283,7 +285,9 @@ pub fn step(g: &mut Game, dt: f32) {
                 }
                 let into_body = (c.last_pos - body).len() < reach;
                 let at = (c.last_pos - body).norm();
-                if into_body && at.dot(wound.dir) > NEAR_WOUND && is_green(c.last_hue) && wound.phase == Phase::Open {
+                // Taken in while it is something else, even green, it is kept and given back once
+                // it is itself again: a wound that does not show neither heals nor spits.
+                if ordinary && into_body && at.dot(wound.dir) > NEAR_WOUND && is_green(c.last_hue) && wound.phase == Phase::Open {
                     went.push((Went::Healed, c));
                 } else {
                     went.push((Went::Back, c));
@@ -318,12 +322,13 @@ pub fn step(g: &mut Game, dt: f32) {
             Went::Back => wound.taken.push(c),
         }
     }
-    // What it has taken in to give back comes out as soon as there is room for it.
+    // What it has taken in to give back comes out as soon as there is room for it, and once it
+    // is itself again with the wound showing.
     let wound = &mut g.world.wound;
     if !matches!(wound.phase, Phase::Opening { .. } | Phase::Open) {
         wound.taken.clear();
     }
-    if wound.taken.is_empty() {
+    if wound.taken.is_empty() || !ordinary || wound.shown < 0.5 {
         return;
     }
     let mut w = std::mem::take(&mut g.world.wound);
@@ -646,6 +651,95 @@ mod tests {
         let n = g.world.wound.caltrops.iter().filter(|k| k.id == c.id).count();
         let flung = g.world.wound.caltrops.iter().any(|k| k.flung > 0.0);
         assert!(n == 1 && !flung, "piece left its place: still there {n}, one spat out {flung}");
+    }
+
+    /// Sound by sound, for `secs`: how many times something was spat out.
+    fn tears(g: &mut Game, secs: f32) -> usize {
+        let mut n = 0;
+        for _ in 0..(secs * 60.0) as usize {
+            g.update(1.0 / 60.0);
+            n += g.sounds.iter().filter(|s| matches!(s, crate::game::Sound::Tear)).count();
+            g.sounds.clear();
+        }
+        n
+    }
+
+    #[test]
+    fn while_it_is_a_box_the_hidden_wound_neither_spits_nor_heals() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        g.world.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        run(&mut g, 2.0);
+        assert!(!g.world.ordinary());
+        send_in(&mut g, GREEN + 0.4);
+        let spat = tears(&mut g, 1.0);
+        send_in(&mut g, GREEN);
+        run(&mut g, 3.0);
+        assert!(spat == 0 && !g.progress.has(Discovery::Tend), "spat {spat}, tended {}", g.progress.has(Discovery::Tend));
+    }
+
+    #[test]
+    fn while_it_is_a_box_green_does_not_heal_the_hidden_wound() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        g.world.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        run(&mut g, 2.0);
+        send_in(&mut g, GREEN);
+        run(&mut g, 3.0);
+        assert!(!g.progress.has(Discovery::Tend));
+        assert_eq!(g.world.wound.fill, 0.0);
+    }
+
+    #[test]
+    fn nothing_is_spat_out_between_two_cells() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        assert_eq!(g.world.wound.phase, Phase::Open);
+        assert!(g.world.division.slice(v3(1.0, 0.0, 0.0)));
+        run(&mut g, 3.0);
+        assert!(!g.world.ordinary());
+        let r = g.world.body.radius();
+        let ([a, _], _) = g.world.division.cells(g.world.body.pos, r);
+        // A piece of the wrong color carried into one of the cells.
+        let time = g.world.wound.time;
+        let id = g.world.wound.caltrops[0].id;
+        g.world.wound.caltrops[0].phase = -time / CYCLE_SECS;
+        let mut gone = false;
+        let mut spat = 0;
+        for _ in 0..120 {
+            if let Some(d) = g.world.drop_mut(id) {
+                d.target = Some(a);
+                d.age = 10.0;
+            }
+            spat += tears(&mut g, 1.0 / 60.0);
+            gone |= !g.world.drops.iter().any(|d| d.id == id);
+        }
+        assert!(gone, "it went in");
+        assert_eq!(spat, 0, "nothing is spat into the air between the cells");
+        assert_eq!(g.world.wound.caltrops.len(), CALTROPS - 1);
+        assert_eq!(g.world.wound.taken.len(), 1, "kept until it is whole");
+    }
+
+    #[test]
+    fn what_the_hidden_wound_took_in_comes_out_once_it_is_itself() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        g.world.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        run(&mut g, 2.0);
+        send_in(&mut g, GREEN);
+        run(&mut g, 3.0);
+        assert_eq!(g.world.wound.taken.len(), CALTROPS);
+        g.world.forms.pandora = Default::default();
+        assert!(g.world.ordinary());
+        assert_eq!(tears(&mut g, 0.1), 0, "not before the wound shows again");
+        let spat = tears(&mut g, 3.0);
+        assert_eq!(spat, CALTROPS, "every one is spat back out");
+        assert_eq!(g.world.wound.caltrops.len(), CALTROPS);
+        assert!(!g.progress.has(Discovery::Tend));
     }
 
     #[test]
