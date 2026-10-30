@@ -65,8 +65,9 @@ pub enum Phase {
     /// Being taken into the soft one.
     Taking { t: f32 },
     Inside,
-    /// Being given back; `asked` if a squeeze did it, not the soft one changing.
-    Giving { t: f32, asked: bool },
+    /// Being given back; `asked` if a squeeze did it, not the soft one changing. `began` is the
+    /// `t` it started from and `was` how far inside it was then, so neither jumps.
+    Giving { t: f32, asked: bool, began: f32, was: f32 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -171,7 +172,7 @@ impl Other {
         match self.phase {
             Phase::Taking { t } => smoothstep(0.0, TAKE_SECS, t),
             Phase::Inside => 1.0,
-            Phase::Giving { t, .. } => 1.0 - smoothstep(0.0, GIVE_SECS, t),
+            Phase::Giving { t, began, was, .. } => was * (1.0 - smooth01((t - began) / (GIVE_SECS - began).max(1e-3))),
             _ => 0.0,
         }
     }
@@ -275,7 +276,8 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
             }
         }
         if matches!(o.phase, Phase::Taking { .. } | Phase::Inside) {
-            o.phase = Phase::Giving { t: give_from((o.pos - c).len(), r), asked: false };
+            let t = give_from((o.pos - c).len(), r);
+            o.phase = Phase::Giving { t, asked: false, began: t, was: o.inside() };
         }
         if let Phase::Giving { asked, .. } = &mut o.phase {
             *asked = false;
@@ -364,7 +366,7 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
     if o.squeezed > SQUEEZE_SECS {
         o.squeezed = 0.0;
         o.out = look.right;
-        o.phase = Phase::Giving { t: 0.0, asked: true };
+        o.phase = Phase::Giving { t: 0.0, asked: true, began: 0.0, was: 1.0 };
         w.add_ripple(look.right, 0.9);
     }
 
@@ -380,7 +382,7 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
             Phase::Inside
         }
         Phase::Taking { t } => Phase::Taking { t: t + dt },
-        Phase::Giving { t, asked } if t + dt >= GIVE_SECS => {
+        Phase::Giving { t, asked, .. } if t + dt >= GIVE_SECS => {
             // Each keeps something of the other: it the soft one's color, the soft one its cold.
             o.kept = o.kept.lerp(w.body.color, 0.6);
             o.fire = (o.fire + 0.3).min(1.0);
@@ -390,7 +392,7 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
             }
             Phase::Here
         }
-        Phase::Giving { t, asked } => Phase::Giving { t: t + dt, asked },
+        Phase::Giving { t, asked, began, was } => Phase::Giving { t: t + dt, asked, began, was },
         p => p,
     };
 
@@ -677,6 +679,30 @@ mod tests {
         g.update(1.0 / 60.0);
         let moved = (g.world.other.pos - before).len();
         assert!(moved < 0.3, "moved {moved} in a frame");
+    }
+
+    #[test]
+    fn given_back_from_most_of_the_way_in_it_does_not_grow_in_a_frame() {
+        let mut g = arrived();
+        let c = g.world.body.pos;
+        let r = g.world.body.radius();
+        let side = -g.cam.basis().right;
+        g.world.other.pos = c + side * (r + SIZE * BOUND);
+        g.world.other.vel = V3::ZERO;
+        g.world.other.phase = Phase::Taking { t: 0.0 };
+        for _ in 0..78 {
+            g.update(1.0 / 60.0);
+        }
+        let (a, s0) = (g.world.other.inside(), g.world.other.size(c));
+        g.world.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        g.update(1.0 / 60.0);
+        let (b, s1) = (g.world.other.inside(), g.world.other.size(c));
+        assert!((b - a).abs() < 0.05, "inside {a} -> {b}, size {s0} -> {s1}");
+        // and it is all the way out by the end
+        for _ in 0..(GIVE_SECS * 60.0) as usize + 2 {
+            g.update(1.0 / 60.0);
+        }
+        assert_eq!(g.world.other.inside(), 0.0);
     }
 
     #[test]

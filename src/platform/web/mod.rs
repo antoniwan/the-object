@@ -345,9 +345,15 @@ pub fn start() -> Result<(), JsValue> {
     }
     for name in ["pointerup", "pointercancel"] {
         let app = app.clone();
+        // A touch the browser takes away (a scroll, a system gesture) is dropped, not finished.
+        let cancel = name == "pointercancel";
         listen(target, name, true, move |e: PointerEvent| {
             let mut a = app.borrow_mut();
-            a.game.pointer_up(e.pointer_id());
+            if cancel {
+                a.game.drop_hand(e.pointer_id());
+            } else {
+                a.game.pointer_up(e.pointer_id());
+            }
             if a.cursor == "grabbing" && !a.game.held() {
                 a.set_cursor("grab");
             }
