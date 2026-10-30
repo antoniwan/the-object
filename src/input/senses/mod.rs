@@ -332,6 +332,9 @@ impl Senses {
             Kind::See => {
                 self.seen = None;
                 self.present = 0.0;
+                // opened again, the camera is waking up again
+                self.lit = 0.0;
+                self.watched = 0.0;
             }
             Kind::Feel | Kind::Words => {}
         }
@@ -383,6 +386,7 @@ impl Senses {
     pub fn step(&mut self, dt: f32, world: &mut World, look: &Look) {
         self.time += dt;
         self.since_offer += dt;
+        self.flinch_wait = (self.flinch_wait - dt).max(0.0);
         self.step_offers(dt, world, look);
         if self.hear == Leave::Open {
             self.step_hearing(dt, world, look);
@@ -446,7 +450,6 @@ impl Senses {
     fn step_hearing(&mut self, dt: f32, world: &mut World, look: &Look) {
         let ordinary = world.ordinary();
         self.blow_wait = (self.blow_wait - dt).max(0.0);
-        self.flinch_wait = (self.flinch_wait - dt).max(0.0);
 
         // Humming back, it does not listen: it would only hear itself.
         if let Some((f, t)) = &mut self.hum {
@@ -604,7 +607,6 @@ impl Senses {
             world.agitation = world.agitation.max(0.3);
             self.found.push(Discovery::Startle);
         }
-        self.flinch_wait = (self.flinch_wait - dt).max(0.0);
 
         // It keeps where it last saw you move, and slowly stops being sure.
         if let (Some(at), true) = (s.at, s.motion > STIR_MOTION) {

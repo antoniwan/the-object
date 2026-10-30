@@ -384,3 +384,30 @@ fn covered_the_room_goes_dark_and_comes_back() {
     run(&mut s, &mut w, &l, 8.0, |_| {});
     assert!(w.night < 0.1);
 }
+
+#[test]
+fn a_camera_opened_again_is_waking_up_again() {
+    let (mut w, mut s) = (World::new(), open(Kind::See));
+    s.offered_see = true;
+    let l = look(Stage::Initiative, 5.0);
+    run(&mut s, &mut w, &l, 2.0, |s| s.seen(Seen { light: 0.5, motion: 0.0, at: None }));
+    s.close(Kind::See);
+    run(&mut s, &mut w, &l, 2.0, |_| {});
+    assert!(s.accept_waiting(Kind::See));
+    s.opened(Kind::See);
+    let found = run(&mut s, &mut w, &l, 1.5, |s| s.seen(Seen { light: 0.01, motion: 0.0, at: None }));
+    assert!(!found.contains(&Discovery::Blind), "a camera still waking up is not a covered one; dark {}", s.dark);
+}
+
+#[test]
+fn hearing_and_seeing_at_once_it_still_waits_to_flinch_again() {
+    let (mut w, mut s) = (World::new(), open(Kind::See));
+    s.hear = Leave::Open;
+    let l = look(Stage::Initiative, 5.0);
+    run(&mut s, &mut w, &l, 1.5, |s| s.seen(Seen { light: 0.5, motion: 0.0, at: None }));
+    let f = run(&mut s, &mut w, &l, 1.0 / 60.0, |s| s.seen(Seen { light: 0.5, motion: 0.4, at: Some((0.0, 0.0)) }));
+    assert!(f.contains(&Discovery::Startle));
+    // 1.3 s later there is still 1.2 s to wait, however many senses are open
+    let f = run(&mut s, &mut w, &l, 1.3, |s| s.seen(Seen { light: 0.5, motion: 0.4, at: Some((0.0, 0.0)) }));
+    assert!(!f.contains(&Discovery::Startle), "flinched again after 1.3 s");
+}
