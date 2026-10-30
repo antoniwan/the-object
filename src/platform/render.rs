@@ -146,7 +146,7 @@ impl Renderer {
         let swell = 1.0 + 0.3 * world.burst.swell();
         self.upload_liquid(world, r, swell);
         self.upload_division(world, r);
-        self.v3("uBodyCol", body.color);
+        self.v3("uBodyCol", world.other.shown(body.color));
         self.f("uAgit", world.agitation);
         self.f("uNight", world.night);
         let g = world.gaze_dir;

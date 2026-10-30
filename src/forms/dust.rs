@@ -79,6 +79,9 @@ pub struct Dust {
     pub growth: Growth,
     /// The mound as it stands, following the fullest drift (`heap`).
     mound: Mound,
+    /// What `HEAP_AT` is multiplied by: under 1, it heaps from less. Set only while it is whole,
+    /// so it holds from the pinch that brings it to dust until it is liquid again (mind/temper.rs).
+    pub heap_at: f32,
     pub(super) events: Vec<Event>,
 }
 
@@ -111,6 +114,7 @@ impl Default for Dust {
             pressing: 0.0,
             growth: Growth::default(),
             mound: Mound::default(),
+            heap_at: 1.0,
             events: Vec::new(),
         }
     }
@@ -215,7 +219,7 @@ impl Dust {
     fn grown(&self, k: usize) -> f32 {
         match self.phase {
             Phase::Whole | Phase::Scattering { .. } => 0.0,
-            Phase::Dust => 0.7 * smoothstep(0.2, HEAP_AT, self.clumps[k].amount),
+            Phase::Dust => 0.7 * smoothstep(0.2, HEAP_AT * self.heap_at, self.clumps[k].amount),
             Phase::Heaping { t } => 0.7 + 0.3 * smoothstep(0.0, HEAP_SECS, t),
             Phase::Mound => 1.0,
             Phase::Rising { t } => 1.0 - smoothstep(0.0, RISE_SECS * 0.85, t),
@@ -408,7 +412,7 @@ impl Dust {
                     }
                 }
                 self.merge(dt);
-                if self.clumps[self.biggest()].amount >= HEAP_AT {
+                if self.clumps[self.biggest()].amount >= HEAP_AT * self.heap_at {
                     self.events.push(Event::Heaped);
                     Phase::Heaping { t: 0.0 }
                 } else {

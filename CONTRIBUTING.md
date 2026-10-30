@@ -81,7 +81,7 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 | `src/game/` | Pointer input to verbs. `mod.rs` holds `Game`, its frame step and, in its header comment, every gesture; `gesture.rs` turns pointer movement into verbs, `news.rs` routes what each transformation reports back, `view.rs` projects between screen and room, `learn.rs` feeds contact and the senses, `sound.rs` names the sounds a frame asks for, `tests.rs` drives gestures through `Game`. |
 | `src/sim/` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `mod.rs` holds `World` and its frame step; `parts.rs` the pieces it is made of, `verbs.rs` what a hand does to it, `liquid.rs` tendrils and drops, `moods.rs` how it feels, `geometry.rs` its distance function (`World::sdf`, mirrored by the shader), `tests.rs` its own tests. |
 | `src/lib.rs` | The crate root: the families below, and `platform/` only in the wasm build. |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 123 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 124 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two, and left alone at a screen's steady thirty a second; the canvas follows in small steps, and the finest light fades with it. |
@@ -106,7 +106,7 @@ One folder per family of transformations; the files in a family use each other, 
 | `src/burst/river.rs` | The twelve crowded together anywhere but the middle melt into the ground and run as a river: touched, columns stand out of it; raise enough and it beats, then drains, and the body gathers itself out of it. |
 | `src/forms/` | Four verbs that each make it something else: `bloom` (flower), `filament` (thread), `cosmos` (universe), `pandora` (box); `fold`, where the universe stirred on gets out into the room; and `dust`, where the flower pinched comes apart over the floor, is swept and heaps into a mound; and `growth`, what roots in the mound and grows as far as it is tended; and `spin`, the flower spun until it is dizzy, then wound into ropes or whirled up off the floor, by which way. |
 | `src/wound.rs` | An old hurt: hurt enough, ever, it scars where it is struck most (kept in `the-object.remembrance`); hurt again, the scar opens and four spiked pieces, drops it holds in place, lie around it turning through every color. Carried in green, one is taken and fills the wound; any other color is spat back out. Three and it closes, leaving the scar fainter. The seam and wound are on the body's surface in the shader (`scarAt()`), the spikes in the drops' loop (`caltrop()`, `uCaltrop` bits). |
-| `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. |
+| `src/other.rs` | Late, something else in the room: hard, dark, many-sided. It comes after contact (or fifty discoveries), and everything it does is between it and the first: rung, carried, thrown, taken in and given back, standing between, circling. It is not part of the body, so it never changes `World::ordinary()`; when the body becomes anything else, it rises out of the room until it is itself again. It remembers how their meetings ended (`Met`, kept in `the-object.met`): clashes keep it further off for a while when it comes, having been inside cools the first faintly as it arrives (`shown`, a color only the renderer and the page see). |
 
 ### What reaches it (`src/input/`)
 
@@ -125,8 +125,9 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | File | What it holds |
 | --- | --- |
 | `src/mind/contact.rs` | It learns the player, in stages unlocked by how much has been discovered: regard (6), echo (14), its own turn (24), contact (36). Saved between visits. |
-| `src/mind/remembrance.rs` | What it remembers of how it was treated, after Lifesworn's Remembrance: a ledger of deeds (held, sung to, answered, returned to; hurt, broken) it notices by itself each frame, and how warm or wary it is, worked out from that ledger by a formula and never saved. Hurt fades in half the time care does. Once a visit, from regard on, it meets the first hand that comes near accordingly. Other code reads `kind()`, `wary()`, `warmth()` and `bond()`, and adds deeds with `remember()`. |
-| `src/mind/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found and how far it has learned them. The whole table of thoughts and when each one comes is in this file. |
+| `src/mind/remembrance.rs` | What it remembers of how it was treated, after Lifesworn's Remembrance: a ledger of deeds (held, sung to, answered, returned to; hurt, broken) it notices by itself each frame, and how warm or wary it is, worked out from that ledger by a formula and never saved. Hurt fades in half the time care does. Once a visit, from regard on, it meets the first hand that comes near accordingly. Other code reads `kind()`, `wary()`, `warmth()`, `bond()`, `away()`, `scarred()` and `pitch()` (the note it knows the player sings by, the one number of their voice it keeps), and adds deeds with `remember()` and `sung()`. |
+| `src/mind/temper.rs` | How far its mood lets your verbs go: glad or wary of you (from `warmth()`), read when a hand comes down and kept for the gesture, a pinch may take a little longer or must be quicker, a pull tears a little further out or sooner, dust heaps from less, a thread winds itself back. Neutral changes nothing. |
+| `src/mind/thoughts.rs` | What it is thinking: one quiet line under it when the player has stopped finding things, chosen by where it is, what is not yet found, how far it has learned them, and what it remembers of them (read only). The whole table of thoughts and when each one comes is in this file. |
 
 ### The browser (`src/platform/`, wasm only)
 
@@ -193,14 +194,15 @@ Fonts are self-hosted from Fontsource. The math font is cut down to just the gly
 
 ## Saved state
 
-Five `localStorage` keys, all in the player's browser (the one answer that leaves it is described under Where it runs):
+Six `localStorage` keys, all in the player's browser (the one answer that leaves it is described under Where it runs):
 
 - `the-object.found`: which discoveries they have made.
 - `the-object.visits`: how many times they have come back.
 - `the-object.contact`: what the object has learned about them (`contact.rs`).
-- `the-object.remembrance`: what it remembers of how it was treated (`remembrance.rs`): when it first met them and when they were last here, for each kind of deed how many times ever and a fading recent sum, the scar, if there is one (which way it faces and how plain it is), and how often the flower was spun nearly dizzy and which way it learned you turn it (`forms/spin.rs`). Never how it feels about them; that is worked out from these each time.
+- `the-object.remembrance`: what it remembers of how it was treated (`remembrance.rs`): when it first met them and when they were last here, for each kind of deed how many times ever and a fading recent sum, the scar, if there is one (which way it faces and how plain it is), how often the flower was spun nearly dizzy and which way it learned you turn it (`forms/spin.rs`), and the note they tend to sing, one number in Hz (`pitch=`), never a sound. Never how it feels about them; that is worked out from these each time.
+- `the-object.met`: how the meetings with the other one ended, three counts (`clash=n;inside=n;given=n`, `other.rs`).
 - `the-object.senses`: only whether they ever told the browser no to the microphone, the camera, feeling the phone or words leaving the page (`hear=no;see=no;feel=no;words=no`), so it never asks again (`senses/`).
 
-Words are made by the browser's own speech recognition: on the device where it can (then nothing leaves the page), and otherwise only once the player has tapped `say something.`, whose line says the voice goes to the browser's maker. Either way the text that comes back is read for a few words and dropped. The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses/` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
+Words are made by the browser's own speech recognition: on the device where it can (then nothing leaves the page), and otherwise only once the player has tapped `say something.`, whose line says the voice goes to the browser's maker. Either way the text that comes back is read for a few words and dropped. The microphone and camera are never recorded, kept or sent: each frame `devices.rs` hands `senses/` one window of samples or one 32 × 24 picture, which become a few numbers and are dropped. Of those, only one is ever kept: the middle of the notes the player has held, in Hz, under `the-object.remembrance`, so it can sing in their key. Nothing is played back, nothing is drawn. Inside a frame that forbids them (itch.io's embed), it never asks.
 
 Clearing site data starts the object over.

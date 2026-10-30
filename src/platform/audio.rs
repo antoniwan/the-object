@@ -20,6 +20,20 @@ fn shard_note(i: usize) -> f32 {
     1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0)
 }
 
+/// One of its signs, said: a soft sine gliding up into the note of the piece of the twelve it
+/// shares a place with, quieter the higher it is (0.03 – 0.05).
+fn sign_tone(i: usize, delay: f32) -> Tone {
+    let f = shard_note(i);
+    Tone {
+        wave: Wave::Sine,
+        f0: f * 0.94,
+        f1: f,
+        gain: (0.05 * 400.0 / f).clamp(0.03, 0.05),
+        decay: 0.7,
+        delay: f64::from(delay),
+    }
+}
+
 /// The master level, unmuted.
 const LEVEL: f32 = 0.7;
 /// Leaving or coming back, the whole mix fades this fast (time constant, seconds), so a tone
@@ -221,7 +235,10 @@ impl Audio {
         if s == Sound::Discover {
             return self.remember();
         }
-        *self.last.borrow_mut() = (self.ctx.current_time(), Vec::new());
+        // A phrase of signs is one sound: only its first begins it.
+        if !matches!(s, Sound::Sign { first: false, .. }) {
+            *self.last.borrow_mut() = (self.ctx.current_time(), Vec::new());
+        }
         use OscillatorType::*;
         let _ = match s {
             Sound::Poke { pitch, size } => {
@@ -291,11 +308,19 @@ impl Audio {
                 self.pluck(Triangle, f, f * 0.998, 0.1, 2.8, 0.0)
                     .and_then(|_| self.pluck(Sine, f * 2.76, f * 2.75, 0.025, 1.4, 0.0))
             }
+            Sound::Sign { i, delay, .. } => {
+                let t = sign_tone(i, delay);
+                self.pluck(Sine, t.f0, t.f1, t.gain, t.decay, t.delay)
+            }
             Sound::Provoked => self
                 .pluck(Triangle, 73.4, 69.0, 0.25, 1.4, 0.0)
                 .and_then(|_| self.pluck(Triangle, 77.8, 72.0, 0.2, 1.3, 0.0)),
         };
-        OWN_SOUND_DEAF
+        // A sign said later is listened over until it, too, has sounded.
+        match s {
+            Sound::Sign { delay, .. } => delay + OWN_SOUND_DEAF,
+            _ => OWN_SOUND_DEAF,
+        }
     }
 
     /// Something was found: a pressure, and then the memory of a pressure. The last sound it

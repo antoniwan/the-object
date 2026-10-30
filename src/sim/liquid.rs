@@ -15,7 +15,7 @@ impl World {
             let (k, c) = if h.target.is_some() { (300.0, 24.0) } else { (110.0, 6.0) };
             let mut goal = h.target.unwrap_or(rest);
             // Can't pull it further than this when it isn't allowed to tear.
-            let max = r * (TEAR_RATIO + 0.25);
+            let max = r * (TEAR_RATIO * h.give + 0.25);
             if (goal - rest).len() > max {
                 goal = rest + (goal - rest).norm() * max;
             }
@@ -25,7 +25,7 @@ impl World {
                 // The body leans toward whatever is pulling it.
                 self.body.vel += (h.tip - rest) * (1.5 * dt);
                 // It tears only once it has all come out.
-                if h.stretch(&self.body) > TEAR_RATIO && h.weight >= 1.0 {
+                if h.stretch(&self.body) > TEAR_RATIO * h.give && h.weight >= 1.0 {
                     tears.push(h.id);
                 }
             } else if (h.tip - rest).len() <= 0.004 && h.vel.len() <= 0.05 {

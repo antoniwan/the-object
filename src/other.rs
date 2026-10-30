@@ -13,6 +13,11 @@
 //! - hurt the soft one again and again while it is here: it comes between you
 //! - leave them both alone: they circle, and keep their distance
 //!
+//! It remembers how their meetings ended, from visit to visit (`Met`, kept by the page): after
+//! clash on clash it comes down a little further off and circles a while before it comes close;
+//! after it has been inside the soft one, the soft one cools faintly as it arrives, for a few
+//! seconds, and warms again.
+//!
 //! When the soft one becomes anything else (cells, a flower, the floor, twelve pieces), the
 //! other lets go of whatever it was doing, rises out of the room, and comes down again once
 //! the soft one is itself. Its shape is the last thing joined in the shader's `scene()`, and
@@ -56,6 +61,69 @@ const CIRCLE_AFTER: f32 = 10.0;
 const CIRCLE_SPEED: f32 = 0.3;
 /// While it is inside, the soft one cools toward this.
 pub const COLD: V3 = v3(0.62, 0.64, 0.96);
+/// Clashes remembered until it is as shy of coming close as it gets.
+const CLASH_SHY: f32 = 4.0;
+/// Shy, it keeps off this long after it arrives (seconds), the last `SHY_FADE` of it coming in,
+/// and stands up to this much further off (of how far it would).
+const SHY_SECS: f32 = 30.0;
+const SHY_FADE: f32 = 8.0;
+const SHY_FAR: f32 = 0.6;
+/// Times inside remembered until the soft one cools as much as it does when it arrives; how
+/// much that is, and when (seconds from its arrival) the cold comes in and goes again.
+const INSIDE_FOND: f32 = 3.0;
+const CHILL: f32 = 0.3;
+const CHILL_IN: f32 = 1.5;
+const CHILL_OUT: (f32, f32) = (5.0, 9.0);
+
+/// How the meetings of the two have ended, over every visit. The page keeps it
+/// (`the-object.met`); nothing else is kept of it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Met {
+    pub clash: u32,
+    pub inside: u32,
+    pub given: u32,
+}
+
+impl Met {
+    /// `clash=n;inside=n;given=n`
+    pub fn save(&self) -> String {
+        format!("clash={};inside={};given={}", self.clash, self.inside, self.given)
+    }
+
+    /// What was kept; anything unreadable counts as none.
+    pub fn load(saved: &str) -> Met {
+        let mut m = Met::default();
+        for part in saved.split(';') {
+            let Some((k, v)) = part.split_once('=') else { continue };
+            let Ok(n) = v.trim().parse::<u32>() else { continue };
+            match k.trim() {
+                "clash" => m.clash = n,
+                "inside" => m.inside = n,
+                "given" => m.given = n,
+                _ => {}
+            }
+        }
+        m
+    }
+
+    /// Takes in what another tab kept: each count only grows.
+    pub fn merge(&mut self, saved: &str) {
+        let kept = Met::load(saved);
+        self.clash = self.clash.max(kept.clash);
+        self.inside = self.inside.max(kept.inside);
+        self.given = self.given.max(kept.given);
+    }
+
+    /// How shy of coming close the clashes left it, 0..1.
+    fn shy(&self) -> f32 {
+        (self.clash as f32 / CLASH_SHY).min(1.0)
+    }
+
+    /// How much the soft one remembers it inside, 0..1.
+    fn fond(&self) -> f32 {
+        (self.inside as f32 / INSIDE_FOND).min(1.0)
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
@@ -138,6 +206,16 @@ pub struct Other {
     /// Which way it is given back.
     out: V3,
     time: f32,
+    /// How their meetings have ended, every visit; `dirty` when it changed and should be kept.
+    pub met: Met,
+    pub dirty: bool,
+    /// Shy from old clashes: seconds of it left since it arrived, and how far off it keeps now, 0..1.
+    shy_left: f32,
+    far: f32,
+    /// Seconds since it began to arrive, while the soft one's cold may still show, and how much
+    /// of it shows now, 0..1 (`shown`).
+    since_arrived: Option<f32>,
+    pub chill: f32,
     events: Vec<Event>,
 }
 
@@ -165,12 +243,24 @@ impl Default for Other {
             reached: false,
             out: v3(1.0, 0.0, 0.0),
             time: 0.0,
+            met: Met::default(),
+            dirty: false,
+            shy_left: 0.0,
+            far: 0.0,
+            since_arrived: None,
+            chill: 0.0,
             events: Vec::new(),
         }
     }
 }
 
 impl Other {
+    /// The soft one's color as it is seen: `color`, cooled a little while it remembers having
+    /// held this one, as it arrives.
+    pub fn shown(&self, color: V3) -> V3 {
+        color.lerp(COLD, self.chill)
+    }
+
     /// In the room and free to be touched.
     pub fn here(&self) -> bool {
         self.phase == Phase::Here
@@ -236,7 +326,11 @@ impl Other {
         let side = (look.view * look.aspect * 0.72).clamp(0.75, 2.2);
         let lift = ((2.0 - side) * 1.2).clamp(0.3, 1.5);
         let (s, k) = self.orbit.sin_cos();
-        c + look.right * (k * side) + look.fwd * (s * 1.6) + look.up * (lift + 0.12 * (self.time * 0.7).sin())
+        // Shy of the soft one, it keeps further off.
+        let off = 1.0 + SHY_FAR * self.far;
+        c + look.right * (k * side * off)
+            + look.fwd * (s * 1.6 * off)
+            + look.up * (lift + 0.12 * (self.time * 0.7).sin())
     }
 }
 
@@ -268,6 +362,10 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
     let r = w.body.radius();
 
     if o.phase == Phase::Absent {
+        // How it remembers their meetings is how it comes.
+        o.shy_left = SHY_SECS * o.met.shy();
+        o.far = o.met.shy();
+        o.since_arrived = (o.met.fond() > 0.0).then_some(0.0);
         o.phase = Phase::Arriving { t: 0.0 };
         o.pos = o.rest(c, look) + V3::UP * 7.0;
         o.vel = V3::ZERO;
@@ -305,6 +403,27 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
     o.guard -= dt;
     let sharp = if o.guard > 0.0 { 1.0 } else { 0.0 };
     o.edge = ease(o.edge, sharp, -2.0 * dt);
+
+    // Shy, it circles at a distance a while before it comes close; the soft one cools as it
+    // arrives, if it remembers holding it. Both blend in and out.
+    if o.far > 0.0 {
+        if o.here() {
+            o.shy_left = (o.shy_left - dt).max(0.0);
+        }
+        o.far = o.met.shy() * smoothstep(0.0, SHY_FADE, o.shy_left);
+        if plain && o.carried.is_none() {
+            o.orbit += CIRCLE_SPEED * o.far * dt;
+        }
+    }
+    if let Some(t) = &mut o.since_arrived {
+        *t += dt;
+        let t = *t;
+        o.chill = CHILL * o.met.fond() * smoothstep(0.0, CHILL_IN, t) * (1.0 - smoothstep(CHILL_OUT.0, CHILL_OUT.1, t));
+        if t >= CHILL_OUT.1 {
+            o.since_arrived = None;
+            o.chill = 0.0;
+        }
+    }
 
     // Left alone together, they circle, and the soft one watches it instead of you.
     let circling =
@@ -498,16 +617,22 @@ impl Game {
                 }
                 Event::Reached => self.discover(Discovery::Near),
                 Event::Clashed => {
+                    self.world.other.met.clash += 1;
+                    self.world.other.dirty = true;
                     self.sounds.push(Sound::Ring { pitch: 1.0 });
                     self.sounds.push(Sound::Provoked);
                     self.cam.shake = self.cam.shake.max(0.05);
                     self.discover(Discovery::Clash);
                 }
                 Event::TookIn => {
+                    self.world.other.met.inside += 1;
+                    self.world.other.dirty = true;
                     self.sounds.push(Sound::Become);
                     self.discover(Discovery::Inside);
                 }
                 Event::GaveBack => {
+                    self.world.other.met.given += 1;
+                    self.world.other.dirty = true;
                     self.sounds.push(Sound::Merge);
                     self.sounds.push(Sound::Ring { pitch: 0.4 });
                     self.discover(Discovery::Give);
@@ -727,5 +852,77 @@ mod tests {
         }
         assert_eq!(g.world.other.phase, Phase::Absent);
         assert!(g.world.other.hurts.len() <= (HURT_WINDOW * 60.0) as usize + 1, "{}", g.world.other.hurts.len());
+    }
+
+    #[test]
+    fn how_their_meetings_ended_is_kept_and_a_broken_save_is_none() {
+        let m = Met { clash: 3, inside: 1, given: 2 };
+        assert_eq!(Met::load(&m.save()), m);
+        for old in ["", "garbage", "clash=x;inside=-1", "clash=1.5"] {
+            assert_eq!(Met::load(old), Met::default(), "{old}");
+        }
+        assert_eq!(Met::load("given=2;nonsense;clash=1").clash, 1);
+        let mut a = Met { clash: 1, inside: 4, given: 0 };
+        a.merge(&m.save());
+        assert_eq!(a, Met { clash: 3, inside: 4, given: 2 }, "another tab never takes a count back");
+    }
+
+    #[test]
+    fn a_clash_a_taking_in_and_a_giving_back_are_counted() {
+        let mut g = arrived();
+        g.world.other.events.extend([Event::Clashed, Event::TookIn, Event::GaveBack]);
+        g.other_news();
+        assert_eq!(g.world.other.met, Met { clash: 1, inside: 1, given: 1 });
+        assert!(g.world.other.dirty);
+    }
+
+    /// Where it is from the soft one, every second for `secs` seconds, from the start of a visit.
+    fn path(met: Met, secs: usize) -> Vec<f32> {
+        let mut g = game();
+        g.world.other.met = met;
+        (0..secs)
+            .map(|_| {
+                wait(&mut g, 1.0);
+                (g.world.other.pos - g.world.body.pos).len()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn after_clash_on_clash_it_keeps_further_off_and_circles_before_it_comes_close() {
+        let plain = path(Met::default(), 80);
+        let shy = path(Met { clash: 6, ..Default::default() }, 80);
+        // it arrives around 26 s into the visit (20 s, and 6 s untouched, then 4 s down)
+        let (p, s) = (plain[34], shy[34]);
+        assert!(s > p * 1.15, "further off: {s} against {p}");
+        // and, a while after, comes close, without a jump
+        let near = plain[30..].iter().cloned().fold(0.0, f32::max) + 0.05;
+        assert!(shy[79] < near && shy[79] < s - 0.3, "{} {near}", shy[79]);
+        assert!(shy[21..].windows(2).all(|w| (w[1] - w[0]).abs() < 0.8), "{shy:?}");
+    }
+
+    #[test]
+    fn after_it_was_inside_the_soft_one_cools_as_it_arrives_and_warms_again() {
+        let mut g = game();
+        g.world.other.met = Met { inside: 3, ..Default::default() };
+        let color = g.world.body.color;
+        let mut most = 0.0f32;
+        let mut last = 0.0f32;
+        for _ in 0..(60 * 45) {
+            g.update(1.0 / 60.0);
+            let c = g.world.other.chill;
+            assert!((c - last).abs() < 0.01, "it never jumps: {last} -> {c}");
+            last = c;
+            most = most.max(c);
+        }
+        assert!(most > 0.2, "{most}");
+        assert_eq!(g.world.other.chill, 0.0, "and it is gone again");
+        assert_eq!(g.world.body.color, color, "only as it is seen; nothing kept");
+        assert!(g.world.other.shown(color).z > color.z - 1e-6);
+        // never inside, no cold
+        let mut g = game();
+        wait(&mut g, 45.0);
+        assert_eq!(g.world.other.chill, 0.0);
+        assert!(g.world.other.here());
     }
 }

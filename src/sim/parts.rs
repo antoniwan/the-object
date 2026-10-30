@@ -41,11 +41,14 @@ pub struct Handle {
     pub weight: f32,
     /// How fast it is sinking back, a second; 0 while it stays.
     pub fade: f32,
+    /// How much further than `TEAR_RATIO` it goes before it tears: 1 as it is, set for the
+    /// whole pull when it begins (mind/temper.rs).
+    pub give: f32,
 }
 
 impl Handle {
     pub fn new(id: u32, dir: V3, at: V3) -> Handle {
-        Handle { id, dir, tip: at, vel: V3::ZERO, target: Some(at), weight: 0.0, fade: 0.0 }
+        Handle { id, dir, tip: at, vel: V3::ZERO, target: Some(at), weight: 0.0, fade: 0.0, give: 1.0 }
     }
     /// Where its tip shows: drawn in toward the anchor, deep inside, while only part of it
     /// is out. At weight 0 it is a point too far under the surface to raise it.
@@ -66,7 +69,7 @@ impl Handle {
     /// shrink to nothing as it sinks back.
     pub fn radii(&self, b: &Body) -> (f32, f32, f32) {
         let r = b.radius() * self.weight.clamp(0.0, 1.0);
-        let s = self.stretch(b).min(TEAR_RATIO);
+        let s = self.stretch(b).min(TEAR_RATIO * self.give);
         let neck = r * (0.24 - 0.13 * s).max(0.05);
         (r * 0.42, neck, r * 0.27)
     }

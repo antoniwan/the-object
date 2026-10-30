@@ -45,6 +45,35 @@ pub enum Sound {
     Ring {
         pitch: f32,
     },
+    /// One of its signs, said: `i` which of the twelve, `delay` seconds from now, `first` of a
+    /// phrase (`signs`).
+    Sign {
+        i: usize,
+        delay: f32,
+        first: bool,
+    },
+}
+
+/// Between one sign of a phrase and the next (seconds), and the more between two words.
+pub const SIGN_STEP: f32 = 0.12;
+pub const SIGN_SPACE: f32 = 0.14;
+
+/// What its signs sound like, said `lead` seconds from now: one tone for each sign, in the order
+/// they are shown, so the same signs always make the same short phrase.
+pub fn signs(text: &str, lead: f32) -> Vec<Sound> {
+    let signs = crate::mind::contact::SIGNS;
+    let mut at = lead;
+    let mut out = Vec::new();
+    for c in text.chars() {
+        match signs.iter().position(|s| *s == c) {
+            Some(i) => {
+                out.push(Sound::Sign { i, delay: at, first: out.is_empty() });
+                at += SIGN_STEP;
+            }
+            None => at += SIGN_SPACE,
+        }
+    }
+    out
 }
 
 /// A tone's wave: sine for the soft things, triangle for the hard ones.
@@ -158,6 +187,20 @@ mod tests {
             let t = m[0];
             assert!(t.wave == Wave::Sine && t.f0 == t.f1 && t.f0 < 200.0 && t.gain <= MEMORY_GAIN);
         }
+    }
+
+    #[test]
+    fn the_same_signs_are_always_the_same_phrase() {
+        let a = signs("∴⊕ ∴", 0.35);
+        assert_eq!(a, signs("∴⊕ ∴", 0.35));
+        assert_eq!(a.len(), 3);
+        let at: Vec<f32> = a.iter().map(|s| if let Sound::Sign { delay, .. } = s { *delay } else { -1.0 }).collect();
+        assert!(at[0] == 0.35 && at[1] > at[0] && at[2] - at[1] > at[1] - at[0], "a word apart: {at:?}");
+        assert!(
+            matches!(a[0], Sound::Sign { i: 0, first: true, .. })
+                && matches!(a[1], Sound::Sign { i: 3, first: false, .. })
+        );
+        assert_ne!(a, signs("⊕∴ ⊕", 0.35));
     }
 
     #[test]

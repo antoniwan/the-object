@@ -2,7 +2,9 @@
 //! the whole body draws out along the pull into one thread, longer than the
 //! room, holding exactly as much liquid as the sphere did. Tap the thread and
 //! it is plucked; the farther from the middle you pluck it, the higher the
-//! harmonic that rings. Hold it still and it winds back into a sphere.
+//! harmonic that rings. Hold it still and it winds back into a sphere. Drawn out by a hand
+//! it is wary of (mind/temper.rs), it does not wait to be held: left alone a while, it winds
+//! itself back.
 
 use super::Event;
 use crate::math::*;
@@ -21,6 +23,10 @@ const MAX_HARMONIC: u32 = 9;
 /// Plucked again while it rings, the swing it had and the shape of its harmonic give way to
 /// the new ones over this long.
 const REPLUCK_SECS: f32 = 0.12;
+/// Drawn out wary, left alone this long (seconds) over how wary, it winds itself back; less
+/// wary than `RESTLESS_FROM`, it stays.
+const UNREST_SECS: f32 = 8.0;
+const RESTLESS_FROM: f32 = 0.25;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
@@ -42,6 +48,12 @@ pub struct Filament {
     /// The swing, and the harmonic's shape, it had when it was last plucked.
     from_swing: f32,
     from_harmonic: f32,
+    /// How wary it was of the hand that drew it, 0..1 (set as it is drawn), and seconds since it
+    /// was last plucked or drawn: wary enough, left alone, it winds itself back.
+    pub restless: f32,
+    alone: f32,
+    /// It wound itself back, not the hand.
+    pub by_itself: bool,
     pub(super) events: Vec<Event>,
 }
 
@@ -55,6 +67,9 @@ impl Default for Filament {
             since_pluck: 1e3,
             from_swing: 0.0,
             from_harmonic: 1.0,
+            restless: 0.0,
+            alone: 0.0,
+            by_itself: false,
             events: Vec::new(),
         }
     }
@@ -118,6 +133,9 @@ impl Filament {
         let side = if self.axis.dot(V3::UP).abs() > 0.9 { v3(1.0, 0.0, 0.0) } else { V3::UP };
         self.swing = (side - self.axis * side.dot(self.axis)).norm();
         self.phase = Phase::Drawing { t: 0.0 };
+        self.restless = 0.0;
+        self.alone = 0.0;
+        self.by_itself = false;
         true
     }
 
@@ -132,6 +150,7 @@ impl Filament {
         self.from_harmonic = self.shape();
         self.harmonic = (1 + (s / 0.7) as u32).min(MAX_HARMONIC);
         self.since_pluck = 0.0;
+        self.alone = 0.0;
         self.events.push(Event::Plucked { harmonic: self.harmonic });
         Some(self.harmonic)
     }
@@ -147,6 +166,13 @@ impl Filament {
 
     pub fn step(&mut self, dt: f32) {
         self.since_pluck += dt;
+        if self.phase == Phase::Thread {
+            self.alone += dt;
+            if self.restless >= RESTLESS_FROM && self.alone * self.restless > UNREST_SECS {
+                self.by_itself = true;
+                self.phase = Phase::Winding { t: 0.0 };
+            }
+        }
         self.phase = match self.phase {
             Phase::Drawing { t } if t + dt >= DRAW_SECS => {
                 self.events.push(Event::Threaded);
@@ -211,6 +237,29 @@ mod tests {
         assert!(f.whole());
         assert!(f.events.contains(&Event::Wound));
         assert!((f.radius(1.0) - 1.0).abs() < 1e-4, "a sphere again");
+    }
+
+    #[test]
+    fn drawn_out_wary_and_left_alone_it_winds_itself_back() {
+        let mut f = Filament::default();
+        f.draw(v3(1.0, 0.0, 0.0));
+        f.restless = 1.0;
+        for _ in 0..(60 * 9) {
+            f.step(1.0 / 60.0);
+        }
+        assert_eq!(f.phase, Phase::Thread, "not yet");
+        for _ in 0..(60 * 6) {
+            f.step(1.0 / 60.0);
+        }
+        assert!(f.whole() && f.by_itself);
+        // drawn out by a hand it is not wary of, it stays
+        let mut f = Filament::default();
+        f.draw(v3(1.0, 0.0, 0.0));
+        f.restless = 0.1;
+        for _ in 0..(60 * 120) {
+            f.step(1.0 / 60.0);
+        }
+        assert_eq!(f.phase, Phase::Thread);
     }
 
     #[test]

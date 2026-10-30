@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// How long after its one thing is said (seconds) the signs of it start to sound.
+const CONTACT_SIGNS_AFTER: f32 = 0.3;
+
 impl Game {
     /// It learns the player back, and now and then does something about it.
     pub(super) fn update_contact(&mut self, dt: f32, b: &Basis) {
@@ -14,6 +17,7 @@ impl Game {
             right: b.right,
             up: b.up,
             pointer: self.pointer_at,
+            note: self.remembrance.pitch().filter(|_| self.senses.is_open(senses::Kind::Hear)),
         };
         self.contact.step(dt, &mut self.world, &sense);
         for e in self.contact.drain_events() {
@@ -28,6 +32,13 @@ impl Game {
                     match turn {
                         contact::Turn::Offer => self.discover(Discovery::Offer),
                         contact::Turn::Beckon => self.sounds.push(Sound::Call),
+                        contact::Turn::Hum => {
+                            if let Some(f) = self.remembrance.pitch() {
+                                if self.senses.hum_first(f) {
+                                    self.discover(Discovery::YourNote);
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -37,7 +48,11 @@ impl Game {
                     self.discover(Discovery::Answer);
                 }
                 C::Reaching => self.sounds.push(Sound::Become),
-                C::Said => self.discover(Discovery::Contact),
+                C::Said => {
+                    // What it says is heard too, a note for each sign, as the signs appear.
+                    self.sounds.extend(signs(&self.contact.reply(), CONTACT_SIGNS_AFTER));
+                    self.discover(Discovery::Contact);
+                }
                 C::Asked => {
                     self.sounds.push(Sound::Call);
                     self.question.push(e);
@@ -65,9 +80,15 @@ impl Game {
             right: b.right,
             up: b.up,
         };
+        self.senses.learned = self.remembrance.pitch();
         self.senses.step(dt, &mut self.world, &look);
         for d in self.senses.drain_found() {
             self.discover(d);
+        }
+        // A note held and let go: an answer, if it was waiting for one, and a note to learn.
+        if let Some(f) = self.senses.take_sung() {
+            self.contact.sang(f);
+            self.remembrance.sung(f);
         }
     }
 }

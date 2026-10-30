@@ -127,9 +127,10 @@ pub enum Discovery {
     Aloft,
     Braced,
     InStep,
+    YourNote,
 }
 
-pub const ALL: [Discovery; 123] = [
+pub const ALL: [Discovery; 124] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -253,6 +254,7 @@ pub const ALL: [Discovery; 123] = [
     Discovery::Aloft,
     Discovery::Braced,
     Discovery::InStep,
+    Discovery::YourNote,
 ];
 
 impl Discovery {
@@ -381,6 +383,7 @@ impl Discovery {
             Discovery::Aloft => "aloft",
             Discovery::Braced => "braced",
             Discovery::InStep => "in step",
+            Discovery::YourNote => "your note",
         }
     }
 
@@ -509,6 +512,7 @@ impl Discovery {
             Discovery::Aloft => "turned enough, the ground let go of it.",
             Discovery::Braced => "it knows which way you turn it now. it turns back.",
             Discovery::InStep => "it knows which way you turn it now. it turns with you.",
+            Discovery::YourNote => "it sang first. the note was yours.",
         }
     }
 }
@@ -625,7 +629,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::InStep as usize + 1);
+        assert_eq!(ALL.len(), Discovery::YourNote as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
