@@ -357,13 +357,13 @@ impl Renderer {
         let fi = &fo.filament;
         let ax = fi.axis;
         self.v4v("uFil", &[ax.x, ax.y, ax.z, fi.half_len()]);
-        self.v4v("uFil2", &[fi.radius(radius), fi.morph(), fi.ringing(), fi.harmonic as f32]);
+        self.v4v("uFil2", &[fi.radius(radius), fi.morph(), fi.ringing(), fi.shape()]);
         self.v3("uFilSwing", fi.swing);
         let co = &fo.cosmos;
         self.v4v("uCosmos", &[co.amount(), co.spin, co.flare, co.sense]);
         let fd = &fo.fold;
         self.v4v("uFold", &[fd.amount(), fd.clock, fd.flash, fd.backward()]);
-        self.v4v("uFold2", &[fd.mirrors_was as f32, fd.mirrors as f32, crate::math::smoothstep(0.0, 1.0, fd.mirror_t), 0.0]);
+        self.v4v("uFold2", &[fd.mirrors_was, fd.mirrors as f32, crate::math::smoothstep(0.0, 1.0, fd.mirror_t), 0.0]);
         let pa = &fo.pandora;
         self.v4v("uBox", &[pa.boxness(), pa.lid(), pa.rattle, pa.yaw]);
         let du = &fo.dust;

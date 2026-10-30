@@ -188,11 +188,13 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | squeeze | 0.55 / 0.3 of its height | squeezed all the way it flattens to 0.45 of its height; pulled the other way (fingers spread, the wheel turned up) it stands up to 1.3 times as tall, and settles when let go (`sim/mod.rs`) |
 | `REST_SECS` (pad) | 0.35 s | a trackpad pinch squeezes it as far as two fingers on a screen would, held while the fingers move and this long after; Safari's pinch holds until it ends (`input/pad.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
+| `REPLUCK_SECS` | 0.12 s | the thread plucked again while it rings: the swing it had and the shape of its harmonic give way to the new pluck over this long, so it never snaps straight (`forms/filament.rs`) |
 | `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`); pulled further it spins the flower, unless it goes 0.25 canvas heights while hardly going round (under 0.12 of a turn), which looks around |
 | dizzy | gathers as `0.08 ×` its speed (radians a second), drains as `0.3 ×` itself, a second; its speed fades at 1 / s | a brisk turn a second makes the flower dizzy in about four seconds; half that only brings it near. Dizzy, it leans up to 0.38 rad, the lean going round (`forms/spin.rs`) |
 | `EDGE` / `CLEAR` / `LEARN_AFTER` / `PER_VISIT` | 0.6 / 0.25 / 5 / 2 | dizzier than the edge and back under clear without tipping is nearly; it keeps two a visit, between visits (`remembrance.rs`), and five kept, three visits at the least, it knows your turn for good. Glad of you now, it turns with you; not, against. Braced against you, dizziness gathers at 0.6 and your turn counts 0.55; with you, it turns on at 1.4 rad/s; against, it turns back at 1.1 rad/s for 3 s |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
 | `MOUND_RATE` | 2.0 of its height / s | the mound grows and sinks no faster; when another drift becomes the fullest it sinks where it stands before it rises there (`forms/dust.rs`) |
+| `MERGE_PULL` / `MERGE_RATE` | 1.5 units / s / 0.6 of the dust / s | drifts lying over each other run together over time: the smaller is drawn onto the larger at this speed and its dust goes across no faster than this, all of it once they lie as one (`forms/dust.rs`) |
 | `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
 | `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
 | `TEND` / `WITHER_AFTER` | 0.35 of a stage / 30 s | each tap on the mound grows what roots in it this much; untended this long, it draws back toward a shoot (`forms/growth.rs`) |

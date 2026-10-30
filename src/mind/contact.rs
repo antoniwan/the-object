@@ -567,10 +567,14 @@ impl Contact {
                 let out = (-sense.fwd + sense.up * 0.25).norm();
                 let pos = world.body.pos + out * (r * 1.05);
                 let color = world.body.color;
-                if world.spill(pos, out * 1.3, 0.2 * r, color) {
-                    let id = world.drops.last().map(|d| d.id).unwrap_or(0);
-                    self.awaiting = Some((Await::Take(id), ANSWER_WINDOW + 2.0));
+                if !world.spill(pos, out * 1.3, 0.2 * r, color) {
+                    // no room for one more drop: nothing is held out, so it tries again
+                    self.turns -= 1;
+                    self.turn_wait = 0.0;
+                    return;
                 }
+                let id = world.drops.last().map(|d| d.id).unwrap_or(0);
+                self.awaiting = Some((Await::Take(id), ANSWER_WINDOW + 2.0));
             }
             Turn::Beckon => {
                 world.reach(-sense.fwd);
@@ -625,13 +629,12 @@ impl Contact {
                 let pos = world.body.pos + out * (r * 1.05);
                 // paler than itself, so it reads as something offered, not something lost
                 let color = world.body.color.lerp(v3(1.0, 1.0, 1.0), 0.35);
-                self.ask = if world.spill(pos, out * 0.9, 0.22 * r, color) {
+                // no room for one more drop: it keeps the question and asks once there is
+                if world.spill(pos, out * 0.9, 0.22 * r, color) {
                     let drop = world.drops.last().map(|d| d.id).unwrap_or(0);
                     self.events.push(Event::Asked);
-                    Some(Ask::Held { drop, left: ASK_WINDOW })
-                } else {
-                    None
-                };
+                    self.ask = Some(Ask::Held { drop, left: ASK_WINDOW });
+                }
             }
             Ask::Held { drop, left } => {
                 let drop = *drop;
@@ -825,6 +828,50 @@ mod tests {
         c.took(id);
         assert!(c.drain_events().contains(&Event::Answered));
         assert_eq!(c.answered, 1);
+    }
+
+    /// Fills the room with drops held in a hand, so they do not go home.
+    fn fill_the_room(w: &mut World) {
+        let p = w.body.pos;
+        let mut k = 0.0f32;
+        while w.drops.len() < crate::sim::MAX_DROPS {
+            w.spill(p + v3(2.5 * k.cos(), 0.5, 2.5 * k.sin()), V3::ZERO, 0.05, w.body.color);
+            let (id, at) = (w.drops.last().unwrap().id, w.drops.last().unwrap().pos);
+            w.grab_drop(id, at);
+            k += 1.0;
+        }
+    }
+
+    #[test]
+    fn with_the_room_full_it_holds_nothing_out_and_offers_once_there_is_room() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        for _ in 0..5 {
+            c.noticed(Habit::Take);
+        }
+        fill_the_room(&mut w);
+        let s = sense(Stage::Initiative, 30, TURN_IDLE + 1.0);
+        let e = run(&mut c, &mut w, &s, 1.0);
+        assert!(!e.contains(&Event::Turned(Turn::Offer)), "nothing was held out");
+        w.drops.pop();
+        let e = run(&mut c, &mut w, &s, 0.5);
+        assert!(e.contains(&Event::Turned(Turn::Offer)));
+        assert!(matches!(c.awaiting, Some((Await::Take(_), _))));
+    }
+
+    #[test]
+    fn a_question_with_the_room_full_is_asked_once_there_is_room() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        c.answered = CONTACT_ANSWERS;
+        c.habits = [3, 1, 0, 0, 1];
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        let e = run(&mut c, &mut w, &s, CONTACT_END - 0.5);
+        assert!(e.contains(&Event::Said));
+        fill_the_room(&mut w);
+        run(&mut c, &mut w, &s, ASK_AFTER + 2.0);
+        // one let go of and gone home
+        w.drops.pop();
+        let e = run(&mut c, &mut w, &s, 5.0);
+        assert!(e.contains(&Event::Asked), "the question was lost: {e:?}");
     }
 
     #[test]

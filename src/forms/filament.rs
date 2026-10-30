@@ -18,6 +18,9 @@ const WIND_SECS: f32 = 2.2;
 const PLUCK_AMP: f32 = 0.32;
 const PLUCK_DECAY: f32 = 0.9;
 const MAX_HARMONIC: u32 = 9;
+/// Plucked again while it rings, the swing it had and the shape of its harmonic give way to
+/// the new ones over this long.
+const REPLUCK_SECS: f32 = 0.12;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Phase {
@@ -36,6 +39,9 @@ pub struct Filament {
     pub harmonic: u32,
     /// Seconds since the last pluck.
     since_pluck: f32,
+    /// The swing, and the harmonic's shape, it had when it was last plucked.
+    from_swing: f32,
+    from_harmonic: f32,
     pub(super) events: Vec<Event>,
 }
 
@@ -47,6 +53,8 @@ impl Default for Filament {
             swing: V3::UP,
             harmonic: 1,
             since_pluck: 1e3,
+            from_swing: 0.0,
+            from_harmonic: 1.0,
             events: Vec::new(),
         }
     }
@@ -90,7 +98,14 @@ impl Filament {
     pub fn ringing(&self) -> f32 {
         let t = self.since_pluck;
         let w = 7.0 + 2.2 * self.harmonic as f32;
-        PLUCK_AMP * (-PLUCK_DECAY * t).exp() * (w * t).cos() * smoothstep(0.0, 0.03, t) / (self.harmonic as f32).sqrt()
+        let rung = PLUCK_AMP * (-PLUCK_DECAY * t).exp() * (w * t).cos() * smoothstep(0.0, 0.03, t) / (self.harmonic as f32).sqrt();
+        rung + self.from_swing * (1.0 - smoothstep(0.0, REPLUCK_SECS, t))
+    }
+
+    /// The shape of the harmonic it rings in now, which may lie between two just after a pluck.
+    pub fn shape(&self) -> f32 {
+        let k = smoothstep(0.0, REPLUCK_SECS, self.since_pluck);
+        self.from_harmonic + (self.harmonic as f32 - self.from_harmonic) * k
     }
 
     /// Start drawing out along `axis`, the direction it was pulled.
@@ -111,6 +126,9 @@ impl Filament {
             return None;
         }
         let s = (at - pos).dot(self.axis).abs();
+        // still ringing, the new pluck starts from where the thread is
+        self.from_swing = self.ringing();
+        self.from_harmonic = self.shape();
         self.harmonic = (1 + (s / 0.7) as u32).min(MAX_HARMONIC);
         self.since_pluck = 0.0;
         self.events.push(Event::Plucked { harmonic: self.harmonic });
@@ -192,5 +210,25 @@ mod tests {
         assert!(f.whole());
         assert!(f.events.contains(&Event::Wound));
         assert!((f.radius(1.0) - 1.0).abs() < 1e-4, "a sphere again");
+    }
+
+    #[test]
+    fn plucked_again_while_it_rings_it_does_not_jump() {
+        let mut f = Filament::default();
+        f.draw(v3(1.0, 0.0, 0.0));
+        for _ in 0..400 {
+            f.step(1.0 / 120.0);
+        }
+        let wave = |f: &Filament| f.ringing() * (f.shape() * 0.6).sin();
+        f.pluck(v3(0.1, 0.0, 0.0), V3::ZERO);
+        for _ in 0..5 {
+            f.step(1.0 / 60.0);
+        }
+        let was = wave(&f);
+        assert!(was.abs() > 0.05, "it rings: {was}");
+        f.pluck(v3(2.5, 0.0, 0.0), V3::ZERO);
+        assert!((wave(&f) - was).abs() < 1e-4, "the swing snapped: {was} -> {}", wave(&f));
+        f.step(1.0 / 60.0);
+        assert!((wave(&f) - was).abs() < 0.08, "the swing jumped: {was} -> {}", wave(&f));
     }
 }

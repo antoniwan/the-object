@@ -48,8 +48,9 @@ pub struct Fold {
     /// Seconds it has been held still.
     held: f32,
     told_back: bool,
-    /// The mirror count it had, the one it has now, and how far it has gone from one to the other.
-    pub mirrors_was: u32,
+    /// The mirror count it had (as shown when it last changed, so it may lie between two),
+    /// the one it has now, and how far it has gone from one to the other.
+    pub mirrors_was: f32,
     pub mirrors: u32,
     pub mirror_t: f32,
     /// The flash of a new mirror, 0..1.
@@ -67,7 +68,7 @@ impl Default for Fold {
             pace: 1.0,
             held: 0.0,
             told_back: false,
-            mirrors_was: FIRST_MIRRORS,
+            mirrors_was: FIRST_MIRRORS as f32,
             mirrors: FIRST_MIRRORS,
             mirror_t: 1.0,
             flash: 0.0,
@@ -112,7 +113,7 @@ impl Fold {
                 self.stirred = (self.stirred + along).max(0.0);
                 if self.stirred >= FOLD_TURNS {
                     self.stirred = 0.0;
-                    self.mirrors_was = FIRST_MIRRORS;
+                    self.mirrors_was = FIRST_MIRRORS as f32;
                     self.mirrors = FIRST_MIRRORS;
                     self.mirror_t = 1.0;
                     self.phase = Phase::Opening { t: 0.0 };
@@ -138,12 +139,19 @@ impl Fold {
         if self.phase != Phase::Folded {
             return false;
         }
-        self.mirrors_was = self.mirrors;
+        // Poked again on the way, the next count starts from what is shown now.
+        self.mirrors_was = self.shown_mirrors();
         self.mirrors = if self.mirrors >= MOST_MIRRORS { 3 } else { self.mirrors + 1 };
         self.mirror_t = 0.0;
         self.flash = 1.0;
         self.events.push(Event::Facet);
         true
+    }
+
+    /// How many mirrors are shown now, between the count it had and the one it has.
+    pub fn shown_mirrors(&self) -> f32 {
+        let k = smoothstep(0.0, 1.0, self.mirror_t);
+        self.mirrors_was + (self.mirrors as f32 - self.mirrors_was) * k
     }
 
     /// Whether it is being held still on, this frame.
@@ -233,12 +241,26 @@ mod tests {
     fn a_poke_adds_a_mirror_and_they_come_round_again() {
         let mut f = Fold { phase: Phase::Folded, ..Fold::default() };
         assert!(f.facet());
-        assert_eq!((f.mirrors_was, f.mirrors), (FIRST_MIRRORS, FIRST_MIRRORS + 1));
+        assert_eq!((f.mirrors_was, f.mirrors), (FIRST_MIRRORS as f32, FIRST_MIRRORS + 1));
         for _ in 0..20 {
             f.facet();
         }
         assert!((3..=MOST_MIRRORS).contains(&f.mirrors));
         assert!(!Fold::default().facet());
+    }
+
+    #[test]
+    fn two_quick_pokes_do_not_jump_the_mirrors() {
+        let mut f = Fold { phase: Phase::Folded, ..Fold::default() };
+        assert!(f.facet());
+        for _ in 0..27 {
+            f.step(1.0 / 60.0);
+        }
+        let was = f.shown_mirrors();
+        assert!(f.facet());
+        f.step(1.0 / 60.0);
+        let now = f.shown_mirrors();
+        assert!((now - was).abs() < 0.1, "mirrors shown {was} -> {now}");
     }
 
     #[test]
