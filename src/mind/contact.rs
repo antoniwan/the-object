@@ -11,13 +11,23 @@
 //!   Once it hears you and has learned the note you sing (remembrance.rs), some turns are a
 //!   sound: it hums your note first, unasked, and waits; sung back, it is answered.
 //!   You can answer it.
-//! - contact (CONTACT_AT, and answered CONTACT_ANSWERS times): once a visit, it goes still and
+//! - contact (CONTACT_AT, and answered CONTACT_ANSWERS times): once, ever, it goes still and
 //!   reaches toward you with everything it has, plays your rhythm back, and says one thing.
 //!   The only word of it anyone can read is "you"; the rest is made from your habits.
-//! - a question (after contact, once a visit): it holds out one drop of itself and waits. Kept
-//!   in the hand, the drop brightens a step at a time, up to five; let go, the steps it reached
-//!   are the answer. Left untaken, nothing is answered. The answer leaves the page (platform/web/);
-//!   it is the only thing the object ever sends anywhere.
+//! - after contact, once a visit, only an echo of that moment: it goes still and reaches toward
+//!   you again, shorter, with fewer fingers and not as far; the better it knows you
+//!   (remembrance.rs `bond()`), the longer it lasts, the more of it reaches, and the further.
+//!   Knowing you well, it plays your rhythm back in it too. Nothing is said again.
+//! - its turn is what you gave it: after contact, now and then its turn is a form you have made
+//!   it become (the flower, the box, the universe; more often the ones you made more of). It
+//!   begins it by itself from the plain liquid and stops partway (forms/lean.rs): one bud, the
+//!   first of its corners, a slow turning inside. It waits. The form's own verb takes it on from
+//!   there, and that is an answer; left alone, it sinks back.
+//! - a question (after contact): it holds out one drop of itself and waits. Kept in the hand,
+//!   the drop brightens a step at a time, up to five; let go, the steps it reached are the
+//!   answer. Left untaken, nothing is answered. It asks on the visit of contact; never answered,
+//!   it asks once more on a later visit, and then never again. The answer leaves the page
+//!   (platform/web/); it is the only thing the object ever sends anywhere.
 //!
 //! What it learns is kept between visits (`save` / `load`). Nothing here draws: it moves the
 //! liquid with the same tendrils, ripples, drops and colors the player's own verbs use, so the
@@ -46,6 +56,22 @@ const CONTACT_PLAY: f32 = 4.2;
 const CONTACT_SAY: f32 = 5.4;
 const CONTACT_LET_GO: f32 = 10.5;
 const CONTACT_END: f32 = 12.5;
+/// Its echo of contact on a later visit: how long it lasts, from knowing you hardly at all to
+/// knowing you well (seconds), and when it begins to reach.
+const RECALL_SHORT: f32 = 3.5;
+const RECALL_LONG: f32 = 8.0;
+const RECALL_REACH: f32 = 0.6;
+/// Knowing you at least this well, the echo plays your rhythm back too.
+const RECALL_RHYTHM_BOND: f32 = 0.5;
+/// The question is asked on at most this many visits, ever.
+const ASK_VISITS: u32 = 2;
+/// After a form begun on its turn, at least this many of its other turns before the next.
+const FORM_EVERY: u32 = 2;
+/// How far into each form it goes by itself: a whole bud, a third of the corners, a third of the
+/// universe.
+const LEAN_BUD: f32 = 1.0;
+const LEAN_BOX: f32 = 0.3;
+const LEAN_UNIVERSE: f32 = 0.3;
 /// After contact, this long until it asks (seconds); how long the drop is held out for.
 const ASK_AFTER: f32 = 2.5;
 const ASK_WINDOW: f32 = 12.0;
@@ -94,7 +120,20 @@ pub enum Turn {
     Beckon,
     /// It hums the note it learned you sing.
     Hum,
+    /// It begins a form you made it become, and waits partway.
+    Form(Begun),
 }
+
+/// The forms it may begin on its turn, after contact. The thread is not among them: drawn out
+/// partway, it would have to be pulled along the way it began, or turn all at once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Begun {
+    Flower,
+    Box,
+    Universe,
+}
+
+pub const BEGUN: [Begun; 3] = [Begun::Flower, Begun::Box, Begun::Universe];
 
 impl Habit {
     fn turn(self) -> Turn {
@@ -125,6 +164,8 @@ pub enum Event {
     Answered,
     /// It reached toward the viewer with everything.
     Reaching,
+    /// After contact, on a later visit, it reached toward the viewer again, less.
+    Recalled,
     /// The reply is ready to be said.
     Said,
     /// After contact, it held out a drop: a question.
@@ -203,6 +244,8 @@ enum Await {
     Warm,
     /// A note sung back near this one (Hz), in any octave.
     Sing(f32),
+    /// The form it began taken on by its verb.
+    Form(Begun),
 }
 
 /// At most this far from its note (semitones, in any octave), a note sung back is an answer.
@@ -225,6 +268,9 @@ pub struct Contact {
     pub rhythm: Vec<f32>,
     pub answered: u32,
     pub contacted: bool,
+    /// On how many visits the question has been asked, and whether it was ever answered.
+    pub asked: u32,
+    pub rated: bool,
 
     // ---- this visit
     /// Recent pokes: when, from where, how high.
@@ -240,7 +286,14 @@ pub struct Contact {
     since_hum: u32,
     /// Seconds into the contact, while it lasts.
     contact: Option<f32>,
+    /// Seconds into its echo of contact, and how long that lasts, while it does.
+    recall: Option<(f32, f32)>,
     contacted_now: bool,
+    asked_now: bool,
+    /// Its other turns since it last began a form.
+    since_form: u32,
+    /// How many forms it has begun this visit.
+    begun: u32,
     ask: Option<Ask>,
     flinch_wait: f32,
     hovered: f32,
@@ -259,6 +312,8 @@ impl Default for Contact {
             rhythm: Vec::new(),
             answered: 0,
             contacted: false,
+            asked: 0,
+            rated: false,
             taps: Vec::new(),
             phrase: None,
             reaches: Vec::new(),
@@ -268,7 +323,11 @@ impl Default for Contact {
             turns: 0,
             since_hum: HUM_EVERY,
             contact: None,
+            recall: None,
             contacted_now: false,
+            asked_now: false,
+            since_form: FORM_EVERY,
+            begun: 0,
             ask: None,
             flinch_wait: 0.0,
             hovered: 0.0,
@@ -295,6 +354,14 @@ pub struct Sense {
     pub pointer: Option<V3>,
     /// The note it has learned the player sings (Hz), while it may hear them.
     pub note: Option<f32>,
+    /// How well it knows the player, 0..1 (remembrance.rs `bond()`).
+    pub bond: f32,
+    /// How much the player has made of each form it may begin (`BEGUN`'s order); 0, never made.
+    pub shown: [u32; 3],
+    /// A hand is on the screen.
+    pub touching: bool,
+    /// Which way a box would face, as a square drawn now would make it.
+    pub face: f32,
 }
 
 impl Contact {
@@ -306,11 +373,21 @@ impl Contact {
 
     /// Busy with something of its own.
     pub fn acting(&self) -> bool {
-        self.phrase.is_some() || !self.reaches.is_empty() || self.contact.is_some() || self.ask.is_some()
+        self.phrase.is_some()
+            || !self.reaches.is_empty()
+            || self.contact.is_some()
+            || self.recall.is_some()
+            || self.ask.is_some()
     }
 
+    /// Contact, or its echo on a later visit.
     pub fn in_contact(&self) -> bool {
-        self.contact.is_some()
+        self.contact.is_some() || self.recall.is_some()
+    }
+
+    /// Whether the question may still be asked: never once answered, and on few visits.
+    fn may_ask(&self) -> bool {
+        !self.rated && self.asked < ASK_VISITS
     }
 
     /// The player poked the body at `dir` (from its center), `pitch` high.
@@ -457,6 +534,17 @@ impl Contact {
         self.flinch_wait = (self.flinch_wait - dt).max(0.0);
         self.echo_wait = (self.echo_wait - dt).max(0.0);
         self.turn_wait = (self.turn_wait - dt).max(0.0);
+        // A form it began, taken on by its verb, is an answer, whatever it has become since.
+        if let Some((Await::Form(f), _)) = self.awaiting {
+            let taken = match f {
+                Begun::Flower => world.forms.bloom.lean.taken(),
+                Begun::Box => world.forms.pandora.lean.taken(),
+                Begun::Universe => world.forms.cosmos.lean.taken(),
+            };
+            if taken {
+                self.answer();
+            }
+        }
         let ordinary = world.ordinary();
         // It turns a little toward the pointer, once it has started to regard you.
         world.regard = if sense.stage >= Stage::Regard && ordinary && !self.in_contact() { 0.22 } else { 0.0 };
@@ -472,8 +560,12 @@ impl Contact {
             // Contact cut short before anything was said comes again this visit; after, it still asks.
             match self.contact.take() {
                 Some(t) if t < CONTACT_SAY => self.contacted_now = false,
-                Some(_) => self.ask = Some(Ask::Soon(0.0)),
-                None => {}
+                Some(_) if self.may_ask() => self.ask = Some(Ask::Soon(0.0)),
+                _ => {}
+            }
+            // Its echo cut short is not begun again; a question due after it is still asked.
+            if self.recall.take().is_some() && self.may_ask() && !self.asked_now {
+                self.ask = Some(Ask::Soon(0.0));
             }
             self.ask = match self.ask.take() {
                 // A question not taken up yet is asked again, once it is itself.
@@ -483,7 +575,7 @@ impl Contact {
                     if world.drops.iter().any(|d| d.id == drop && d.target.is_some()) {
                         Some(Ask::Kept { drop, t, steps })
                     } else {
-                        self.events.push(Event::Answer(steps));
+                        self.rated(steps);
                         None
                     }
                 }
@@ -493,6 +585,7 @@ impl Contact {
         }
 
         self.step_contact(dt, world, sense);
+        self.step_recall(dt, world, sense);
         self.step_ask(dt, world, sense);
         self.step_echo(sense);
         self.step_turn(world, sense);
@@ -574,7 +667,13 @@ impl Contact {
         }
         let ready = sense.found >= CONTACT_AT && self.answered >= CONTACT_ANSWERS && !self.contacted_now;
         if ready {
-            self.contact = Some(0.0);
+            // Once, ever, in full; after that, once a visit, an echo of it, as long as it knows you.
+            if self.contacted {
+                let lasts = RECALL_SHORT + (RECALL_LONG - RECALL_SHORT) * sense.bond.clamp(0.0, 1.0);
+                self.recall = Some((0.0, lasts));
+            } else {
+                self.contact = Some(0.0);
+            }
             self.contacted_now = true;
             self.turn_wait = TURN_GAP * 2.0;
             return;
@@ -586,16 +685,29 @@ impl Contact {
         order.truncate(3);
         // Now and then, once it hears you and knows your note, its turn is that note.
         let hum = sense.note.filter(|_| self.since_hum >= HUM_EVERY);
-        let turn = match (hum, order.len()) {
-            (Some(_), _) => Turn::Hum,
-            (None, 0) => Turn::Beckon,
-            (None, n) => HABITS[order[self.turns as usize % n]].turn(),
+        // After contact, now and then, its turn is a form you made it become.
+        let form = if hum.is_none() && self.since_form >= FORM_EVERY { self.pick_form(world, sense) } else { None };
+        let turn = match (hum, form, order.len()) {
+            (Some(_), _, _) => Turn::Hum,
+            (None, Some(f), _) => Turn::Form(f),
+            (None, None, 0) => Turn::Beckon,
+            (None, None, n) => HABITS[order[self.turns as usize % n]].turn(),
         };
-        if turn == Turn::Hum {
-            self.since_hum = 0;
-        } else {
-            self.since_hum += 1;
-            self.turns += 1;
+        match turn {
+            Turn::Hum => {
+                self.since_hum = 0;
+                self.since_form += 1;
+            }
+            Turn::Form(_) => {
+                self.since_form = 0;
+                self.since_hum += 1;
+                self.begun += 1;
+            }
+            _ => {
+                self.since_hum += 1;
+                self.since_form += 1;
+                self.turns += 1;
+            }
         }
         let r = world.body.radius();
         match turn {
@@ -637,8 +749,91 @@ impl Contact {
                 let f = hum.unwrap_or(0.0);
                 self.awaiting = Some((Await::Sing(f), ANSWER_WINDOW + crate::input::senses::HUM_SECS));
             }
+            Turn::Form(f) => {
+                let fo = &mut world.forms;
+                let begun = match f {
+                    // the bud rises on the side facing you, a little above the middle
+                    Begun::Flower => fo.bloom.offer((-sense.fwd + sense.up * 0.6).norm(), LEAN_BUD),
+                    Begun::Box => fo.pandora.offer(sense.face, LEAN_BOX),
+                    Begun::Universe => {
+                        let way = fo.cosmos.sense;
+                        fo.cosmos.offer(way, LEAN_UNIVERSE)
+                    }
+                };
+                debug_assert!(begun, "pick_form only picks a form that can begin");
+                // It waits as long as the form does, and takes no other turn until it has sunk back.
+                self.awaiting = Some((Await::Form(f), crate::forms::lean::LEAN_SECS));
+                self.turn_wait = TURN_GAP + crate::forms::lean::LEAN_SECS;
+            }
         }
         self.events.push(Event::Turned(turn));
+    }
+
+    /// Which form it begins on this turn, if any: after contact, among those the player has made
+    /// it become, more often the ones they made more of; only from the bare liquid, no hand on it.
+    fn pick_form(&self, world: &World, sense: &Sense) -> Option<Begun> {
+        let fo = &world.forms;
+        if !self.contacted || sense.touching || !world.ordinary() || fo.leaning() {
+            return None;
+        }
+        let bare = fo.bloom.buds.is_empty() && fo.bloom.near.is_none();
+        let weights: Vec<u32> =
+            BEGUN.iter().zip(sense.shown).map(|(f, n)| if *f == Begun::Flower && !bare { 0 } else { n }).collect();
+        let total: u32 = weights.iter().sum();
+        if total == 0 {
+            return None;
+        }
+        // a fixed walk through them, so the same player sees the same order
+        let mut k = self.begun.wrapping_mul(0x9e37_79b9).rotate_right(7) % total;
+        for (f, w) in BEGUN.iter().zip(weights) {
+            if k < w {
+                return Some(*f);
+            }
+            k -= w;
+        }
+        None
+    }
+
+    /// The question was answered with `n` steps: it is never asked again.
+    fn rated(&mut self, n: u8) {
+        self.rated = true;
+        self.dirty = true;
+        self.events.push(Event::Answer(n));
+    }
+
+    /// After contact, a later visit: an echo of it. Stillness, fewer fingers reaching less far,
+    /// for less long; the better it knows you, the more of each. Nothing is said.
+    fn step_recall(&mut self, dt: f32, world: &mut World, sense: &Sense) {
+        let Some((t, lasts)) = self.recall else { return };
+        let now = t + dt;
+        self.recall = Some((now, lasts));
+        world.agitation = 0.0;
+        world.body.vel *= (-3.0 * dt).exp();
+        // how well it knows you, from how long it lasts
+        let k = ((lasts - RECALL_SHORT) / (RECALL_LONG - RECALL_SHORT)).clamp(0.0, 1.0);
+        if t < RECALL_REACH && now >= RECALL_REACH {
+            let fingers = 1 + (k * 3.0).round() as usize;
+            let spread = if fingers > 1 { 0.5 } else { 0.0 };
+            let grow = 1.2 + 0.8 * k;
+            let hold = (lasts - RECALL_REACH - grow - 1.0).max(0.3);
+            for i in 0..fingers {
+                let a = i as f32 * std::f32::consts::TAU / fingers as f32 + std::f32::consts::FRAC_PI_4;
+                let dir = -sense.fwd + (sense.right * a.cos() + sense.up * a.sin()) * spread;
+                self.reaches.push(Reach::new(dir, 0.45 + 0.65 * k, grow, hold));
+            }
+            self.events.push(Event::Recalled);
+        }
+        if k >= RECALL_RHYTHM_BOND && t < RECALL_REACH + 1.5 && now >= RECALL_REACH + 1.5 {
+            let gaps = self.known_rhythm();
+            let dirs = self.spots();
+            self.play(&gaps, &dirs, 0.0);
+        }
+        if now >= lasts {
+            self.recall = None;
+            if self.may_ask() {
+                self.ask = Some(Ask::Soon(0.0));
+            }
+        }
     }
 
     /// Everything it has: stillness, a reach toward you, your rhythm, and one thing said.
@@ -669,7 +864,9 @@ impl Contact {
         }
         if now >= CONTACT_END {
             self.contact = None;
-            self.ask = Some(Ask::Soon(0.0));
+            if self.may_ask() {
+                self.ask = Some(Ask::Soon(0.0));
+            }
         }
     }
 
@@ -690,6 +887,12 @@ impl Contact {
                 // no room for one more drop: it keeps the question and asks once there is
                 if world.spill(pos, out * 0.9, 0.22 * r, color) {
                     let drop = world.drops.last().map(|d| d.id).unwrap_or(0);
+                    // Asked again this visit (cut short), it is still one visit it asked on.
+                    if !self.asked_now {
+                        self.asked_now = true;
+                        self.asked += 1;
+                        self.dirty = true;
+                    }
                     self.events.push(Event::Asked);
                     self.ask = Some(Ask::Held { drop, left: ASK_WINDOW });
                 }
@@ -713,7 +916,7 @@ impl Contact {
                 if !held {
                     let n = *steps;
                     self.ask = None;
-                    self.events.push(Event::Answer(n));
+                    self.rated(n);
                     return;
                 }
                 *t += dt;
@@ -763,20 +966,24 @@ impl Contact {
         words.join(" ")
     }
 
-    /// `habits=..;spot=x,y,z;rhythm=..;answered=n;contacted=0|1`
+    /// `habits=..;spot=x,y,z;rhythm=..;answered=n;contacted=0|1;asked=n;rated=0|1`. A save from
+    /// before the question was asked only so often has no `asked`: if it had contact, it was asked
+    /// then, so it loads as asked once (and may be asked once more), and as never answered.
     pub fn save(&self) -> String {
         let list = |v: &[String]| v.join(",");
         let habits: Vec<String> = self.habits.iter().map(|h| h.to_string()).collect();
         let rhythm: Vec<String> = self.rhythm.iter().map(|g| format!("{g:.2}")).collect();
         format!(
-            "habits={};spot={:.2},{:.2},{:.2};rhythm={};answered={};contacted={}",
+            "habits={};spot={:.2},{:.2},{:.2};rhythm={};answered={};contacted={};asked={};rated={}",
             list(&habits),
             self.spot.x,
             self.spot.y,
             self.spot.z,
             list(&rhythm),
             self.answered,
-            u8::from(self.contacted)
+            u8::from(self.contacted),
+            self.asked,
+            u8::from(self.rated)
         )
     }
 
@@ -789,10 +996,13 @@ impl Contact {
         }
         self.answered = self.answered.max(kept.answered);
         self.contacted |= kept.contacted;
+        self.asked = self.asked.max(kept.asked);
+        self.rated |= kept.rated;
     }
 
     pub fn load(saved: &str) -> Contact {
         let mut c = Contact::default();
+        let mut asked = None;
         for part in saved.split(';') {
             let Some((k, v)) = part.split_once('=') else { continue };
             let nums: Vec<f32> = v.split(',').filter_map(|n| n.trim().parse().ok()).collect();
@@ -806,9 +1016,12 @@ impl Contact {
                 "rhythm" => c.rhythm = nums.into_iter().filter(|g| *g > 0.0 && *g < 2.0).take(7).collect(),
                 "answered" => c.answered = nums.first().map_or(0, |n| *n as u32),
                 "contacted" => c.contacted = nums.first() == Some(&1.0),
+                "asked" => asked = Some(nums.first().map_or(0, |n| *n as u32)),
+                "rated" => c.rated = nums.first() == Some(&1.0),
                 _ => {}
             }
         }
+        c.asked = asked.unwrap_or(u32::from(c.contacted));
         c
     }
 }
@@ -837,6 +1050,10 @@ mod tests {
             up: V3::UP,
             pointer: None,
             note: None,
+            bond: 0.0,
+            shown: [0; 3],
+            touching: false,
+            face: 0.0,
         }
     }
 
@@ -1161,5 +1378,310 @@ mod tests {
         assert_eq!((d.answered, d.contacted), (2, true));
         assert_eq!(Contact::load("").habits, [0; 5]);
         assert_eq!(Contact::load("garbage;habits=x").answered, 0);
+    }
+
+    /// A player who has had contact, on a later visit: what was kept, loaded into a new one.
+    fn next_visit(c: &Contact) -> (Contact, World) {
+        (Contact::load(&c.save()), World::new())
+    }
+
+    /// Runs until it has done whatever it does when contact is due; returns the events.
+    fn due(c: &mut Contact, w: &mut World, bond: f32, seconds: f32) -> Vec<Event> {
+        let mut s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        s.bond = bond;
+        run(c, w, &s, seconds)
+    }
+
+    fn contacted_once() -> Contact {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        c.answered = CONTACT_ANSWERS;
+        c.habits = [9, 2, 1, 0, 3];
+        let e = due(&mut c, &mut w, 0.5, CONTACT_END + 1.0);
+        assert!(e.contains(&Event::Said) && c.contacted);
+        c
+    }
+
+    #[test]
+    fn contact_is_whole_once_and_after_that_only_its_echo() {
+        let first = contacted_once();
+        let (mut c, mut w) = next_visit(&first);
+        let e = due(&mut c, &mut w, 0.5, RECALL_REACH + 1.0);
+        assert!(e.contains(&Event::Recalled), "{e:?}");
+        assert!(!e.contains(&Event::Reaching) && !e.contains(&Event::Said));
+        assert!(w.handles.len() < 4 && !w.handles.is_empty(), "fewer fingers: {}", w.handles.len());
+        assert!(w.handles.iter().all(|h| h.tip.z > 0.3), "toward the viewer");
+        let e = due(&mut c, &mut w, 0.5, 60.0);
+        assert!(!e.iter().any(|e| matches!(e, Event::Said | Event::Reaching | Event::Recalled)), "{e:?}");
+        assert!(w.drops.len() <= 1, "it tore nothing");
+        // and a third visit is the same echo, never the whole again
+        let (mut c, mut w) = next_visit(&c);
+        let e = due(&mut c, &mut w, 0.5, RECALL_LONG + 1.0);
+        assert!(e.contains(&Event::Recalled) && !e.contains(&Event::Said));
+    }
+
+    /// How long the echo lasts, and how many fingers reach how far, knowing the player `bond` well.
+    fn echo_of(bond: f32) -> (f32, usize, f32) {
+        let (mut c, mut w) = next_visit(&contacted_once());
+        c.rated = true; // nothing asked after it, so it is only the echo
+        let mut s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        s.bond = bond;
+        let (mut t, mut fingers, mut far) = (0.0f32, 0usize, 0.0f32);
+        let mut started = false;
+        for _ in 0..(20.0 * 60.0) as usize {
+            c.step(1.0 / 60.0, &mut w, &s);
+            w.step(1.0 / 60.0);
+            c.drain_events();
+            started |= c.in_contact();
+            if c.in_contact() {
+                t += 1.0 / 60.0;
+            }
+            fingers = fingers.max(w.handles.len());
+            for h in &w.handles {
+                far = far.max((h.tip - w.body.pos).len() / w.body.radius());
+            }
+            if started && !c.acting() {
+                break;
+            }
+        }
+        (t, fingers, far)
+    }
+
+    #[test]
+    fn the_echo_lasts_and_reaches_as_far_as_it_knows_you() {
+        let (t0, n0, f0) = echo_of(0.0);
+        let (t1, n1, f1) = echo_of(0.5);
+        let (t2, n2, f2) = echo_of(1.0);
+        assert!(t0 < t1 && t1 < t2, "{t0} {t1} {t2}");
+        assert!((t0 - RECALL_SHORT).abs() < 0.1 && (t2 - RECALL_LONG).abs() < 0.1);
+        assert!(t2 < CONTACT_END, "always shorter than contact itself");
+        assert!(n0 == 1 && n0 < n1 && n1 <= n2 && n2 == 4, "{n0} {n1} {n2}");
+        assert!(f0 < f1 && f1 < f2, "{f0} {f1} {f2}");
+    }
+
+    /// Whether the question is asked within a minute of contact (or its echo) coming due.
+    fn asks(c: &mut Contact, w: &mut World) -> bool {
+        due(c, w, 0.5, 60.0).contains(&Event::Asked)
+    }
+
+    #[test]
+    fn the_question_is_asked_on_the_visit_of_contact_and_once_more_unanswered() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        c.answered = CONTACT_ANSWERS;
+        assert!(asks(&mut c, &mut w), "on the visit of contact");
+        assert_eq!(c.asked, 1);
+        // left untaken: one later visit asks again, and that is all
+        let (mut c, mut w) = next_visit(&c);
+        assert!(asks(&mut c, &mut w));
+        for _ in 0..3 {
+            let (mut d, mut w) = next_visit(&c);
+            assert!(!asks(&mut d, &mut w), "never again");
+            c = d;
+        }
+        assert_eq!(c.asked, ASK_VISITS);
+    }
+
+    #[test]
+    fn answered_once_the_question_is_never_asked_again() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        let drop = asked(&mut c, &mut w, &s);
+        let at = w.drops.iter().find(|d| d.id == drop).unwrap().pos;
+        w.grab_drop(drop, at);
+        run(&mut c, &mut w, &s, KEEP_STEP + 0.2);
+        w.release_drop(drop);
+        assert!(run(&mut c, &mut w, &s, 0.2).contains(&Event::Answer(2)));
+        assert!(c.rated);
+        let (mut c, mut w) = next_visit(&c);
+        assert!(!asks(&mut c, &mut w));
+    }
+
+    #[test]
+    fn a_question_cut_short_and_asked_again_is_still_one_visit() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        asked(&mut c, &mut w, &s);
+        interrupt(&mut c, &mut w, &s);
+        assert!(run(&mut c, &mut w, &s, ASK_AFTER + 2.0).contains(&Event::Asked));
+        assert_eq!(c.asked, 1);
+    }
+
+    #[test]
+    fn saves_from_before_load_and_ask_at_most_once_more() {
+        // a player who had contact before the question was kept count of
+        let old = "habits=9,2,1,0,3;spot=0.00,1.00,0.00;rhythm=0.40,0.40;answered=5;contacted=1";
+        let c = Contact::load(old);
+        assert!(c.contacted && c.answered == 5 && c.asked == 1 && !c.rated);
+        let (mut c, mut w) = next_visit(&c);
+        let e = due(&mut c, &mut w, 0.5, 60.0);
+        assert!(e.contains(&Event::Recalled) && !e.contains(&Event::Said), "{e:?}");
+        assert!(e.contains(&Event::Asked));
+        let (mut c, mut w) = next_visit(&c);
+        assert!(!asks(&mut c, &mut w));
+        // what only grows is kept across tabs
+        let mut here = Contact::load(old);
+        here.merge(&c.save());
+        assert_eq!(here.asked, ASK_VISITS);
+        let rated = Contact { rated: true, ..Default::default() };
+        here.merge(&rated.save());
+        assert!(here.rated);
+    }
+
+    /// A player who had contact and made each form, left alone after its echo.
+    fn shown_all() -> (Contact, World, Sense) {
+        let (mut c, mut w) = next_visit(&contacted_once());
+        c.rated = true;
+        let mut s = sense(Stage::Initiative, CONTACT_AT, TURN_IDLE + 1.0);
+        s.shown = [1, 1, 1];
+        // its echo and the turn after it
+        run(&mut c, &mut w, &s, RECALL_LONG + 1.0);
+        (c, w, s)
+    }
+
+    /// Runs until its turn begins `f`; returns the frames' values of how far into it it is.
+    fn begin(f: Begun) -> (Contact, World, Sense) {
+        let (mut c, mut w, mut s) = shown_all();
+        s.shown = BEGUN.map(|g| u32::from(g == f));
+        for _ in 0..(120.0 * 60.0) as usize {
+            c.step(1.0 / 60.0, &mut w, &s);
+            w.step(1.0 / 60.0);
+            if c.drain_events().contains(&Event::Turned(Turn::Form(f))) {
+                return (c, w, s);
+            }
+        }
+        panic!("it never began {f:?}");
+    }
+
+    fn amount(w: &World, f: Begun) -> f32 {
+        match f {
+            // the bud it raised is the first; a bud pinched beside it grows the way any does
+            Begun::Flower => w.forms.bloom.buds.first().map_or(0.0, |b| w.forms.bloom.bud_size(b)),
+            Begun::Box => w.forms.pandora.boxness(),
+            Begun::Universe => w.forms.cosmos.amount(),
+        }
+    }
+
+    /// Steps `seconds`, checking no frame moves the form further than `most`; returns the largest value seen.
+    fn steady(c: &mut Contact, w: &mut World, s: &Sense, f: Begun, seconds: f32, most: f32) -> f32 {
+        let mut last = amount(w, f);
+        let mut top = last;
+        for _ in 0..(seconds * 60.0) as usize {
+            c.step(1.0 / 60.0, w, s);
+            w.step(1.0 / 60.0);
+            c.drain_events();
+            let now = amount(w, f);
+            assert!((now - last).abs() <= most, "{f:?} jumped {last} -> {now}");
+            top = top.max(now);
+            last = now;
+        }
+        top
+    }
+
+    #[test]
+    fn its_turn_begins_a_form_you_made_partway_holds_and_sinks_back_untouched() {
+        for f in BEGUN {
+            let (mut c, mut w, s) = begin(f);
+            assert!(w.ordinary(), "{f:?}: partway is still the liquid it was");
+            let lean = crate::forms::lean::RISE_SECS + 1.0;
+            let top = steady(&mut c, &mut w, &s, f, lean, 0.02);
+            assert!(top > 0.25 && amount(&w, f) <= 1.0, "{f:?} rose to {top}");
+            let held = amount(&w, f);
+            steady(&mut c, &mut w, &s, f, 4.0, 1e-4);
+            assert!((amount(&w, f) - held).abs() < 1e-4, "{f:?} held");
+            steady(&mut c, &mut w, &s, f, crate::forms::lean::LEAN_SECS, 0.02);
+            assert_eq!(amount(&w, f), 0.0, "{f:?} sank back");
+            assert!(w.ordinary() && !w.forms.leaning() && w.forms.bloom.buds.is_empty());
+            assert_eq!(c.answered, CONTACT_ANSWERS, "left alone, no answer");
+        }
+    }
+
+    #[test]
+    fn its_turn_begun_is_taken_on_by_the_verb_from_where_it_is() {
+        for f in BEGUN {
+            let (mut c, mut w, s) = begin(f);
+            steady(&mut c, &mut w, &s, f, crate::forms::lean::RISE_SECS + 2.0, 0.02);
+            let was = amount(&w, f);
+            let fo = &mut w.forms;
+            match f {
+                // a pinch elsewhere keeps the bud as the first of five
+                Begun::Flower => assert!(fo.bloom.pinch(v3(0.0, 0.3, -1.0))),
+                Begun::Box => assert!(fo.pandora.corner(2.0)),
+                Begun::Universe => {
+                    let way = fo.cosmos.sense;
+                    for _ in 0..40 {
+                        fo.stir(0.05 * way);
+                    }
+                }
+            }
+            if f == Begun::Box {
+                assert!((w.forms.pandora.yaw - s.face).abs() < 1e-6, "it keeps the way it faced");
+            }
+            let now = amount(&w, f);
+            assert!(now >= was - 0.02 && now <= was + 0.4, "{f:?}: {was} -> {now}");
+            let e = {
+                c.step(1.0 / 60.0, &mut w, &s);
+                c.drain_events()
+            };
+            assert!(e.contains(&Event::Answered), "{f:?}: {e:?}");
+            steady(&mut c, &mut w, &s, f, 5.0, 0.03);
+            match f {
+                Begun::Flower => assert_eq!(w.forms.bloom.buds.len(), 2, "the bud it raised stayed"),
+                Begun::Box => assert_eq!(w.forms.pandora.phase, crate::forms::pandora::Phase::Box),
+                Begun::Universe => assert_eq!(w.forms.cosmos.phase, crate::forms::cosmos::Phase::Cosmos),
+            }
+        }
+    }
+
+    #[test]
+    fn stirred_the_other_way_the_universe_it_began_settles() {
+        let (mut c, mut w, s) = begin(Begun::Universe);
+        steady(&mut c, &mut w, &s, Begun::Universe, crate::forms::lean::RISE_SECS + 1.0, 0.02);
+        let way = w.forms.cosmos.sense;
+        for _ in 0..30 {
+            w.forms.stir(-0.05 * way);
+        }
+        steady(&mut c, &mut w, &s, Begun::Universe, crate::forms::lean::SINK_SECS + 0.5, 0.02);
+        assert!(w.forms.cosmos.whole() && w.forms.cosmos.amount() == 0.0);
+    }
+
+    #[test]
+    fn something_else_begun_meanwhile_lets_it_sink_back() {
+        let (mut c, mut w, s) = begin(Begun::Universe);
+        steady(&mut c, &mut w, &s, Begun::Universe, crate::forms::lean::RISE_SECS + 1.0, 0.02);
+        assert!(w.forms.pandora.corner(0.0));
+        steady(&mut c, &mut w, &s, Begun::Universe, crate::forms::lean::SINK_SECS + 0.5, 0.02);
+        assert_eq!(w.forms.cosmos.amount(), 0.0);
+    }
+
+    #[test]
+    fn it_never_begins_a_form_before_contact_or_one_never_made_or_under_a_hand() {
+        let (mut c, mut w) = (Contact::default(), World::new());
+        let mut s = sense(Stage::Initiative, 30, TURN_IDLE + 1.0);
+        s.shown = [3, 3, 3];
+        let e = run(&mut c, &mut w, &s, 6.0 * TURN_GAP);
+        assert!(!e.iter().any(|e| matches!(e, Event::Turned(Turn::Form(_)))), "not before contact");
+        let (mut c, mut w, mut s) = shown_all();
+        s.shown = [0; 3];
+        let e = run(&mut c, &mut w, &s, 6.0 * TURN_GAP);
+        assert!(!e.iter().any(|e| matches!(e, Event::Turned(Turn::Form(_)))), "only what you made");
+        s.shown = [1, 1, 1];
+        s.touching = true;
+        let e = run(&mut c, &mut w, &s, 6.0 * TURN_GAP);
+        assert!(!e.iter().any(|e| matches!(e, Event::Turned(Turn::Form(_)))), "never under a hand");
+    }
+
+    #[test]
+    fn it_begins_more_often_the_forms_you_made_more_of() {
+        let (mut c, mut w, mut s) = shown_all();
+        s.shown = [4, 1, 0];
+        let mut n = [0; 3];
+        for _ in 0..40 {
+            let e = run(&mut c, &mut w, &s, TURN_GAP + crate::forms::lean::LEAN_SECS + 1.0);
+            for e in e {
+                if let Event::Turned(Turn::Form(f)) = e {
+                    n[BEGUN.iter().position(|g| *g == f).unwrap()] += 1;
+                }
+            }
+        }
+        assert!(n[0] > n[1] && n[1] > 0 && n[2] == 0, "{n:?}");
     }
 }

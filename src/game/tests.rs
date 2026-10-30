@@ -1555,3 +1555,26 @@ fn a_flick_not_quite_a_throw_only_lurches_it() {
     assert!(!g.progress.has(Discovery::Throw) && !g.progress.has(Discovery::Slam));
     assert!(g.world.fusion.whole());
 }
+
+#[test]
+fn after_contact_a_later_visit_only_echoes_it_and_its_turn_begins_a_flower_you_made() {
+    let mut g = game();
+    for d in crate::progress::ALL.iter().take(contact::CONTACT_AT) {
+        g.progress.discover(*d);
+    }
+    g.progress.discover(Discovery::Bloom);
+    // kept from an earlier visit: contact made, the question asked twice already
+    g.contact = Contact::load("habits=3,1,0,0,1;answered=3;contacted=1;asked=2;rated=0");
+    wait(&mut g, contact::TURN_IDLE + 2.0);
+    assert!(g.progress.has(Discovery::Recall), "an echo of it");
+    assert!(!g.progress.has(Discovery::Contact), "not the whole of it again");
+    let mut bud = 0.0f32;
+    for _ in 0..(60 * 40) {
+        g.update(1.0 / 60.0);
+        let b = &g.world.forms.bloom;
+        bud = bud.max(b.buds.first().map_or(0.0, |x| b.bud_size(x)));
+    }
+    assert!(g.progress.has(Discovery::ShownBack));
+    assert!(bud > 0.9, "a bud rose by itself: {bud}");
+    assert!(!g.question.contains(&contact::Event::Asked), "asked enough");
+}
