@@ -59,6 +59,7 @@ Color at rest lives in light, not in paint: the film on its skin, the room bent 
 | blooded body | `#87353c` (pearl 20%, blood 80%) | what comes back up out of the river, still keeping the beat | `game/` after the river drains |
 | box light | `#fff0c7` | the inside of the box when the lid lifts | `uBox` |
 | pollen | `#fac242` | the flower's heart | `formTint()` |
+| rope | `#cc1229`, ridged across, the ridges 28% darker | the flower spun left past dizzy: its petals wound into ropes; fades as they are taken back in | `shader.frag` `ROPE`, `formTint()` |
 | dust | `#ccc7d4`, grainy, a few grains still glinting in the film's colors | the flower let go of; drifts on the floor, and the cloud they fall from | `shader.frag` `DUST`, `dustFloor()` |
 | bark / leaf / blossom | `#6e666f` / `#9ec78c` / `#ed6b9e` | what grows out of the mound: bark from the mound's own grey, pale leaves, and late, the flower's pink again | `BARK`, `LEAF`, `BLOSSOM`, `treeSdf()` |
 | mound | `#b3abb3`, faint layers, the film back at its grazing edges; lit from inside while pressed | the dust heaped and settled; the only thing it is that stands on the ground | `MOUND`, `shadeHeap()` |
@@ -187,7 +188,9 @@ The object is liquid, so motion is springy and continuous; the page is quiet, so
 | squeeze | 0.55 / 0.3 of its height | squeezed all the way it flattens to 0.45 of its height; pulled the other way (fingers spread, the wheel turned up) it stands up to 1.3 times as tall, and settles when let go (`sim/mod.rs`) |
 | `REST_SECS` (pad) | 0.35 s | a trackpad pinch squeezes it as far as two fingers on a screen would, held while the fingers move and this long after; Safari's pinch holds until it ends (`input/pad.rs`) |
 | `TAUT_SECS` | 0.9 s | held nearly tearing this long, it becomes thread |
-| `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`) |
+| `TUG_MAX` | 0.12 canvas heights | on the flower, a pull shorter than this let go within `PINCH_MAX_SECS` is a pinch (`forms/bloom.rs`); pulled further it spins the flower, unless it goes 0.25 canvas heights while hardly going round (under 0.12 of a turn), which looks around |
+| dizzy | gathers as `0.08 ×` its speed (radians a second), drains as `0.3 ×` itself, a second; its speed fades at 1 / s | a brisk turn a second makes the flower dizzy in about four seconds; half that only brings it near. Dizzy, it leans up to 0.38 rad, the lean going round (`forms/spin.rs`) |
+| `EDGE` / `CLEAR` / `LEARN_AFTER` | 0.6 / 0.25 / 3 | dizzier than the edge and back under clear without tipping is nearly; three nearlies in a visit and it knows your turn. Braced against you, dizziness gathers at 0.6 and your turn counts 0.55; with you, it turns on at 1.4 rad/s; against, it turns back at 1.1 rad/s for 3 s |
 | `HEAP_AT` | 0.9 of the dust | this much swept into one drift and it heaps itself (`forms/dust.rs`) |
 | `RISE_HOLD_SECS` | 1.2 s | the mound pressed this long, it rises |
 | `GATHER_SELF_AFTER` | 40 s | dust left untouched this long starts to drift together by itself |
@@ -216,6 +219,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | hit-stop | 0.12 s | the freeze right after a cut (`meiosis.rs`) |
 | quick change | 0.5 – 1.5 s | a bud growing, ice thawing, the floor taking it in |
 | becoming | 2.2 – 4.2 s | dividing 3.0, rejoining 2.2, thread 2.6, cosmos 3.5, flower 3.2, lake spreading 2.6, the fold 4.2, coming apart into dust 3.0, heaping into a mound 3.2 |
+| spun past dizzy | ropes: wound 2.6, flung 0.7, lying down 3.0, taken back 2.4 s; whirl: flat 1.2, rising 2.6, hanging 2.0, coming down 6.0, landing 1.4 s | left, it ends as the liquid; right, as the flower, risen 1.05 of its size and coming down in a spiral up to 0.35 wide (`forms/spin.rs`) |
 | letting go | 1.6 – 3.0 s | folding 2.4, settling 2.8, gathering 2.8 (the body growing back inside the pieces over its last 0.56), the river draining 2.4, the room folding back up 3.0, rising out of the mound 2.6 |
 | the river | rise 0.45, stand 5.5, fall 0.6 s per column; melt 2.2, spread 5.0 | seven beats in the rhythm the columns were raised in; the body then keeps it for forty more, each fainter |
 | the other one | arrive 4.0, taken in 2.6, given back 2.2 s | pressed together 1.1 s before it is taken; squeezed 0.5 s to give it back; three hurts within 4 s and it stands between for 7 s; nobody doing anything for 10 s and they circle, a turn every 21 s. It comes no sooner than 20 s into a visit, after 6 s of stillness |
@@ -265,7 +269,7 @@ Every sound is synthesized in `audio.rs`: sine and triangle oscillators, no samp
 - **Scale.** Major pentatonic across two octaves (`SCALE`). Anything pitched by where it was touched picks from it, so nothing the player does can sound wrong.
 - **Register.** Its own body is low and soft: merging at 110 Hz, becoming at 65 Hz + 98 Hz, the night drone at 55 Hz + 82.6 Hz. Discoveries are high and quiet: E5, B5, E6, each fainter. The river's heartbeat is the lowest thing it plays: two sine thumps sliding 62 → 44 Hz and 58 → 42 Hz, the second softer; its columns climb the pentatonic scale from G3, a row raised in one drag rising with it.
 - **Away.** Left for another tab, it goes silent at once: the whole mix fades with a 12 ms time constant and the audio context is suspended 90 ms later, so nothing is cut mid-swing and clicks. Looked at again, it fades back in over the same 12 ms, as it was.
-- **Nearly.** A pinch that leaves a bud rises C6 → D6 (`Sound::Pinch`); one let go of a little too late, or the flower's petals flinching, falls C6 → A5, quieter (0.018), so the hand hears how close it came (`Sound::Almost`).
+- **Nearly.** A pinch that leaves a bud rises C6 → D6 (`Sound::Pinch`); one let go of a little too late, or the flower's petals flinching, or the flower brought near dizzy and let go of, falls C6 → A5, quieter (0.018), so the hand hears how close it came (`Sound::Almost`).
 - **Volume.** Master 0.7. Single tones 0.02 – 0.3. Discoveries are the quietest thing it plays.
 - **Timbre as meaning.** Sine for the liquid, for living and for finding. Triangle for what is hard or hostile: provocation, knocks, the ringing pieces, the thread, and the other one: its ring is a triangle on the pentatonic scale from E4 with a bell's partial (×2.76) over it, 2.8 s, low as it arrives and high when struck.
 - **No music.** The continuous sounds are a hum while it is warmed, a held letter sung back an octave under the pokes (C3 pentatonic, 0.06), a note the player sang held and let go, sung back at the same pitch folded under C4 (sine, 0.06, 2.4 s), and a drone at night. While it plays anything it does not listen, so a microphone never hears it as the player. Silence is the default.
@@ -330,6 +334,7 @@ The player has a few raw gestures. The gesture, where it lands and what state th
 | stretch and hold taut | the liquid | (taut) | a thread longer than the room | `forms/filament.rs` |
 | short tug, let go at once; or two fingers closed together on it, let go at once | the liquid | pinch | five buds: a flower | `forms/bloom.rs` |
 | short tug, let go at once; or two fingers closed together on it | the flower | pinch | it comes apart into dust on the floor | `forms/dust.rs` |
+| drag round and round | the flower | spin | dizzy, it sways. Left past dizzy: its petals wind into ropes that fly out, unwind, lie down and are taken back in, and it is the liquid again. Right past dizzy: it lays flat, whirls up off the floor and spirals back down a flower. Nearly dizzy, again and again: it learns your turn, and turns with you, or back | `forms/spin.rs` |
 | tap, again and again | the mound | tend | it takes root by itself; tended, it grows into branches, leaves and blossom; left alone, it draws back | `forms/growth.rs` |
 | drag | the dust | sweep | drifts pushed together become one; nearly all of it in one place heaps into a mound; tap: it answers; hold: it rises back out | `forms/dust.rs` |
 | drag round and round | a tendril | stir | a universe inside it | `forms/cosmos.rs` |
