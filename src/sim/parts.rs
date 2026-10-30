@@ -36,9 +36,23 @@ pub struct Handle {
     pub vel: V3,
     /// Where the player's pointer wants the tip to be, while held.
     pub target: Option<V3>,
+    /// 0..1, how much of it has come out of the body: at 0 the surface is round, as if it
+    /// were not there. It grows in once pulled and sinks back before it goes (`step_handles`).
+    pub weight: f32,
+    /// How fast it is sinking back, a second; 0 while it stays.
+    pub fade: f32,
 }
 
 impl Handle {
+    pub fn new(id: u32, dir: V3, at: V3) -> Handle {
+        Handle { id, dir, tip: at, vel: V3::ZERO, target: Some(at), weight: 0.0, fade: 0.0 }
+    }
+    /// Where its tip shows: drawn in toward the anchor, deep inside, while only part of it
+    /// is out. At weight 0 it is a point too far under the surface to raise it.
+    pub fn shown_tip(&self, b: &Body) -> V3 {
+        let a = self.anchor(b);
+        a + (self.tip - a) * self.weight.clamp(0.0, 1.0)
+    }
     pub fn anchor(&self, b: &Body) -> V3 {
         b.pos + self.dir * (b.radius() * 0.45)
     }
@@ -48,17 +62,19 @@ impl Handle {
     pub fn stretch(&self, b: &Body) -> f32 {
         (self.tip - self.rest(b)).len() / b.radius()
     }
-    /// (base radius, neck radius, bulb radius). The neck thins as it stretches.
+    /// (base radius, neck radius, bulb radius). The neck thins as it stretches; all of them
+    /// shrink to nothing as it sinks back.
     pub fn radii(&self, b: &Body) -> (f32, f32, f32) {
-        let r = b.radius();
+        let r = b.radius() * self.weight.clamp(0.0, 1.0);
         let s = self.stretch(b).min(TEAR_RATIO);
         let neck = r * (0.24 - 0.13 * s).max(0.05);
         (r * 0.42, neck, r * 0.27)
     }
     pub fn sdf(&self, b: &Body, p: V3) -> f32 {
         let (base, neck, bulb) = self.radii(b);
-        let stem = sd_taper(p, self.anchor(b), self.tip, base, neck);
-        smin(stem, (p - self.tip).len() - bulb, 0.12 * b.radius())
+        let tip = self.shown_tip(b);
+        let stem = sd_taper(p, self.anchor(b), tip, base, neck);
+        smin(stem, (p - tip).len() - bulb, 0.12 * b.radius())
     }
 }
 

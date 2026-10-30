@@ -187,9 +187,9 @@ impl Renderer {
         let (mut ha, mut hb, mut bulb) = (Vec::new(), Vec::new(), Vec::new());
         for h in world.handles.iter().take(MAX_HANDLES) {
             let (base, neck, bulb_r) = h.radii(body);
-            let a = h.anchor(body);
+            let (a, tip) = (h.anchor(body), h.shown_tip(body));
             ha.extend([a.x, a.y, a.z, base]);
-            hb.extend([h.tip.x, h.tip.y, h.tip.z, neck]);
+            hb.extend([tip.x, tip.y, tip.z, neck]);
             bulb.push(bulb_r);
         }
         self.v4v("uHA", &ha);

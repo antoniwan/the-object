@@ -1,7 +1,7 @@
 //! What a hand can do to the liquid: poke it, lean it toward something, pull a tendril
 //! out of it, carry a drop and let it go.
 
-use super::{Event, Handle, Hit, Target, World, MAX_HANDLES, PROVOKE_POKES, PROVOKE_WINDOW};
+use super::{Event, Handle, Hit, Target, World, MAX_HANDLES, PROVOKE_POKES, PROVOKE_WINDOW, STUMP_FADE};
 use crate::math::*;
 
 /// How fast a let-go stump swings back and forth about its rest, radians a second (`step_handles`).
@@ -49,20 +49,24 @@ impl World {
     }
 
     pub fn begin_stretch(&mut self, at: V3) -> Option<u32> {
-        if self.handles.len() >= MAX_HANDLES {
-            // Of the stumps let go of, if any, the one nearest settled goes, so what
-            // vanishes in that frame is as little as it can be.
+        // those already sinking back are on their way out
+        if self.handles.iter().filter(|h| h.fade == 0.0).count() >= MAX_HANDLES {
+            // Of the stumps let go of, if any, the one nearest settled sinks back to make
+            // way, so nothing vanishes in one frame; the new one waits for it, unseen,
+            // before it grows (`step_handles`).
             let body = &self.body;
             // how far it will still swing out, where it is and how fast it is going together
             let unsettled = |h: &Handle| (h.tip - h.rest(body)).len().hypot(h.vel.len() / STUMP_SWING);
-            let i = (0..self.handles.len())
-                .filter(|&i| self.handles[i].target.is_none())
-                .min_by(|&a, &b| unsettled(&self.handles[a]).total_cmp(&unsettled(&self.handles[b])))?;
-            self.handles.remove(i);
+            let h = self
+                .handles
+                .iter_mut()
+                .filter(|h| h.target.is_none() && h.fade == 0.0)
+                .min_by(|a, b| unsettled(a).total_cmp(&unsettled(b)))?;
+            h.fade = STUMP_FADE;
         }
         let id = self.id();
         let dir = (at - self.body.pos).norm();
-        self.handles.push(Handle { id, dir, tip: at, vel: V3::ZERO, target: Some(at) });
+        self.handles.push(Handle::new(id, dir, at));
         Some(id)
     }
 
