@@ -722,6 +722,17 @@ impl Contact {
         )
     }
 
+    /// Takes in what another tab kept of what only grows: the habits counted, the answers given,
+    /// whether contact was made. A save from one never takes these back from the other.
+    pub fn merge(&mut self, saved: &str) {
+        let kept = Contact::load(saved);
+        for (h, k) in self.habits.iter_mut().zip(kept.habits) {
+            *h = (*h).max(k);
+        }
+        self.answered = self.answered.max(kept.answered);
+        self.contacted |= kept.contacted;
+    }
+
     pub fn load(saved: &str) -> Contact {
         let mut c = Contact::default();
         for part in saved.split(';') {
@@ -747,6 +758,18 @@ impl Contact {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_save_from_another_tab_never_takes_back_contact() {
+        let mut there = Contact::default();
+        there.answered = 1;
+        there.contacted = true;
+        there.habits[0] = 9;
+        let mut here = Contact::default();
+        here.habits[1] = 3;
+        here.merge(&there.save());
+        assert!(here.contacted && here.answered == 1 && here.habits[0] == 9 && here.habits[1] == 3);
+    }
 
     fn sense(stage: Stage, found: usize, idle: f32) -> Sense {
         Sense { stage, found, idle, fwd: v3(0.0, 0.0, -1.0), right: v3(1.0, 0.0, 0.0), up: V3::UP, pointer: None }
