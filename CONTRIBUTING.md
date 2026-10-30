@@ -45,6 +45,8 @@ After the merge, `.github/workflows/release.yml` tags `v<version>` on main and p
 
 The devlog is one post a day, not one a version: `devlog/YYYY-MM-DD.md`, written from that day's changelog entries, with GIFs of what a player can see filmed by `scripts/gif.mjs`, committed in `devlog/YYYY-MM-DD/` and shown from GitHub, ready to paste into the itch.io devlog by the end of the day. `devlog/README.md` says how they are written and filmed. `cargo test` fails once a day has gone by without its post.
 
+The itch.io page's description is `itch/page.md`, with its pictures in `itch/pictures/` (and the devlog's GIFs), all shown from GitHub. `scripts/itch-html.mjs` turns it, and every daily post, into the HTML the itch.io editors take (`itch/page.html`, `devlog/YYYY-MM-DD.html`), so each is pasted whole; `npm test` fails when one is out of date or shows a picture that is not in the repository.
+
 ## Where it runs
 
 - **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, `npm test`, then a full `./build.sh`. Both must pass before a PR merges. On pull requests it also checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
@@ -141,6 +143,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/rating.js` | Sends the answer to the question asked after contact to `/api/rating`, and adds what all the answers come to to the page's structured data. Left out of the itch build. |
+| `scripts/itch-html.mjs` | Makes the HTML for the itch.io description (`itch/page.md`) and each daily post, to paste into itch's editors. |
 | `scripts/gif.mjs`, `scripts/gif-scenes.mjs` | Films short looping GIFs of the built page for the daily devlog, from scripted scenes on a clock it moves itself (`devlog/README.md`). |
 | `scripts/shader-time.mjs` | Times how long the built page takes to be ready in headless Chromium at 48×32: the number to compare before and after a shader change. |
 | `scripts/load-check.mjs` | Loads the built page in headless Chromium dressed as Chromium, Safari and Firefox, a first visit and a return, and fails if any throws or never wakes. CI runs it. |

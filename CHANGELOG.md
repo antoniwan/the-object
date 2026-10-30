@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.20.3] - 2026-10-30
+
+### Changed
+- The itch.io page says what it does now, shows it in pictures, and says where it can hear you. Its words and pictures live here, and the page and each devlog post come ready to paste whole. (#78)
+
 ## [1.20.2] - 2026-10-29
 
 ### Changed
@@ -419,7 +424,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.20.2...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.20.3...HEAD
+[1.20.3]: https://github.com/antoniwan/the-object/compare/v1.20.2...v1.20.3
 [1.20.2]: https://github.com/antoniwan/the-object/compare/v1.20.1...v1.20.2
 [1.20.1]: https://github.com/antoniwan/the-object/compare/v1.20.0...v1.20.1
 [1.20.0]: https://github.com/antoniwan/the-object/compare/v1.19.0...v1.20.0

@@ -33,7 +33,7 @@ A post carries a short looping GIF of each change a player can see, placed where
 
 The GIFs are committed next to the post, in `devlog/YYYY-MM-DD/`, in the same pull request, and are only served once it is merged. They are filmed by `scripts/gif.mjs` from scenes in `scripts/gif-scenes.mjs`. `cargo test` fails when a post points at a GIF that is not in the repository, or at anything but `main`. A copy of the post and its GIFs also goes to the project's shared folder.
 
-To post it: open the post on GitHub (`devlog/YYYY-MM-DD.md`), copy the rendered page from the title down, and paste it into the itch.io devlog editor; the pictures come with it, served from GitHub.
+Each post has its HTML beside it, `devlog/YYYY-MM-DD.html`, made by `node scripts/itch-html.mjs devlog/YYYY-MM-DD.md` and remade whenever the post changes; `npm test` fails when it is missing or out of date. To post it: the first line of the `.md` goes in the itch.io devlog's title, and the whole `.html` goes in its body, in the editor's HTML view. The pictures come with it, served from GitHub.
 
 ```
 ./build.sh                                            # the page has to be built first

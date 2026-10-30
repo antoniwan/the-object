@@ -2,9 +2,9 @@
   "name": "the-object",
   "private": true,
   "type": "module",
-  "description": "Only for api/: the serverless function that keeps the answers to the object's question.",
+  "description": "Only for api/ (the serverless function that keeps the answers to the object's question) and the tests of the pages pasted into itch.io.",
   "scripts": {
-    "test": "node --test api/_rating.test.js"
+    "test": "node --test api/_rating.test.js scripts/itch-html.test.js"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2"
