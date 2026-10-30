@@ -4,7 +4,7 @@
 //! ways, by which way it was turned:
 //!
 //! - to the left (counterclockwise on screen): its petals twist into ropes and wind tighter and
-//!   tighter, then fly out all at once, unwinding as they go; they lie down over the floor, thin
+//!   tighter, then fly out all at once, unwinding as they go; they lie down over the floor, thin,
 //!   and are taken back in, until it is the liquid again.
 //! - to the right: it lays its petals out flat and whirls, and the floor lets go of it. It hangs
 //!   in the air turning, then comes down slowly in a wide spiral, the way a seed comes down from a
@@ -30,12 +30,12 @@ const LEAK: f32 = 0.3;
 /// The hand counts as turning it for this long after its last move.
 const HAND_SECS: f32 = 0.5;
 /// Dizzier than `EDGE` and back under `CLEAR` without tipping over: nearly.
-pub const EDGE: f32 = 0.6;
+const EDGE: f32 = 0.6;
 const CLEAR: f32 = 0.25;
 /// Nearly this many times, ever, and it knows which way you turn it; only `PER_VISIT` of them a
 /// visit count, so it takes three visits at the least.
-pub const LEARN_AFTER: u32 = 5;
-pub const PER_VISIT: u32 = 2;
+const LEARN_AFTER: u32 = 5;
+const PER_VISIT: u32 = 2;
 /// Once it braces against you, dizziness gathers this much slower, and your turn counts this much
 /// less while it is against its own.
 const BRACED_GAIN: f32 = 0.6;
@@ -54,7 +54,7 @@ const FALL_SECS: f32 = 3.0;
 pub const GATHER_SECS: f32 = 2.4;
 const ROPE_SECS: f32 = WIND_SECS + FLING_SECS + FALL_SECS + GATHER_SECS;
 /// When the ropes have lain down and it starts to come back.
-pub const LAID_DOWN: f32 = WIND_SECS + FLING_SECS + FALL_SECS;
+const LAID_DOWN: f32 = WIND_SECS + FLING_SECS + FALL_SECS;
 
 /// To the right: laid flat, lifted, hanging, coming down, landing.
 const FLAT_SECS: f32 = 1.2;
@@ -63,8 +63,10 @@ const HANG_SECS: f32 = 2.0;
 const DESCEND_SECS: f32 = 6.0;
 const LAND_SECS: f32 = 1.4;
 const WHIRL_SECS: f32 = FLAT_SECS + RISE_SECS + HANG_SECS + DESCEND_SECS + LAND_SECS;
+/// When it starts to come down.
+const DESCEND_AT: f32 = FLAT_SECS + RISE_SECS + HANG_SECS;
 /// How high it rises, in body radii, and how wide its spiral down is at the most.
-pub const LIFT: f32 = 1.05;
+const LIFT: f32 = 1.05;
 const SPIRAL: f32 = 0.35;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -235,7 +237,7 @@ impl Spin {
 
     fn whirl(&mut self, t: f32, dt: f32) -> Phase {
         let t2 = t + dt;
-        let down = FLAT_SECS + RISE_SECS + HANG_SECS;
+        let down = DESCEND_AT;
         let goal = if t2 < down { -11.0 } else if t2 < down + DESCEND_SECS { -11.0 + 7.5 * smoothstep(down, down + DESCEND_SECS, t2) } else { 0.0 };
         self.vel = ease(self.vel, goal, -1.1 * dt);
         self.dizzy = fade(self.dizzy, -1.2 * dt);
@@ -269,9 +271,9 @@ impl Spin {
     /// Where it is above where it stands, in body radii: up, and round its spiral down.
     pub fn offset(&self) -> V3 {
         let Phase::Whirl { t } = self.phase else { return V3::ZERO };
-        let up = FLAT_SECS + RISE_SECS + HANG_SECS;
-        let lift = LIFT * smoothstep(FLAT_SECS, FLAT_SECS + RISE_SECS, t) * (1.0 - smoothstep(up, up + DESCEND_SECS, t));
-        let wide = SPIRAL * smoothstep(up - 0.5, up + 1.5, t) * (1.0 - smoothstep(up + 0.5 * DESCEND_SECS, up + DESCEND_SECS, t));
+        let down = DESCEND_AT;
+        let lift = LIFT * smoothstep(FLAT_SECS, FLAT_SECS + RISE_SECS, t) * (1.0 - smoothstep(down, down + DESCEND_SECS, t));
+        let wide = SPIRAL * smoothstep(down - 0.5, down + 1.5, t) * (1.0 - smoothstep(down + 0.5 * DESCEND_SECS, down + DESCEND_SECS, t));
         v3(wide * self.round.cos(), lift, wide * self.round.sin())
     }
 

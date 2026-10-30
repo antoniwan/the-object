@@ -65,6 +65,13 @@ impl Default for Column {
     }
 }
 
+impl Column {
+    /// Up, or on its way up: not down and not yet falling.
+    fn standing(self) -> bool {
+        self.t >= 0.0 && self.t < RISE_SECS + STAND_SECS
+    }
+}
+
 pub struct River {
     pub active: bool,
     /// Where it rose (x, z), and which way it runs.
@@ -108,7 +115,7 @@ impl Default for River {
     }
 }
 
-
+/// How far the river's middle winds off a straight line, `s` along it.
 fn meander(s: f32) -> f32 {
     2.2 * (0.21 * s).sin() + 1.1 * (0.47 * s + 1.3).sin()
 }
@@ -201,12 +208,8 @@ impl River {
         self.world((k as f32 - ROWS as f32 / 2.0 + 0.5) * GAP, (l as f32 - 1.0) * GAP)
     }
 
-    fn standing(&self, c: &Column) -> bool {
-        c.t >= 0.0 && c.t < RISE_SECS + STAND_SECS
-    }
-
     pub fn standing_count(&self) -> usize {
-        self.cols.iter().filter(|c| self.standing(c)).count()
+        self.cols.iter().filter(|c| c.standing()).count()
     }
 
     /// Stand column `slot` up. `tapped`: a fresh press, which counts toward the rhythm.
@@ -222,7 +225,7 @@ impl River {
             }
         }
         let c = &mut self.cols[slot];
-        if c.t >= 0.0 && c.t < RISE_SECS + STAND_SECS {
+        if c.standing() {
             // already up: it stands a little longer
             c.t = c.t.min(RISE_SECS);
             return false;
@@ -235,7 +238,7 @@ impl River {
         if self.standing_count() >= FILL {
             self.pulse = Some((self.rhythm(), 0.0));
             for c in self.cols.iter_mut() {
-                if c.t >= 0.0 && c.t < RISE_SECS + STAND_SECS {
+                if c.standing() {
                     c.t = c.t.min(RISE_SECS);
                 }
             }
@@ -305,7 +308,7 @@ impl River {
         self.draining = true;
         self.pulse = None;
         for c in self.cols.iter_mut() {
-            if c.t >= 0.0 && c.t < RISE_SECS + STAND_SECS {
+            if c.standing() {
                 c.t = RISE_SECS + STAND_SECS;
             }
         }

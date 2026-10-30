@@ -9,7 +9,7 @@
 //! settled something takes root in it and grows as far as it is tended (growth.rs).
 //!
 //! Like the other forms, `Phase` only decides which 0..1 values move; the shader mixes
-//! them: the body crumbling (`crumble`), the cloud (`cloud`), the dust landing (`settle`),
+//! them: the body crumbling (`crumble_amount`), the cloud (`cloud`), the dust landing (`settle`),
 //! and the mound (`heap`, `firm`).
 
 use super::growth::Growth;
@@ -24,7 +24,7 @@ const HEAP_SECS: f32 = 3.2;
 /// Coming back up out of the mound.
 const RISE_SECS: f32 = 2.6;
 /// This much of it in one drift and it heaps itself.
-pub const HEAP_AT: f32 = 0.9;
+const HEAP_AT: f32 = 0.9;
 /// Pressing the mound this long brings it back up.
 pub const RISE_HOLD_SECS: f32 = 1.2;
 /// Untouched this long, the dust starts to drift together by itself.

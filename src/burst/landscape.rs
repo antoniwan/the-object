@@ -11,7 +11,7 @@
 //! - leave it all alone and the weather rounds every edge, until the pebbles
 //!   roll home on their own
 //!
-//! `Land` only keeps the numbers; burst.rs folds them into each piece's pose,
+//! `Land` only keeps the numbers; burst/mod.rs folds them into each piece's pose,
 //! and the shader reads them as height, size and rounding.
 
 use crate::math::*;
@@ -88,6 +88,10 @@ pub struct Land {
     events: Vec<Event>,
 }
 
+/// How close two pieces of these heights are shoved to, at most.
+pub fn spacing(a: f32, b: f32) -> f32 {
+    (a + b) * 0.32
+}
 
 /// Where each bead settles: the corners of an icosahedron, a small cluster
 /// where the body was. `blob` is a bead's radius; positions are its base.
@@ -164,7 +168,7 @@ impl Land {
     }
 
     /// Where piece `i` stands while landed, and how far it has melted back (0..1).
-    /// `home` is where burst.rs keeps it; `blob` is a bead's radius.
+    /// `home` is where burst/mod.rs keeps it.
     pub fn place(&self, i: usize, home: V3) -> (V3, f32) {
         let r = self.returns[i];
         if r.melt <= 0.0 {
@@ -244,7 +248,7 @@ impl Land {
             if j == i || self.returned(j) {
                 continue;
             }
-            let min = (sizes[i] + sizes[j]) * 0.32;
+            let min = spacing(sizes[i], sizes[j]);
             let d = v3(homes[j].x - at.x, 0.0, homes[j].z - at.z);
             let l = d.len();
             if l >= min {

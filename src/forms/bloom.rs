@@ -23,8 +23,8 @@ const NEAR_SECS: f32 = 1.3;
 const NEAR_SIZE: f32 = 0.7;
 /// Two fingers that both began on it, closed to this much of how far apart they began and
 /// let go of within `FINGERS_MAX_SECS`, pinched it.
-pub const FINGERS_CLOSE: f32 = 0.75;
-pub const FINGERS_MAX_SECS: f32 = 0.7;
+const FINGERS_CLOSE: f32 = 0.75;
+const FINGERS_MAX_SECS: f32 = 0.7;
 /// On the flower, which does not stretch, a pull this short (canvas heights) let go of at once is a pinch.
 pub const TUG_MAX: f32 = 0.12;
 /// The flower pinched a little too slowly: its petals draw in this much, and open again over `FLINCH_SECS`.

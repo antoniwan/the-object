@@ -7,12 +7,14 @@
 //! Two eased values, never set: the shader draws the cells from them (`uNerve`), so
 //! a cut can turn fear on quickly but never makes anything jump.
 
+use crate::math::{ease, smoothstep};
+
 /// Seconds after a cut that it stays afraid before it starts to calm.
-pub const AFRAID_SECS: f32 = 2.5;
+const AFRAID_SECS: f32 = 2.5;
 /// From this many seconds after a cut it begins to feel its strength...
-pub const NERVE_FROM: f32 = 4.0;
+const NERVE_FROM: f32 = 4.0;
 /// ...and has all of it by this many.
-pub const NERVE_FULL: f32 = 10.0;
+const NERVE_FULL: f32 = 10.0;
 /// How fast fear arrives, and how slowly it leaves (per second).
 const FEAR_IN: f32 = 7.0;
 const FEAR_OUT: f32 = 0.7;
@@ -35,15 +37,6 @@ impl Default for Nerve {
     }
 }
 
-fn ease(x: f32, goal: f32, rate: f32, dt: f32) -> f32 {
-    x + (goal - x) * (1.0 - (-rate * dt).exp())
-}
-
-fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
-    let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
-}
-
 impl Nerve {
     /// It has just been cut.
     pub fn cut(&mut self) {
@@ -54,10 +47,10 @@ impl Nerve {
         self.since += dt;
         let afraid = if self.since < AFRAID_SECS { 1.0 } else { 0.0 };
         let fear_rate = if afraid > self.fear { FEAR_IN } else { FEAR_OUT };
-        self.fear = ease(self.fear, afraid, fear_rate, dt);
+        self.fear = ease(self.fear, afraid, -fear_rate * dt);
         let sure = smoothstep(NERVE_FROM, NERVE_FULL, self.since);
         let power_rate = if sure < self.power { NERVE_OUT } else { NERVE_IN };
-        self.power = ease(self.power, sure, power_rate, dt);
+        self.power = ease(self.power, sure, -power_rate * dt);
     }
 }
 
