@@ -29,6 +29,9 @@ pub(super) enum Gesture {
     Other { start: (f32, f32), plane: V3, offset: V3, carried: bool },
     /// A short pull on the flower, which would not stretch: let go at once, it is a pinch.
     Tug { start: (f32, f32), since: f32 },
+    /// Round and round the flower (forms/spin.rs): `last` the angle the pointer was at around it on
+    /// screen, `turned` how far round it has gone, in turns.
+    Spin { start: (f32, f32), last: f32, turned: f32 },
     /// On the floor while it is dust (forms/dust.rs): dragging sweeps it from `last`;
     /// pressing the mound and holding still brings it back up.
     Dust { start: (f32, f32), last: (f32, f32), since: f32, mound: bool, moved: bool },
@@ -142,7 +145,7 @@ impl Game {
                 let secs = self.clock - since;
                 if secs < bloom::PINCH_MAX_SECS && self.world.forms.pinch_flower(self.world.body.pos) {
                     self.world.add_ripple(V3::UP, 0.5);
-                } else if secs < bloom::NEAR_MAX_SECS && self.world.forms.bloom.flinch() {
+                } else if secs < bloom::NEAR_MAX_SECS && self.world.forms.spin.whole() && self.world.forms.bloom.flinch() {
                     // A little too slow: its petals only flinch in.
                     self.sounds.push(Sound::Almost);
                 }
@@ -153,9 +156,15 @@ impl Game {
                 }
             }
             Gesture::Dust { .. } => {}
-            Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Idle => {}
+            Gesture::Ground { .. } | Gesture::Cutting { .. } | Gesture::River | Gesture::Spin { .. } | Gesture::Idle => {}
         }
         self.world.forms.dust.press = 0.0;
+    }
+
+    /// Where `(x, y)` is around the flower on screen, radians, counterclockwise.
+    fn around_flower(&self, (x, y): (f32, f32)) -> f32 {
+        let (cx, cy) = self.screen(self.world.body.pos);
+        (cy - y).atan2(x - cx)
     }
 
     /// A tap on the liquid, or on whatever it has become.
@@ -188,7 +197,7 @@ impl Game {
     pub(super) fn tap_form(&mut self, hit: Hit) -> bool {
         let pos = self.world.body.pos;
         let f = &mut self.world.forms;
-        f.filament.pluck(hit.pos, pos).is_some() || f.bloom.fold() || f.pandora.knock() || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
+        f.filament.pluck(hit.pos, pos).is_some() || (f.spin.whole() && f.bloom.fold()) || f.pandora.knock() || !(f.filament.whole() && f.bloom.whole() && f.pandora.whole())
     }
 
     /// Stand up the column of the river under the pointer. Returns true if the river is there.
@@ -417,10 +426,23 @@ impl Game {
                 self.raise_column(x, y, false);
             }
             Gesture::Tug { start, .. } => {
-                // pulled further, it was never a pinch: look around
+                // pulled further, it was never a pinch: it turns the flower, or looks around
                 if dist(start, (x, y)) / self.h > bloom::TUG_MAX {
-                    self.gesture = Gesture::Orbiting { start, last: start };
+                    self.gesture = Gesture::Spin { start, last: self.around_flower(start), turned: 0.0 };
                     self.pointer_move(id, x, y, dt);
+                }
+            }
+            Gesture::Spin { start, last, turned } => {
+                let now = self.around_flower((x, y));
+                let pi = std::f32::consts::PI;
+                let turn = ((now - last + pi).rem_euclid(2.0 * pi) - pi) / (2.0 * pi);
+                let turned = turned + turn;
+                if turned.abs() < 0.12 && dist(start, (x, y)) / self.h > 0.25 {
+                    // a long pull that hardly went round it: looking around
+                    self.gesture = Gesture::Orbiting { start, last: (x, y) };
+                } else {
+                    self.world.forms.spin.turn(turn);
+                    self.gesture = Gesture::Spin { start, last: now, turned };
                 }
             }
             Gesture::Dust { start, last, since, mound, moved } => {

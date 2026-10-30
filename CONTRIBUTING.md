@@ -77,7 +77,7 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 | --- | --- |
 | `src/game/` | Pointer input to verbs. `mod.rs` holds `Game`, its frame step and, in its header comment, every gesture; `gesture.rs` turns pointer movement into verbs, `news.rs` routes what each transformation reports back, `view.rs` projects between screen and room, `learn.rs` feeds contact and the senses, `sound.rs` names the sounds a frame asks for. |
 | `src/sim/` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `mod.rs` holds `World` and its frame step; `parts.rs` the pieces it is made of, `verbs.rs` what a hand does to it, `liquid.rs` tendrils and drops, `moods.rs` how it feels, `geometry.rs` its distance function (`World::sdf`, mirrored by the shader). |
-| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 118 so far. |
+| `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 123 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
 | `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two, and left alone at a screen's steady thirty a second; the canvas follows in small steps, and the finest light fades with it. |

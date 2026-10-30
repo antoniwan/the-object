@@ -122,9 +122,14 @@ pub enum Discovery {
     Root,
     Canopy,
     Wither,
+    Sway,
+    Ropes,
+    Aloft,
+    Braced,
+    InStep,
 }
 
-pub const ALL: [Discovery; 118] = [
+pub const ALL: [Discovery; 123] = [
     Discovery::Poke,
     Discovery::Stretch,
     Discovery::Tear,
@@ -243,6 +248,11 @@ pub const ALL: [Discovery; 118] = [
     Discovery::Root,
     Discovery::Canopy,
     Discovery::Wither,
+    Discovery::Sway,
+    Discovery::Ropes,
+    Discovery::Aloft,
+    Discovery::Braced,
+    Discovery::InStep,
 ];
 
 impl Discovery {
@@ -366,6 +376,11 @@ impl Discovery {
             Discovery::Root => "root",
             Discovery::Canopy => "canopy",
             Discovery::Wither => "wither",
+            Discovery::Sway => "sway",
+            Discovery::Ropes => "ropes",
+            Discovery::Aloft => "aloft",
+            Discovery::Braced => "braced",
+            Discovery::InStep => "in step",
         }
     }
 
@@ -489,6 +504,11 @@ impl Discovery {
             Discovery::Root => "it reached down. the ground let it.",
             Discovery::Canopy => "it grew toward the light, and kept the flower it was.",
             Discovery::Wither => "it forgot the light, a little at a time.",
+            Discovery::Sway => "the room kept turning after it stopped.",
+            Discovery::Ropes => "wound past holding, it let go all at once.",
+            Discovery::Aloft => "turned enough, the ground let go of it.",
+            Discovery::Braced => "it knows which way you turn it now. it turns back.",
+            Discovery::InStep => "it knows which way you turn it now. it turns with you.",
         }
     }
 }
@@ -553,7 +573,7 @@ mod tests {
     fn all_lists_every_discovery() {
         // Discoveries missing from ALL are forgotten between visits.
         // Keep the last variant here when appending to the enum.
-        assert_eq!(ALL.len(), Discovery::Wither as usize + 1);
+        assert_eq!(ALL.len(), Discovery::InStep as usize + 1);
         for (i, d) in ALL.iter().enumerate() {
             assert_eq!(*d as usize, i);
         }
