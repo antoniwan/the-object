@@ -11,6 +11,7 @@
 //! nothing it knows, the page has it listen in the other (`turn`), and it stays in whichever
 //! one its words were last found in.
 
+use super::get;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -38,10 +39,6 @@ pub enum Note {
     Refused,
     /// It stopped and will not start again.
     Gone,
-}
-
-fn get(target: &JsValue, key: &str) -> JsValue {
-    js_sys::Reflect::get(target, &JsValue::from_str(key)).unwrap_or(JsValue::UNDEFINED)
 }
 
 fn set(target: &JsValue, key: &str, v: JsValue) {
@@ -233,7 +230,7 @@ impl Speech {
     }
 
     /// Whether there is another language to listen in.
-    pub fn bilingual(&self) -> bool {
+    fn bilingual(&self) -> bool {
         self.tongues.borrow().len() > 1
     }
 

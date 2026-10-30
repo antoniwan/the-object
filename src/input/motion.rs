@@ -9,15 +9,15 @@
 //!   flung off the way it was thrown; enough of them free and the room goes dark, as always.
 //!
 //! Most phones simply let the page feel how they are held. Some (iOS) only after asking: then
-//! it asks once a visit, late enough in the arc, in one word (`hold the room.`, senses.rs), and
+//! it asks once a visit, late enough in the arc, in one word (`hold the room.`, senses/), and
 //! only the player's tap on that word lets the browser ask. On a desk nothing arrives and
 //! nothing happens. Readings are a few numbers a frame, used and dropped. Everything here acts
 //! only on the ordinary liquid.
 
 use crate::game::{Game, Sound};
+use crate::input::senses::Kind;
 use crate::math::*;
 use crate::progress::Discovery;
-use crate::input::senses::Kind;
 
 /// Degrees of tip that tip the room all the way; less than DEAD is the hand being a hand.
 const FULL_TILT: f32 = 18.0;

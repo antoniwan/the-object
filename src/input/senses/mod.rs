@@ -1,9 +1,9 @@
 //! It can be let hear you and see you. It never takes either; late in the arc it asks, once a
 //! visit, in one word, and only the player's own tap on that word lets the browser ask for the
-//! microphone or the camera (web.rs, devices.rs). Hearing can also be given from the first
-//! moment, by a tap on the small microphone in the corner, which waits there until it is. On phones that only let a page feel how they
-//! are held after asking, it asks for that the same way, a little earlier (`hold the room.`);
-//! what it does with it is in motion.rs. Words come out of hearing (words.rs): where the
+//! microphone or the camera (platform/web/, devices.rs). Hearing can also be given from the
+//! first moment, by a tap on the small microphone in the corner, which waits there until it is.
+//! On phones that only let a page feel how they are held after asking, it asks for that the
+//! same way, a little earlier (`hold the room.`); what it does with it is in motion.rs. Words come out of hearing (words.rs): where the
 //! browser can only make them by sending the voice away, that is asked for on its own, last
 //! (`say something.`), with a line under the word saying so.
 //!
@@ -22,8 +22,8 @@
 //! kept, nothing leaves the browser. Stopping is always one key or one tap away. A refusal is
 //! remembered (`save` / `load`) and never asked again.
 
-use crate::mind::contact::Stage;
 use crate::math::*;
+use crate::mind::contact::Stage;
 use crate::progress::Discovery;
 use crate::sim::World;
 
@@ -155,7 +155,7 @@ pub struct Senses {
     /// Words, where they must leave the page to become words; see `Kind::Words`.
     pub words: Leave,
     /// The browser can give it a microphone / a camera here, or must be asked before it can
-    /// feel how the phone is held (set by web.rs).
+    /// feel how the phone is held (set by platform/web/).
     pub can_hear: bool,
     pub can_see: bool,
     pub can_feel: bool,
@@ -279,8 +279,9 @@ impl Senses {
 
     /// Its mark waits in the corner, and a tap on it is the same as on the word. Hearing waits
     /// from the start of every visit, as the one mark that can always be seen (even while its word
-    /// is up), until it hears or is told no. Sight waits only once asked this visit and not taken up (the word went by, or
-    /// it was stopped since), faint. Words need the line under them, and feeling has no mark.
+    /// is up), until it hears or is told no. Sight waits only once asked this visit and not taken
+    /// up (the word went by, or it was stopped since), faint. Words need the line under them, and
+    /// feeling has no mark.
     pub fn waiting(&self, kind: Kind) -> bool {
         match kind {
             Kind::Hear => self.can_hear && matches!(self.hear, Leave::Closed | Leave::Offered(_)),
@@ -366,7 +367,7 @@ impl Senses {
         Some((f, (k * 8.0).min(1.0) * (1.0 - k).powf(1.5)))
     }
 
-    /// How dark it wants the room, 0..1 (sim.rs `dim`).
+    /// How dark it wants the room, 0..1 (`World::dim`).
     pub fn dark(&self) -> f32 {
         self.dark
     }

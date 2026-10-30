@@ -19,13 +19,13 @@
 //! has come in learning the player (earlier lines are about itself, later ones about them),
 //! and whose condition still holds, which mostly means something there is not yet found.
 
-use crate::mind::contact::{self, Contact, Stage};
-use crate::forms::{bloom, cosmos, filament, fold, pandora};
-use crate::progress::{Discovery as D, Progress};
-use crate::sim::World;
 use crate::burst;
 use crate::division::{meiosis, morula};
 use crate::floor::fusion;
+use crate::forms::{bloom, cosmos, filament, fold, pandora};
+use crate::mind::contact::{self, Contact, Stage};
+use crate::progress::{Discovery as D, Progress};
+use crate::sim::World;
 
 /// Seconds into a visit before the first thought.
 pub const FIRST_AFTER: f32 = 30.0;

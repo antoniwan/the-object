@@ -1,22 +1,22 @@
 //! Browser glue: canvas, input events (keys go on to keys.rs), the frame loop, the lines of text
 //! (hint, toast, count, now and then a thought, and the marks while it hears or sees), what is
 //! saved between visits, the microphone and camera once the player has let it have them
-//! (senses.rs, devices.rs), words made of what it hears (words.rs, speech.rs), and how a phone
+//! (senses/, devices.rs), words made of what it hears (words.rs, speech.rs), and how a phone
 //! is held and moved (motion.rs).
 
-use crate::platform::audio::Audio;
-use crate::mind::contact::{self, Contact};
-use crate::platform::devices::{self, Answer, Ears, Eyes};
-use crate::game::Game;
+use crate::game::{Game, Sound};
 use crate::input::keys;
 use crate::input::motion::Felt;
-use crate::pace::Pace;
-use crate::progress::{Discovery, Progress};
-use crate::platform::render::Renderer;
 use crate::input::senses::{self, Kind, Senses};
+use crate::mind::contact::{self, Contact};
+use crate::mind::remembrance::Remembrance;
+use crate::pace::Pace;
+use crate::platform::audio::Audio;
+use crate::platform::devices::{self, Answer, Ears, Eyes};
+use crate::platform::render::Renderer;
 use crate::platform::speech::{self, Can, Note, Speech};
-use std::cell::Cell;
-use std::cell::RefCell;
+use crate::progress::{Discovery, Progress};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -152,7 +152,7 @@ impl App {
             // A microphone near the speaker would hear these; it is not to take them for the player.
             for s in &self.game.sounds {
                 // Only while the sound is loud: most of each one is gone in under a second.
-                self.game.senses.deafen(if *s == crate::game::Sound::Discover { 1.6 } else { 0.6 });
+                self.game.senses.deafen(if *s == Sound::Discover { 1.6 } else { 0.6 });
             }
         }
         if let Some(a) = &self.audio {
@@ -234,7 +234,7 @@ pub fn start() -> Result<(), JsValue> {
         game.progress = Progress::load(&found);
         game.contact = Contact::load(&load(KEY_CONTACT));
         game.senses = Senses::load(&load(KEY_SENSES));
-        game.remembrance = crate::mind::remembrance::Remembrance::load(&load(KEY_REMEMBRANCE), js_sys::Date::now() / 1000.0);
+        game.remembrance = Remembrance::load(&load(KEY_REMEMBRANCE), js_sys::Date::now() / 1000.0);
         hud.show_count(game.progress.count());
         if visits > 1 && game.progress.count() > 0 {
             game.discover(Discovery::Return);
@@ -374,7 +374,7 @@ pub fn start() -> Result<(), JsValue> {
             if game.held() {
                 return;
             }
-            let scale = js_sys::Reflect::get(&e, &JsValue::from_str("scale")).ok().and_then(|s| s.as_f64());
+            let scale = crate::platform::get(&e, "scale").as_f64();
             game.pad.gesture(if e.type_() == "gestureend" { None } else { scale.map(|s| s as f32) });
         })?;
     }

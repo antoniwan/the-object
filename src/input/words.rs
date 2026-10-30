@@ -1,5 +1,5 @@
-//! Words, once it hears you and the browser can make words of what it hears (web.rs, speech.rs).
-//! Nothing is explained to it; it simply takes some words as the hand they stand for.
+//! Words, once it hears you and the browser can make words of what it hears (platform/web/,
+//! speech.rs). Nothing is explained to it; it simply takes some words as the hand they stand for.
 //!
 //! - say a verb and it is done to it, once for each time it is said: "poke poke poke" is three
 //!   pokes, in the order said. Poke, cut, squeeze, hold, pull, tear, pinch, throw, come, in
@@ -16,8 +16,9 @@
 
 use crate::game::{Game, Sound};
 use crate::math::*;
-use crate::progress::Discovery;
+use crate::mind::contact::SIGNS;
 use crate::mind::remembrance::Deed;
+use crate::progress::Discovery;
 
 /// The pointer id the spoken hand uses; real pointers are never negative.
 const HAND: i32 = -7;
@@ -99,7 +100,7 @@ const GREETINGS: &[&str] = &[
     "shalom", "namaste", "namaskar", "aloha", "jambo", "habari", "sawubona", "kia ora",
     "konnichiwa", "ohayo", "ohayou", "annyeong", "annyeonghaseyo", "ni hao", "nihao", "xin chao",
     "sawasdee", "kamusta", "kumusta", "selamat pagi", "privet", "zdravstvuyte", "yassou", "geia",
-    "hallo", "terve", "moi", "tere", "labas", "sveiki", "zdravo", "bok", "dobar dan",
+    "terve", "moi", "tere", "labas", "sveiki", "zdravo", "bok", "dobar dan",
 ];
 
 /// Greetings in scripts that do not put spaces between words.
@@ -319,7 +320,7 @@ pub fn answer(greeting: &str) -> String {
         seed
     };
     let len = 2 + next() % 3;
-    let mut word: String = (0..len).map(|_| crate::mind::contact::SIGNS[(next() % 12) as usize]).collect();
+    let mut word: String = (0..len).map(|_| SIGNS[(next() % SIGNS.len() as u32) as usize]).collect();
     // Said twice, the second time a little shorter, the way a greeting is given back.
     let short: String = word.chars().take(len as usize - 1).collect();
     word.push(' ');
@@ -501,7 +502,7 @@ mod tests {
             assert_eq!(greeting(g), None, "{g}");
         }
         assert_eq!(answer("hola"), answer("hola"));
-        assert!(answer("hola").chars().all(|c| c == ' ' || crate::mind::contact::SIGNS.contains(&c)));
+        assert!(answer("hola").chars().all(|c| c == ' ' || SIGNS.contains(&c)));
     }
 
     #[test]

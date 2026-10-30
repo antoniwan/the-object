@@ -14,7 +14,7 @@
 //!   The only word of it anyone can read is "you"; the rest is made from your habits.
 //! - a question (after contact, once a visit): it holds out one drop of itself and waits. Kept
 //!   in the hand, the drop brightens a step at a time, up to five; let go, the steps it reached
-//!   are the answer. Left untaken, nothing is answered. The answer leaves the page (web.rs);
+//!   are the answer. Left untaken, nothing is answered. The answer leaves the page (platform/web/);
 //!   it is the only thing the object ever sends anywhere.
 //!
 //! What it learns is kept between visits (`save` / `load`). Nothing here draws: it moves the
@@ -166,8 +166,7 @@ impl Reach {
             world.release_handle(id);
             return false;
         }
-        let k = (self.t / self.grow).min(1.0);
-        let k = k * k * (3.0 - 2.0 * k);
+        let k = smooth01(self.t / self.grow);
         // rest is at 0.8 radii; it never pulls as far as tearing
         let to = world.body.pos + self.dir * (r * (0.8 + self.len.min(1.1) * k));
         world.pull_handle(id, to);

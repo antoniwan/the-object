@@ -8,11 +8,11 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{AddEventListenerOptions, HtmlElement, Storage};
 
-/// The marks' own words, read aloud and shown on hover (they have no letters of their own).
 /// The room by day and by night (DESIGN.md `room`, `night`), for the page around the canvas.
 const ROOM: [f32; 3] = [248.0, 247.0, 245.0];
 const NIGHT: [f32; 3] = [3.0, 3.0, 8.0];
 
+/// The marks' own words, read aloud and shown on hover (they have no letters of their own).
 const STOP: &str = "tap here or press escape to stop.";
 
 pub(super) fn body() -> Option<HtmlElement> {
