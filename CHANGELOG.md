@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.8] - 2026-10-30
+
+### Changed
+- The guides for working on it match the repository as it is now: every CI step, every file in the map, the shader's rules as they stand, how full its uniforms are, two colors corrected, and the devlog's real scene names. (#88)
+
 ## [1.22.7] - 2026-10-30
 
 ### Changed
@@ -474,7 +479,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.7...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.8...HEAD
+[1.22.8]: https://github.com/antoniwan/the-object/compare/v1.22.7...v1.22.8
 [1.22.7]: https://github.com/antoniwan/the-object/compare/v1.22.6...v1.22.7
 [1.22.6]: https://github.com/antoniwan/the-object/compare/v1.22.5...v1.22.6
 [1.22.5]: https://github.com/antoniwan/the-object/compare/v1.22.4...v1.22.5
