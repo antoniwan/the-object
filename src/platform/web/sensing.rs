@@ -20,7 +20,10 @@ impl App {
     pub(super) fn close(&mut self, kind: Kind) {
         self.game.senses.close(kind);
         match kind {
-            Kind::Hear => self.ears.take().map(Ears::close),
+            Kind::Hear => {
+                self.let_ear_context_go();
+                self.ears.take().map(Ears::close)
+            }
             Kind::See => self.eyes.take().map(Eyes::close),
             Kind::Feel => None,
             Kind::Words => self.speech.take().map(Speech::stop),
@@ -36,6 +39,14 @@ impl App {
             self.offer = None;
         }
         self.show_marks();
+    }
+
+    /// The context made for the microphone in the tap, if it never became ears: closed, so a
+    /// browser's few audio contexts are not used up by asking.
+    fn let_ear_context_go(&mut self) {
+        if let Some(ctx) = self.ear_ctx.take() {
+            let _ = ctx.close();
+        }
     }
 
     pub(super) fn close_all(&mut self) {
@@ -71,6 +82,7 @@ impl App {
         match kind {
             Kind::Feel => devices::ask_to_feel(self.feel_answers.clone()),
             Kind::Hear => {
+                self.let_ear_context_go();
                 self.ear_ctx = devices::ear_context();
                 devices::ask(kind, self.answers.clone());
                 // Whether words can be made on the device is only asked now, inside the tap.
@@ -109,11 +121,18 @@ impl App {
             };
             match answer {
                 // Stopped while the browser was still asking: let it go unused.
-                Ok(stream) if !waiting => devices::stop(&stream),
+                Ok(stream) if !waiting => {
+                    devices::stop(&stream);
+                    if kind == Kind::Hear {
+                        self.let_ear_context_go();
+                    }
+                }
                 Ok(stream) => {
                     let opened = match kind {
                         Kind::Hear => match self.ear_ctx.take() {
-                            Some(ctx) => Ears::new(ctx, stream.clone()).map(|e| self.ears = Some(e)),
+                            Some(ctx) => Ears::new(ctx.clone(), stream.clone()).map(|e| self.ears = Some(e)).inspect_err(|_| {
+                                let _ = ctx.close();
+                            }),
                             None => Err(JsValue::from_str("no audio context")),
                         },
                         Kind::See => Eyes::new(stream.clone()).map(|e| self.eyes = Some(e)),
@@ -129,7 +148,12 @@ impl App {
                     }
                     self.show_marks();
                 }
-                Err(no) => self.game.senses.refused(kind, no),
+                Err(no) => {
+                    if kind == Kind::Hear {
+                        self.let_ear_context_go();
+                    }
+                    self.game.senses.refused(kind, no);
+                }
             }
         }
         let felt = std::mem::take(&mut *self.feel_answers.borrow_mut());

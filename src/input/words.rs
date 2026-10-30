@@ -402,6 +402,19 @@ fn greet(g: &mut Game, greeting: &'static str) {
     g.words.turn = Some((0.0, mood));
 }
 
+/// A real finger has come down (`Game::pointer_down`): the spoken hand lifts and waits, so
+/// the two are never taken for one squeeze.
+pub fn give_way(g: &mut Game, id: i32) {
+    if id < 0 || g.words.doing.is_none() {
+        return;
+    }
+    if g.words.pressing() {
+        g.pointer_up(HAND);
+    }
+    g.words.doing = None;
+    g.words.wait = GAP;
+}
+
 /// The spoken hand: one verb at a time, never while a real hand is on it.
 fn step_hand(g: &mut Game, dt: f32) {
     let canvas = (g.w, g.h);
@@ -573,6 +586,16 @@ mod tests {
         g.pointer_up(1);
         run(&mut g, 0.5);
         assert_eq!(g.contact.habits[0], 1);
+    }
+
+    #[test]
+    fn a_real_finger_takes_over_from_the_spoken_hand() {
+        let mut g = game();
+        g.words.hear(0, 0, "pull");
+        run(&mut g, 10.0 / 60.0);
+        assert!(g.words.pressing());
+        g.pointer_down(1, 100.0, 100.0);
+        assert_eq!(g.hands(), 1, "the spoken hand gives way to the real one");
     }
 
     #[test]

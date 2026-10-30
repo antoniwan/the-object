@@ -230,6 +230,7 @@ impl Game {
     }
 
     pub fn pointer_down(&mut self, id: i32, x: f32, y: f32) {
+        crate::input::words::give_way(self, id);
         self.pointers.retain(|p| p.0 != id);
         self.pointers.push((id, x, y));
         match self.pointers.len() {

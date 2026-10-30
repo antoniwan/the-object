@@ -121,8 +121,8 @@ impl App {
             self.game.remembrance.dirty = false;
             save(KEY_REMEMBRANCE, || self.game.remembrance.save());
         }
-        for signs in self.game.words.said.drain(..) {
-            self.hud.urgent(Line::Greeted(signs));
+        for signs in std::mem::take(&mut self.game.words.said) {
+            self.urgent(Line::Greeted(signs));
         }
         for e in self.game.senses.drain_events() {
             match e {
@@ -139,10 +139,10 @@ impl App {
             match e {
                 contact::Event::Asked => {
                     // Whatever else it was saying can wait; this is asked now.
-                    self.hud.urgent(Line::Asked);
+                    self.urgent(Line::Asked);
                 }
                 contact::Event::Answer(n) => {
-                    self.hud.urgent(Line::Answer(n));
+                    self.urgent(Line::Answer(n));
                     send_answer(n);
                 }
                 _ => {}
@@ -153,6 +153,13 @@ impl App {
             for s in &self.game.sounds {
                 // Only while the sound is loud: most of each one is gone in under a second.
                 self.game.senses.deafen(if *s == Sound::Discover { 1.6 } else { 0.6 });
+            }
+            // Nor the voices that keep sounding while the player holds on (audio.rs `follow`,
+            // `hum`): the warm hum while held still, a held letter's note. Each fades over a
+            // moment once it stops, so it stays deaf a little past the last frame of it. The
+            // night's drone is left out: it lasts the whole night, and it must still hear then.
+            if self.game.world.warming || self.game.keys.hum().is_some() {
+                self.game.senses.deafen(0.6);
             }
         }
         if let Some(a) = &self.audio {
@@ -181,6 +188,15 @@ impl App {
         self.hud.update(now / 1000.0, self.game.progress.count(), &self.game.contact);
         self.show_aura();
         self.renderer.draw(&self.game.world, &self.game.cam, self.canvas.width(), self.canvas.height(), self.pace.fine);
+    }
+
+    /// A line that cuts the toast short. If it was asking, the asking is over: a tap or Enter
+    /// on the new line does not answer it (the waiting mark still can).
+    fn urgent(&mut self, line: Line) {
+        if self.offer.take().is_some() {
+            self.hud.queue.retain(|l| !matches!(l, Line::Offer(_)));
+        }
+        self.hud.urgent(line);
     }
 
     /// Sound can only start inside a gesture; the first one makes it.
