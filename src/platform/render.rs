@@ -336,7 +336,14 @@ impl Renderer {
     fn upload_forms(&self, world: &World, radius: f32) {
         let fo = &world.forms;
         let bl = &fo.bloom;
-        self.v4v("uBloom", &[bl.open(), bl.angle, 0.0, 0.0]);
+        let sp = &fo.spin;
+        let up = sp.offset();
+        let (lx, lz) = sp.sway();
+        let (wound, flung, down, left) = sp.rope();
+        // petals run the other way round from the hand's sense on screen
+        self.v4v("uBloom", &[bl.open(), bl.angle - sp.angle, sp.flat(), up.y]);
+        self.v4v("uSpin", &[wound, flung, down, left]);
+        self.v4v("uSpin2", &[lx, lz, up.x, up.z]);
         let mut buds = Vec::new();
         for b in bl.buds.iter().take(crate::forms::bloom::PETALS) {
             buds.extend([b.dir.x, b.dir.y, b.dir.z, bl.bud_size(b)]);

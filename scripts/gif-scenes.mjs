@@ -20,6 +20,17 @@ async function flower(t) {
   await t.wait(4);
 }
 
+// Round and round the flower, `turns` times (counterclockwise on screen if positive), over `secs`.
+async function spin(t, turns, secs, r = 0.16) {
+  const n = Math.round(Math.abs(turns) * 48);
+  const path = [];
+  for (let k = 0; k <= n; k++) {
+    const a = (k / n) * turns * TAU;
+    path.push([r * Math.cos(a), -r * Math.sin(a)]);
+  }
+  await t.drag(path, secs);
+}
+
 // Where the middle of the floor is once it has gone to dust and the camera looks down.
 const FLOOR = [0, 0.13];
 
@@ -51,6 +62,35 @@ async function twoFingers(t, a, b, a2, b2, secs) {
 }
 
 export default {
+  sway: {
+    about: 'the flower spun, not quite enough: it sways on itself and rights itself',
+    async play(t) {
+      await flower(t);
+      t.roll();
+      await spin(t, 3, 3.2);
+      await t.wait(3.5);
+    },
+  },
+  ropes: {
+    about: 'the flower spun left past dizzy winds into ropes that fly out, lie down and are taken back in',
+    async play(t) {
+      await flower(t);
+      await spin(t, 2, 2.2);
+      t.roll();
+      await spin(t, 3, 2.6);
+      await t.wait(10);
+    },
+  },
+  aloft: {
+    about: 'the flower spun right past dizzy lays flat, whirls up off the floor and comes down again',
+    async play(t) {
+      await flower(t);
+      await spin(t, -2, 2.2);
+      t.roll(1.5);
+      await spin(t, -3, 2.6);
+      await t.wait(13);
+    },
+  },
   arrival: {
     about: 'before it appears: the pearl grows as the page arrives, then comes apart, and it is there',
     // Filmed as it happens (gif.mjs `arrive`): no fingers, only the page arriving.

@@ -31,6 +31,9 @@
 //! - pinch the flower: it comes apart into dust on the floor (too slowly, its petals only flinch); drag through the dust to sweep it,
 //!   sweep it together into a mound, tap the mound, hold it to bring it back up (see forms/dust.rs);
 //!   it takes root in the mound, and every tap on it grows it further (see forms/growth.rs)
+//! - spin the flower (drag round and round it): it grows dizzy and sways; left past dizzy its petals
+//!   wind into ropes that fly out and come undone, right past dizzy it whirls up and comes back down;
+//!   nearly dizzy again and again, it learns your turn (see forms/spin.rs)
 //! - stretch it and hold it taut without tearing: it becomes a thread; tap to pluck, hold to wind it back
 //! - stir it (drag a tendril round and round it): it holds a universe; stir back to settle it
 //! - stir the universe on, the same way: the room folds and it is everywhere; poke to add a

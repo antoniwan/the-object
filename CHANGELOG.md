@@ -12,6 +12,14 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-10-30
+
+### Added
+- The flower can be spun. It turns with the hand and keeps turning a little after; turned long enough it grows dizzy and sways on itself, and rights itself when let be. (#80)
+- Spun left past dizzy, its petals wind into red ropes, tighter and tighter, then fly out all at once, unwind as they fall, lie down over the floor and are taken back in, until it is the liquid again. (#80)
+- Spun right past dizzy, it lays its petals flat and whirls, and the floor lets go of it. It hangs there turning, comes down slowly in a wide spiral, and is the flower again where it lands. (#80)
+- Brought to the edge of dizzy again and again, it learns which way you turn it. If it is glad of you it turns on with you by itself; if not, it turns back against you, and is harder to make dizzy. (#80)
+
 ## [1.21.0] - 2026-10-30
 
 ### Added
@@ -429,7 +437,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.21.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.0...HEAD
+[1.22.0]: https://github.com/antoniwan/the-object/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/antoniwan/the-object/compare/v1.20.3...v1.21.0
 [1.20.3]: https://github.com/antoniwan/the-object/compare/v1.20.2...v1.20.3
 [1.20.2]: https://github.com/antoniwan/the-object/compare/v1.20.1...v1.20.2

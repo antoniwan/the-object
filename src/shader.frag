@@ -75,9 +75,12 @@ uniform int uNSp;
 const float PIL_GAP = 1.6;
 const float PIL_HALF = 0.58;
 const vec3 BLOOD = vec3(0.42, 0.02, 0.05);
+const vec3 ROPE = vec3(0.80, 0.07, 0.16);
 
 // The other forms (forms/). Each is gated on its own amount, so it costs nothing until it is used.
-uniform vec4 uBloom;     // x how open the flower is 0..1, y where the first petal points
+uniform vec4 uBloom;     // x how open the flower is 0..1, y where the first petal points (turning as it spins), z laid flat to whirl 0..1, w how high it has risen (radii)
+uniform vec4 uSpin;      // its petals as ropes (forms/spin.rs): x wound 0..1, y flung out, z lain down, w how much of them is left
+uniform vec4 uSpin2;     // xy its dizzy lean (radians about x and z), zw where it is round its spiral down (radii)
 uniform vec4 uBud[5];    // xyz where a pinch left a bud, w how grown it is
 uniform int uNB;
 uniform vec4 uFil;       // xyz which way the thread runs, w half its length
@@ -465,10 +468,27 @@ float sdBox(vec3 p, vec3 b, float r) {
 }
 
 // The flower, facing up: a low heart and five petals that unfold from standing to open.
+// Spun (forms/spin.rs) it leans while dizzy; turned left past that its petals wind into ropes,
+// fly out and lie down; turned right they lay flat, pitched like blades, and it rises.
+vec3 flowerLocal(vec3 p) {
+  vec3 q = (p - uBody.xyz) / uBody.w - vec3(uSpin2.z, uBloom.w, uSpin2.w);
+  float cx = cos(uSpin2.x), sx = sin(uSpin2.x), cz = cos(uSpin2.y), sz = sin(uSpin2.y);
+  q.yz = vec2(cx * q.y - sx * q.z, sx * q.y + cx * q.z);
+  q.xy = vec2(cz * q.x - sz * q.y, sz * q.x + cz * q.y);
+  return q;
+}
+
 float flowerSdf(vec3 p) {
-  vec3 q = (p - uBody.xyz) / uBody.w;
+  vec3 q = flowerLocal(p);
   float d = sdEllipsoid(q - vec3(0.0, 0.05, 0.0), vec3(0.42, 0.26, 0.42));
-  float tilt0 = mix(1.45, 0.3, uBloom.x);
+  float tilt0 = mix(mix(1.45, 0.3, uBloom.x), 0.02, uBloom.z);
+  // wound, the ropes stand up round the heart; flung, they lie out; lain down, they reach for the floor
+  tilt0 = mix(mix(mix(tilt0, 1.05, uSpin.x * (1.0 - uSpin.y)), -0.05, uSpin.y), -0.42, uSpin.z);
+  float rope = smoothstep(0.0, 0.45, uSpin.x + uSpin.y);
+  float len = 0.66 * (1.0 + 1.8 * uSpin.y);
+  float twist = uSpin.x * (5.0 + 11.0 * uSpin.x);
+  float th = 0.075 * uSpin.w;
+  float pc = cos(0.45 * uBloom.z), ps = sin(0.45 * uBloom.z);
   for (int i = ZERO; i < 5; i++) {
     float a = uBloom.y + float(i) * 1.2566;
     float c = cos(a), s = sin(a);
@@ -478,8 +498,21 @@ float flowerSdf(vec3 p) {
     float tilt = tilt0 + 0.04 * sin(uTime * 0.8 + float(i) * 1.7);
     float ct = cos(tilt), st = sin(tilt);
     v = vec3(ct * v.x + st * v.y, -st * v.x + ct * v.y, v.z);
-    v.y -= 0.45 * v.z * v.z; // cupped
-    d = smin(d, sdEllipsoid(v - vec3(0.62, 0.0, 0.0), vec3(0.66, 0.06, 0.36)), 0.08);
+    // laid flat, pitched like a blade
+    v.yz = vec2(pc * v.y - ps * v.z, ps * v.y + pc * v.z);
+    vec3 w = v;
+    v.y -= 0.45 * (1.0 - uBloom.z) * v.z * v.z; // cupped
+    float pd = sdEllipsoid(v - vec3(0.62, 0.0, 0.0), vec3(0.66, 0.06, 0.36));
+    if (rope > 0.0) {
+      // two strands twisted round each other along the petal
+      vec3 e = w - vec3(len - 0.04, 0.0, 0.0);
+      float ang = twist * w.x;
+      float ca = cos(ang), sa = sin(ang);
+      vec2 yz = vec2(ca * e.y - sa * e.z, sa * e.y + ca * e.z);
+      float rd = length(vec3(e.x - clamp(e.x, th - len, len - th), yz.x, abs(yz.y) - 0.9 * th)) - th;
+      pd = mix(pd, 0.7 * rd, rope);
+    }
+    d = smin(d, pd, 0.08);
   }
   return d * uBody.w;
 }
@@ -818,7 +851,7 @@ vec4 marchSpan(vec3 ro, vec3 rd) {
   float sc = max(max(uScale.x, uScale.y), max(uScale.z, 1.0));
   float cluster = step(0.5, float(uNC));
   float rb = (pick(2.0, max(2.5, 2.4 * uGrainR), cluster) + disp) * r * sc + grow * sc / max(min(uScale.x, uScale.y), 0.2);
-  rb = max(rb, step(1e-9, uBloom.x) * (1.8 * r + grow));
+  rb = max(rb, step(1e-9, uBloom.x) * ((1.8 + 2.3 * uSpin.y + uBloom.w + length(uSpin2.zw)) * r + grow));
   rb = max(rb, step(1e-9, uBox.x) * (3.0 * r + grow));
   rb = max(rb, step(1e-9, uFil2.y) * (uFil.w + uFil2.x + length(uFilSwing) * (abs(uFil2.z) + 0.02) + grow));
   // the slab it stands up into
@@ -1455,13 +1488,16 @@ vec3 mereSurface(vec3 p, vec3 rd, vec3 n, vec3 col, float fres, vec3 er) {
 // A flower's colors: pollen at the heart, petals deep at the base and pale at the tips.
 vec3 formTint(vec3 p, vec3 tint) {
   if (uBloom.x > 0.0) {
-    vec3 q = (p - uBody.xyz) / uBody.w;
+    vec3 q = flowerLocal(p);
     float rho = length(q.xz);
     float heart = smoothstep(0.5, 0.36, rho) * step(-0.1, q.y);
     vec3 petal = mix(vec3(0.93, 0.42, 0.62), vec3(1.0, 0.95, 0.96), smoothstep(0.35, 1.45, rho));
     petal = mix(petal, tint, 0.3);
     vec3 pollen = vec3(0.98, 0.76, 0.26) * (0.85 + 0.15 * hash(floor(p * 60.0)));
     tint = mix(tint, mix(petal, pollen, heart), smoothstep(0.2, 0.7, uBloom.x));
+    // wound into ropes: red, ridged across
+    vec3 rope = ROPE * (0.72 + 0.28 * smoothstep(-0.3, 0.6, sin(rho * 38.0)));
+    tint = mix(tint, rope, smoothstep(0.0, 0.45, uSpin.x + uSpin.y) * uSpin.w * smoothstep(0.2, 0.7, uBloom.x) * (1.0 - heart));
   }
   return tint;
 }

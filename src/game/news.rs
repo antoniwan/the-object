@@ -6,6 +6,7 @@ impl Game {
     /// What the four other forms ask of the game each frame: their news, the camera, and the box's contents.
     pub(super) fn update_forms(&mut self, dt: f32, orbiting: bool) {
         use forms::Event as F;
+        self.world.forms.spin.glad = self.remembrance.kind();
         for e in self.world.forms.drain_events() {
             match e {
                 F::Budded => {
@@ -100,6 +101,28 @@ impl Game {
                     self.discover(Discovery::Canopy);
                 }
                 F::Withered => self.discover(Discovery::Wither),
+                F::Swaying => self.discover(Discovery::Sway),
+                F::Nearly => self.sounds.push(Sound::Almost),
+                F::Learned { with } => {
+                    self.world.add_ripple(V3::UP, 0.5);
+                    self.discover(if with { Discovery::InStep } else { Discovery::Braced });
+                }
+                F::Winding | F::Whirling => self.sounds.push(Sound::Become),
+                F::Flung => {
+                    self.sounds.push(Sound::Chord);
+                    self.cam.shake = 0.06;
+                    self.discover(Discovery::Ropes);
+                }
+                F::LaidDown => {}
+                F::Unwound => self.world.ripple_both(0.8),
+                F::Aloft => {
+                    self.sounds.push(Sound::Stir);
+                    self.discover(Discovery::Aloft);
+                }
+                F::Landed => {
+                    self.cam.shake = 0.02;
+                    self.world.add_ripple(V3::UP, 0.6);
+                }
             }
         }
         // Everything it was keeping gets out at once.
@@ -135,6 +158,8 @@ impl Game {
         if open > 0.0 && !orbiting {
             // as what roots in the mound grows, the eye comes down to see it standing
             let level = 0.78 - 0.3 * self.world.forms.dust.growth.shown / forms::growth::FULL;
+            // whirling up, it comes down low enough to see the floor let go
+            let level = level - 0.55 * self.world.forms.spin.flat();
             self.cam.pitch += (level - self.cam.pitch) * (1.0 - (-1.5 * dt).exp()) * open;
         }
     }

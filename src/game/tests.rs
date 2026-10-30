@@ -1088,3 +1088,47 @@ fn drag_on_empty_space_orbits() {
     assert!(g.cam.yaw != yaw);
     assert!(g.world.ripples.is_empty());
 }
+
+#[test]
+fn the_flower_spun_left_past_dizzy_flies_apart_in_ropes_and_comes_back_liquid() {
+    let mut g = game();
+    flower(&mut g);
+    stir(&mut g, 3.0);
+    assert!(g.progress.has(Discovery::Sway), "it sways");
+    assert!(g.world.forms.dust.whole() && g.world.forms.cosmos.whole(), "spinning is neither a pinch nor a stir");
+    stir(&mut g, 4.0);
+    wait(&mut g, 4.0);
+    assert!(g.progress.has(Discovery::Ropes));
+    wait(&mut g, 8.0);
+    assert!(g.world.ordinary(), "it is the liquid again");
+    assert!(!g.progress.has(Discovery::Fold), "it was not folded");
+}
+
+#[test]
+fn the_flower_spun_right_past_dizzy_rises_and_lands_a_flower() {
+    let mut g = game();
+    flower(&mut g);
+    stir(&mut g, -6.0);
+    wait(&mut g, 3.0);
+    assert!(g.progress.has(Discovery::Aloft));
+    assert!(g.world.forms.spin.offset().y > 0.9, "off the floor");
+    // a tap while it is up does not fold it
+    let (x, y) = g.screen(g.world.body.pos + g.world.forms.spin.offset() * g.world.body.radius());
+    g.pointer_down(1, x, y);
+    g.pointer_up(1);
+    wait(&mut g, 12.0);
+    assert_eq!(g.world.forms.bloom.phase, bloom::Phase::Flower);
+    assert!(g.world.forms.spin.whole());
+}
+
+#[test]
+fn brought_near_dizzy_again_and_again_it_learns_which_way_you_turn_it() {
+    let mut g = game();
+    flower(&mut g);
+    for _ in 0..3 {
+        stir(&mut g, 2.7);
+        wait(&mut g, 6.0);
+    }
+    assert!(g.world.forms.spin.whole());
+    assert!(g.progress.has(Discovery::Braced) || g.progress.has(Discovery::InStep));
+}

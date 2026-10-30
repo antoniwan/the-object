@@ -2,6 +2,8 @@
 //!
 //! - pinch it (a short tug, let go at once): a bud stays where you pinched.
 //!   Five buds and it opens into a flower. Tap the flower and it folds back up.
+//!   Spin the flower and it grows dizzy; past that, turned left it winds into ropes that fly
+//!   out and come undone, turned right it whirls up off the floor and comes back down (spin.rs).
 //!   Pinch the flower and it comes apart into dust on the floor; sweep the dust
 //!   together and it heaps into a mound; something takes root in it and grows as far as it
 //!   is tended (growth.rs); hold the mound and it rises (see dust.rs).
@@ -26,6 +28,7 @@ pub mod filament;
 pub mod fold;
 pub mod growth;
 pub mod pandora;
+pub mod spin;
 
 use crate::math::*;
 use bloom::Bloom;
@@ -34,6 +37,7 @@ use dust::Dust;
 use filament::Filament;
 use fold::Fold;
 use pandora::Pandora;
+use spin::Spin;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Event {
@@ -87,6 +91,26 @@ pub enum Event {
     Canopy,
     /// Left alone, what grew drew back down.
     Withered,
+    /// The flower, turned fast, has started to sway.
+    Swaying,
+    /// Brought near dizzy and let go of.
+    Nearly,
+    /// Brought near dizzy often enough: it knows which way you turn it, and turns `with` you or back.
+    Learned { with: bool },
+    /// Turned left past dizzy: its petals wind into ropes.
+    Winding,
+    /// The ropes flew out.
+    Flung,
+    /// The ropes lay down over the floor; it starts to come back.
+    LaidDown,
+    /// The ropes were taken back in, and it is the liquid again.
+    Unwound,
+    /// Turned right past dizzy: it lays its petals flat and whirls.
+    Whirling,
+    /// The floor let go of it.
+    Aloft,
+    /// It came back down, a flower again.
+    Landed,
 }
 
 #[derive(Default)]
@@ -97,16 +121,24 @@ pub struct Forms {
     pub pandora: Pandora,
     pub fold: Fold,
     pub dust: Dust,
+    pub spin: Spin,
 }
 
 impl Forms {
     /// True while it is still the liquid it started as (buds alone don't change what it is).
     pub fn whole(&self) -> bool {
-        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole() && self.fold.whole() && self.dust.whole()
+        self.bloom.whole() && self.filament.whole() && self.cosmos.whole() && self.pandora.whole() && self.fold.whole() && self.dust.whole() && self.spin.whole()
     }
 
     pub fn step(&mut self, dt: f32) {
         self.bloom.step(dt);
+        self.spin.step(dt, self.bloom.phase == bloom::Phase::Flower);
+        if self.spin.events.contains(&Event::LaidDown) {
+            self.bloom.let_go();
+        }
+        if self.bloom.whole() {
+            self.spin.angle = 0.0;
+        }
         self.filament.step(dt);
         self.fold.step(dt);
         // in the fold, the universe keeps the fold's time, backward too
@@ -122,7 +154,7 @@ impl Forms {
 
     /// A pinch on the flower: it comes apart over the floor under `pos`.
     pub fn pinch_flower(&mut self, pos: V3) -> bool {
-        self.bloom.phase == bloom::Phase::Flower && self.dust.crumble(pos.x, pos.z, self.bloom.angle)
+        self.bloom.phase == bloom::Phase::Flower && self.spin.whole() && self.dust.crumble(pos.x, pos.z, self.bloom.angle)
     }
 
     /// A stir (in turns, counterclockwise on screen positive): the fold takes it while there
@@ -139,7 +171,7 @@ impl Forms {
         let mut d = d;
         let open = self.bloom.open();
         if open > 0.0 {
-            d = d + (self.bloom.sdf(p, pos, r) - d) * smoothstep(0.0, 0.35, open);
+            d = d + (self.bloom.sdf(p, pos + self.spin.offset() * r, r) - d) * smoothstep(0.0, 0.35, open);
         }
         let m = self.filament.morph();
         if m > 0.0 {
@@ -159,6 +191,7 @@ impl Forms {
         out.append(&mut self.pandora.events);
         out.append(&mut self.fold.events);
         out.append(&mut self.dust.events);
+        out.append(&mut self.spin.events);
         out
     }
 }

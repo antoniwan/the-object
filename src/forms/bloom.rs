@@ -60,12 +60,14 @@ pub struct Bloom {
     flinched: Option<f32>,
     /// Where around the stem the first petal points.
     pub angle: f32,
+    /// Folding because it was let go of (spin.rs), not tapped: it says nothing when it is done.
+    quiet: bool,
     pub(super) events: Vec<Event>,
 }
 
 impl Default for Bloom {
     fn default() -> Self {
-        Bloom { phase: Phase::Buds, buds: Vec::new(), near: None, flinched: None, angle: 0.0, events: Vec::new() }
+        Bloom { phase: Phase::Buds, buds: Vec::new(), near: None, flinched: None, angle: 0.0, quiet: false, events: Vec::new() }
     }
 }
 
@@ -149,7 +151,16 @@ impl Bloom {
             return false;
         }
         self.phase = Phase::Folding { t: 0.0 };
+        self.quiet = false;
         true
+    }
+
+    /// Its petals are gone (spin.rs): what is left of the flower closes back into the body, quietly.
+    pub fn let_go(&mut self) {
+        if self.phase == Phase::Flower {
+            self.phase = Phase::Folding { t: 0.0 };
+            self.quiet = true;
+        }
     }
 
     /// Gone to dust (dust.rs): there is no flower left to fold, and no buds.
@@ -178,7 +189,9 @@ impl Bloom {
             Phase::Flower => Phase::Flower,
             Phase::Folding { t } if t + dt >= FOLD_SECS => {
                 self.buds.clear();
-                self.events.push(Event::Folded);
+                if !std::mem::take(&mut self.quiet) {
+                    self.events.push(Event::Folded);
+                }
                 Phase::Buds
             }
             Phase::Folding { t } => Phase::Folding { t: t + dt },
