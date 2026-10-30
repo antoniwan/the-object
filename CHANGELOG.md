@@ -12,10 +12,18 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-10-30
+
+### Added
+- It answers the hand at once: a press gives under the finger as it lands, and held there it slowly rises toward it, sinking back when let go. A flick just short of a throw only lurches it
+
+### Fixed
+- A flick stopped and held no longer throws it. The room's shake and the shock after it die away instead of running down
+
 ## [1.22.27] - 2026-10-30
 
 ### Changed
-- Something found no longer rings a rising chord. A moment later the last sound it made comes back, an octave lower, faint and cut short; with nothing heard just before, one soft low tone. The microphone is deaf only while that sounds
+- Something found no longer rings a rising chord. A moment later the last sound it made comes back, an octave lower, faint and cut short; with nothing heard just before, one soft low tone. The microphone is deaf only while that sounds (#108)
 
 ## [1.22.26] - 2026-10-30
 
@@ -574,7 +582,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.27...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.23.0...HEAD
+[1.23.0]: https://github.com/antoniwan/the-object/compare/v1.22.27...v1.23.0
 [1.22.27]: https://github.com/antoniwan/the-object/compare/v1.22.26...v1.22.27
 [1.22.26]: https://github.com/antoniwan/the-object/compare/v1.22.25...v1.22.26
 [1.22.25]: https://github.com/antoniwan/the-object/compare/v1.22.24...v1.22.25
