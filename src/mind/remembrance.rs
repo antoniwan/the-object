@@ -21,9 +21,9 @@
 //! question was answered), so no verb has to call it. Other code can still add a deed with
 //! `remember`.
 
-use crate::mind::contact::Stage;
 use crate::game::{Game, Sound};
 use crate::math::*;
+use crate::mind::contact::Stage;
 use crate::progress::Discovery;
 
 /// Bump when `warmth_of` or `bond_of` change meaning. Saved for whoever reads the value; never
@@ -371,10 +371,6 @@ impl Remembrance {
             s.push_str(&format!(";spun={},{}", self.spun.0, self.spun.1));
         }
         s
-    }
-
-    pub fn now(&self) -> f64 {
-        self.now
     }
 
     pub fn ledger(&self) -> &Ledger {

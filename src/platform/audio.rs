@@ -5,11 +5,20 @@ use crate::sim::World;
 use std::cell::Cell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
 use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
 
 /// Major pentatonic steps, in semitones, across two octaves.
 const SCALE: [f32; 10] = [0.0, 2.0, 4.0, 7.0, 9.0, 12.0, 14.0, 16.0, 19.0, 21.0];
+
+/// The step of the scale nearest `pitch`, 0..1 low to high, in semitones.
+fn step(pitch: f32) -> f32 {
+    SCALE[((pitch * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)]
+}
+
+/// Each of the burst's pieces has its own note: the larger, the lower.
+fn shard_note(i: usize) -> f32 {
+    1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0)
+}
 
 /// The master level, unmuted.
 const LEVEL: f32 = 0.7;
@@ -54,7 +63,7 @@ pub struct Audio {
     drone: Glide,
     /// A letter held down, sung back (keys.rs).
     hum: Voice,
-    /// A note the player held, hummed back (senses.rs).
+    /// A note the player held, hummed back (senses/).
     echo: Voice,
     pub muted: bool,
     /// Nobody is looking: faded out, and suspended once the fade is done unless they came back.
@@ -173,8 +182,7 @@ impl Audio {
         use OscillatorType::*;
         let _ = match s {
             Sound::Poke { pitch, size } => {
-                let step = SCALE[((pitch * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)];
-                let f = 220.0 / size * 2f32.powf(step / 12.0);
+                let f = 220.0 / size * 2f32.powf(step(pitch) / 12.0);
                 self.pluck(Sine, f, f * 0.96, 0.22, 0.9, 0.0)
                     .and_then(|_| self.pluck(Sine, f * 2.76, f * 2.7, 0.035, 0.35, 0.0))
             }
@@ -187,8 +195,8 @@ impl Audio {
                 .and_then(|_| self.pluck(Sine, 987.8, 987.8, 0.035, 2.6, 0.32))
                 .and_then(|_| self.pluck(Sine, 1318.5, 1318.5, 0.02, 2.8, 0.5)),
             Sound::Shard { i } => {
-                // each piece its own note: the larger, the lower; the hard ones ring, the soft ones thud
-                let f = 1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0);
+                // the hard ones ring, the soft ones thud
+                let f = shard_note(i);
                 let (give, decay) = crate::burst::CONSISTENCIES[i].give();
                 let ring = (2.6 / decay) as f64;
                 let kind = if decay > 6.0 { Triangle } else { Sine };
@@ -196,7 +204,7 @@ impl Audio {
                     .and_then(|_| self.pluck(Sine, f * 2.01, f * 2.0, 0.03 / decay.max(1.0), ring * 0.6, 0.0))
             }
             Sound::Chord => (0..crate::burst::SHARDS).try_for_each(|i| {
-                let f = 1400.0 / crate::burst::SIZES[i] * 2f32.powf(SCALE[i % SCALE.len()] / 24.0);
+                let f = shard_note(i);
                 self.pluck(Sine, f, f, 0.035, 3.2, i as f64 * 0.045)
             }),
             // up the scale with the river, a row raised in one drag climbs
@@ -237,7 +245,7 @@ impl Audio {
                 .and_then(|_| self.pluck(Sine, 98.0, 98.0, 0.08, 3.0, 0.1)),
             // The other one: hard, so a triangle, with a bell's partial over it; high struck, low arriving.
             Sound::Ring { pitch } => {
-                let f = 329.6 * 2f32.powf(SCALE[((pitch * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)] / 12.0);
+                let f = 329.6 * 2f32.powf(step(pitch) / 12.0);
                 self.pluck(Triangle, f, f * 0.998, 0.1, 2.8, 0.0)
                     .and_then(|_| self.pluck(Sine, f * 2.76, f * 2.75, 0.025, 1.4, 0.0))
             }
@@ -247,18 +255,18 @@ impl Audio {
         };
     }
 
-    /// Continuous sounds that follow the world's state.
-    /// `pitch` 0..1 picks a note from the scale, an octave under the pokes; `None` lets it fade.
+    /// A letter held down, sung back: `pitch` 0..1 picks a note from the scale, an octave under
+    /// the pokes; `None` lets it fade.
     pub fn hum(&self, pitch: Option<f32>) {
         let Some(p) = pitch else {
             self.hum.gain.toward(&self.ctx, 0.0, 0.3);
             return;
         };
-        let step = SCALE[((p * (SCALE.len() - 1) as f32).round() as usize).min(SCALE.len() - 1)];
-        self.hum.freq.toward(&self.ctx, 130.8 * 2f32.powf(step / 12.0), 0.05);
+        self.hum.freq.toward(&self.ctx, 130.8 * 2f32.powf(step(p) / 12.0), 0.05);
         self.hum.gain.toward(&self.ctx, 0.06, 0.25);
     }
 
+    /// Continuous sounds that follow the world's state: the warm hum and the night's drone.
     pub fn follow(&self, world: &World) {
         let c = world.body.color;
         let hum = if world.warming { 0.05 } else { 0.0 };

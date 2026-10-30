@@ -14,7 +14,7 @@
 //!   The only word of it anyone can read is "you"; the rest is made from your habits.
 //! - a question (after contact, once a visit): it holds out one drop of itself and waits. Kept
 //!   in the hand, the drop brightens a step at a time, up to five; let go, the steps it reached
-//!   are the answer. Left untaken, nothing is answered. The answer leaves the page (web.rs);
+//!   are the answer. Left untaken, nothing is answered. The answer leaves the page (platform/web/);
 //!   it is the only thing the object ever sends anywhere.
 //!
 //! What it learns is kept between visits (`save` / `load`). Nothing here draws: it moves the

@@ -1,15 +1,16 @@
 //! The microphone and the camera, once the player has tapped its word and the browser has let
 //! it have them. Neither is ever heard or seen by anyone: each frame the microphone gives a short
-//! window of samples and the camera a picture 32 x 24 pixels wide, senses.rs turns them into a
+//! window of samples and the camera a picture 32 x 24 pixels wide, senses/ turns them into a
 //! few numbers, and they are dropped. Nothing is recorded, kept or sent. Closing stops every
 //! track at once, so the browser's own indicator goes out with ours.
 //!
 //! Also how a phone is held and moved, for motion.rs: two angles and one push a frame, turned to
 //! the screen, used and dropped.
 
-use crate::math::v3;
+use super::get;
 use crate::input::motion::Felt;
 use crate::input::senses::{self, Heard, Kind, Retina, Seen};
+use crate::math::v3;
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -31,10 +32,6 @@ fn obj(pairs: &[(&str, JsValue)]) -> JsValue {
         let _ = js_sys::Reflect::set(&o, &JsValue::from_str(k), v);
     }
     o.into()
-}
-
-fn get(target: &JsValue, key: &str) -> JsValue {
-    js_sys::Reflect::get(target, &JsValue::from_str(key)).unwrap_or(JsValue::UNDEFINED)
 }
 
 /// Whether this page could ever be given it: a secure page with media devices, and not inside a
@@ -194,7 +191,7 @@ pub fn ask(kind: Kind, answers: Rc<RefCell<Vec<Answer>>>) {
     let c = MediaStreamConstraints::new();
     match kind {
         // Raw, so a whisper stays a whisper and a shout a shout (phones flatten both otherwise).
-        // It never hears its own hum: it does not listen while it hums (senses.rs).
+        // It never hears its own hum: it does not listen while it hums (senses/).
         Kind::Hear => {
             c.set_audio(&obj(&[
                 ("echoCancellation", false.into()),
