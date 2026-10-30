@@ -12,6 +12,7 @@ cargo install wasm-bindgen-cli --version 0.2.100
 
 ./build.sh                         # compiles to web/pkg/; after this, web/ is the whole site
 python3 -m http.server -d web      # open http://localhost:8000
+cargo fmt                          # formats the Rust (rustfmt.toml); CI fails on anything it would change
 cargo test                         # runs natively
 cargo run --release --example frame_bench   # times a frame of each scene, natively
 cargo run --release --example frame_bench -- --check   # fails if a scene no longer ends where examples/fingerprints.txt says
@@ -50,7 +51,7 @@ The itch.io page's description is `itch/page.md`, with its pictures in `itch/pic
 
 ## Where it runs
 
-- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, clippy (native and wasm; warnings and the lints that catch mistakes fail it, style, complexity and speed lints do not), `frame_bench --check`, `npm test`, a full `./build.sh`, `./scripts/itch.sh`, and `scripts/load-check.mjs`. All must pass before a PR merges. On pull requests it first checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
+- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo fmt --check`, `cargo test`, clippy (native and wasm; warnings and the lints that catch mistakes fail it, style, complexity and speed lints do not), `frame_bench --check`, `npm test`, a full `./build.sh`, `./scripts/itch.sh`, and `scripts/load-check.mjs`. All must pass before a PR merges. On pull requests it first checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
 - **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh --hash`, and serves `web/`. Settings are in `vercel.json`.
 - **Only `main` deploys.** `vercel.json` turns deployments off for every other branch (`git.deploymentEnabled`), so branches and pull requests build nothing there. Merging is deploying.
 - **itch.io** gets the same object as a zip. `./scripts/itch.sh` packs `web/` into `dist/the-object-itch.zip` with `index.html` at its root; `scripts/itch-page.mjs` takes out of the page the Vercel analytics, Stats, the ratings script (`web/rating.js`), the manifest and touch icon links, and the root-absolute links, which break when itch serves the game from a subfolder in an iframe. Every production deploy on Vercel then runs `scripts/itch-push.sh`, which pushes that build to <https://antoniwan.itch.io/the-object> with butler, using the `BUTLER_API_KEY` and `ITCH_TARGET` (`user/game`) environment variables of the Vercel project; so merging to main updates both. A failed push is logged and never fails the deploy. `.github/workflows/itch.yml` is the manual path: on a `v*` tag (or by hand from the Actions tab) it attaches the zip to a GitHub release, and pushes it to itch too if the repository has an `ITCH_TARGET` variable and a `BUTLER_API_KEY` secret. Tags made by `release.yml` start no other workflow, so it does not run on those.

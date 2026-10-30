@@ -1,4 +1,4 @@
-# On every push to main and every pull request: the tests, the lints, the simulation fingerprints,
+# On every push to main and every pull request: the formatting, the tests, the lints, the simulation fingerprints,
 # the Node tests, a full build and the itch pack, then the built page loaded in headless Chromium.
 # Hosting is on Vercel, which builds and deploys main on its own.
 name: test
@@ -23,7 +23,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-          components: clippy
+          components: clippy, rustfmt
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen-cli@0.2.100
@@ -38,6 +38,8 @@ jobs:
             echo "::error::Cargo.toml says $head and $GITHUB_BASE_REF says $base. Run ./scripts/version.sh <next> and write its CHANGELOG.md entry (CONTRIBUTING.md, Versions)."
             exit 1
           fi
+      - name: Formatted as rustfmt writes it
+        run: cargo fmt --check
       - run: cargo test
       # Compiler warnings and the lints that catch mistakes fail the build. Style, complexity and
       # speed lints only warn: the toolchain is the newest stable, and each release adds some.

@@ -21,7 +21,7 @@ Read these before changing anything, in this order:
 
 ```
 ./scripts/version.sh <next>   # then write its CHANGELOG.md entry (and today's devlog/ post, if you are the one writing it)
-cargo test
+cargo fmt && cargo test
 npm ci && npm test
 ./build.sh
 ```
