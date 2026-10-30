@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.3] - 2026-10-30
+
+### Changed
+- The shader is tidier and draws exactly as before: the floor's white is named once, the river's turn and the blossom's pink are reused instead of worked out again, and comments sit over the functions they describe. (#83)
+
 ## [1.22.2] - 2026-10-30
 
 ### Changed
@@ -449,7 +454,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.2...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.3...HEAD
+[1.22.3]: https://github.com/antoniwan/the-object/compare/v1.22.2...v1.22.3
 [1.22.2]: https://github.com/antoniwan/the-object/compare/v1.22.1...v1.22.2
 [1.22.1]: https://github.com/antoniwan/the-object/compare/v1.22.0...v1.22.1
 [1.22.0]: https://github.com/antoniwan/the-object/compare/v1.21.0...v1.22.0
