@@ -1,6 +1,6 @@
 //! WebGL2: one full-screen triangle and a raymarching fragment shader.
 
-use crate::camera::{Camera, FOCAL};
+use crate::camera::Camera;
 use crate::division::morula;
 use crate::math::V3;
 use crate::sim::{World, K_DROP, K_HANDLE, MAX_DROPS, MAX_HANDLES, MAX_RIPPLES};
@@ -170,7 +170,7 @@ impl Renderer {
         self.v3("uCamRight", b.right);
         self.v3("uCamUp", b.up);
         self.v3("uCamFwd", b.fwd);
-        self.f("uFocal", FOCAL);
+        self.f("uFocal", cam.focal);
         let (shock, since) = cam.shock();
         self.v2("uShock", shock, since);
         self.f("uFine", fine);

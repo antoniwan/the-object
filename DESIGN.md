@@ -260,6 +260,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | `STUMP_SINK` | rate 3 / s | a tendril held taut fades where it is, over about a second, as the thread draws out in its place |
 | night | rate 0.7 / s | the room darkens and lightens slowly |
 | warmth | rate 1.5 / s, cycle 0.22 / s | color drifts while held |
+| `LEAN` | focal length 1.9 to 2.3, in at rate 0.6 / s, out at 1.2 / s | while it watches you, sees you or reaches for you, or changes color held still by no finger (a spoken hold, a held letter), the view narrows on it, never coming closer; a finger down, a form framing it otherwise, or a squeeze out of round, and it widens again, never in one frame. Only a fifth as far with less motion asked for (`camera.rs`) |
 | remembered care | half-life 4 days | being held, sung to, answered, returned to (`remembrance.rs`) |
 | back after a long time | felt 0.3 (a held moment is 1); 0.1 less glad of you at first, fading at 1/60 a second | days away is a return, not a kindness: it counts it a little, and is careful of you for the first minutes of the visit (`remembrance.rs` `RESERVE`) |
 | coming back | worked out once, at load, from how long they were away; never while they are away or here | 3 hours: a drop of it lies on the floor where they last touched it, held there until a hand takes it. 2 days: warm toward `#ff9442`, 14% at first, gone over 20 s. Longer than 3 days, from regard on: facing away for 2 s as the room appears, then round to them over 5 s (wary: 9 s, stopping 0.5 rad short and kept 0.12 back), leaning 0.3, the lean let go over 2 s (`absence.rs`) |
@@ -285,7 +286,7 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; frames steady at 30 fps (within 2.5 ms, changing under 1.5 ms frame to frame: a screen saving power) are let be; the canvas follows in steps of 0.025, down at 0.4 / s and up at 0.15 / s; the finest light follows at rate 1.2 / s (`pace.rs`) |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
-`prefers-reduced-motion` stops the loader's animation (it grows only in opacity, 35% to 100%, and fades where it stands) and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.
+`prefers-reduced-motion` stops the loader's animation (it grows only in opacity, 35% to 100%, and fades where it stands) and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, its flash and ring come at 40%, and the view leans in a fifth as far (`camera.rs` `still`). Anything new on the page must respect it too.
 
 ## 6. Sound
 
