@@ -60,7 +60,9 @@
 //!   or leave them both alone
 //!
 //! And all along, it is learning the player back (see contact.rs): the more it has shown,
-//! the more it follows, flinches, echoes, takes turns, and, once, replies. Once it hears you it
+//! the more it follows, flinches, echoes, takes turns, and, once, replies; after that, each visit,
+//! only an echo of it, and on its turn it may begin a form you made it become and wait for you to
+//! finish it (pinch, a square, a stir; see forms/lean.rs). Once it hears you it
 //! learns the note you sing, answers in it, and sometimes hums it first on its turn.
 //! It also remembers how it was treated (see remembrance.rs): come back, and the first time
 //! a hand comes near it leans toward it, or away; and how glad or wary of you it is lets your

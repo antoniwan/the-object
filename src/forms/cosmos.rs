@@ -2,9 +2,13 @@
 //! you, and stirred long enough it stops being liquid and holds a universe: a
 //! dark glass sphere with a spiral galaxy turning inside, the way you stirred.
 //! Poke it and a star ignites at the core. Stir the other way and it settles.
+//! On its own turn, after contact (mind/contact.rs), it may begin to turn inside by itself and
+//! stop partway (lean.rs): stirred on the way it turns, less than a whole universe's worth, it goes
+//! on from there; stirred the other way, or left alone, it settles again.
 
+use super::lean::Lean;
 use super::Event;
-use crate::math::{ease, fade, smoothstep};
+use crate::math::{ease, fade, smoothstep, unsmoothstep};
 
 /// Turns of stirring (in one direction, without stopping long) that make the universe.
 const STIR_TURNS: f32 = 2.5;
@@ -38,6 +42,8 @@ pub struct Cosmos {
     pub flare: f32,
     /// How fast its time runs: 1, or less and below zero while the fold (fold.rs) runs it backward.
     pub pace: f32,
+    /// A turning it began by itself, rising, waiting or settling.
+    pub lean: Lean,
     pub(super) events: Vec<Event>,
 }
 
@@ -53,6 +59,7 @@ impl Default for Cosmos {
             told: false,
             flare: 0.0,
             pace: 1.0,
+            lean: Lean::default(),
             events: Vec::new(),
         }
     }
@@ -66,7 +73,7 @@ impl Cosmos {
     /// 0 = liquid, 1 = a universe.
     pub fn amount(&self) -> f32 {
         match self.phase {
-            Phase::Whole => 0.0,
+            Phase::Whole => self.lean.value(),
             Phase::Forming { t } => smoothstep(0.0, FORM_SECS, t),
             Phase::Cosmos => 1.0,
             Phase::Settling { t } => 1.0 - smoothstep(0.0, SETTLE_SECS, t),
@@ -84,7 +91,16 @@ impl Cosmos {
                     self.told = true;
                     self.events.push(Event::Stirring);
                 }
-                if self.stirred.abs() >= STIR_TURNS {
+                if self.lean.leaning() {
+                    // Begun by itself: the way it turns goes on from there, the other way settles it.
+                    let lean = self.lean.value();
+                    if self.stirred * self.sense >= STIR_TURNS * (1.0 - lean) {
+                        self.stirred = 0.0;
+                        self.phase = Phase::Forming { t: unsmoothstep(0.0, FORM_SECS, self.lean.take()) };
+                    } else if self.stirred * self.sense <= -1.0 {
+                        self.lean.sink();
+                    }
+                } else if self.stirred.abs() >= STIR_TURNS {
                     self.sense = self.stirred.signum();
                     self.stirred = 0.0;
                     self.phase = Phase::Forming { t: 0.0 };
@@ -100,6 +116,15 @@ impl Cosmos {
         }
     }
 
+    /// Begin to turn inside by itself, the way `sense` says, to `to` of a universe, and wait (lean.rs).
+    pub fn offer(&mut self, sense: f32, to: f32) -> bool {
+        if !self.whole() || self.lean.leaning() {
+            return false;
+        }
+        self.sense = if sense < 0.0 { -1.0 } else { 1.0 };
+        self.lean.begin(to)
+    }
+
     /// A poke lights a star.
     pub fn ignite(&mut self) {
         if !self.whole() {
@@ -109,6 +134,7 @@ impl Cosmos {
 
     pub fn step(&mut self, dt: f32) {
         self.quiet += dt;
+        self.lean.step(dt);
         if self.quiet > PAUSE_SECS {
             self.stirred = fade(self.stirred, -dt / FORGET_SECS);
         }

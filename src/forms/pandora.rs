@@ -3,7 +3,11 @@
 //! inside knocks back. Knock three times and the lid opens, light comes out,
 //! and so does everything it was keeping, flying out as colored drops until the
 //! sky goes dark. When every drop has come home, it forgets its corners.
+//! On its own turn, after contact (mind/contact.rs), it may begin to take its corners by itself
+//! and stop partway (lean.rs): a square drawn around it then takes them the rest of the way, from
+//! there and facing the way it already does; left alone, it rounds again.
 
+use super::lean::Lean;
 use super::Event;
 use crate::math::*;
 
@@ -35,12 +39,22 @@ pub struct Pandora {
     /// The shiver of the last knock, 0..1.
     pub rattle: f32,
     spill: bool,
+    /// Corners it began by itself, rising, waiting or rounding again.
+    pub lean: Lean,
     pub(super) events: Vec<Event>,
 }
 
 impl Default for Pandora {
     fn default() -> Self {
-        Pandora { phase: Phase::Whole, yaw: 0.0, knocks: 0, rattle: 0.0, spill: false, events: Vec::new() }
+        Pandora {
+            phase: Phase::Whole,
+            yaw: 0.0,
+            knocks: 0,
+            rattle: 0.0,
+            spill: false,
+            lean: Lean::default(),
+            events: Vec::new(),
+        }
     }
 }
 
@@ -52,7 +66,7 @@ impl Pandora {
     /// 0 = round, 1 = a box.
     pub fn boxness(&self) -> f32 {
         match self.phase {
-            Phase::Whole => 0.0,
+            Phase::Whole => self.lean.value(),
             Phase::Forming { t } => smoothstep(0.0, FORM_SECS, t),
             Phase::Box | Phase::Opening { .. } | Phase::Open { .. } => 1.0,
             Phase::Rounding { t } => 1.0 - smoothstep(0.6, ROUND_SECS, t),
@@ -74,9 +88,13 @@ impl Pandora {
         if !self.whole() {
             return false;
         }
-        self.yaw = yaw;
+        // Corners it had begun by itself are taken on from as far as they got, facing as they were.
+        let from = if self.lean.leaning() { self.lean.take() } else { 0.0 };
+        if from <= 0.0 {
+            self.yaw = yaw;
+        }
         self.knocks = 0;
-        self.phase = Phase::Forming { t: 0.0 };
+        self.phase = Phase::Forming { t: unsmoothstep(0.0, FORM_SECS, from) };
         self.events.push(Event::Cornered);
         true
     }
@@ -100,6 +118,15 @@ impl Pandora {
         std::mem::take(&mut self.spill)
     }
 
+    /// Begin to take its corners by itself, facing `yaw`, to `to` of a box, and wait (lean.rs).
+    pub fn offer(&mut self, yaw: f32, to: f32) -> bool {
+        if !self.whole() || self.lean.leaning() {
+            return false;
+        }
+        self.yaw = yaw;
+        self.lean.begin(to)
+    }
+
     /// Once everything has come home it can forget its corners.
     pub fn round(&mut self) -> bool {
         match self.phase {
@@ -113,6 +140,7 @@ impl Pandora {
 
     pub fn step(&mut self, dt: f32) {
         self.rattle = fade(self.rattle, -5.0 * dt);
+        self.lean.step(dt);
         self.phase = match self.phase {
             Phase::Forming { t } if t + dt >= FORM_SECS => Phase::Box,
             Phase::Forming { t } => Phase::Forming { t: t + dt },

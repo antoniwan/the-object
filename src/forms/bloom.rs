@@ -7,7 +7,10 @@
 //! buds were. Tap the flower and it folds back into the body. Pinch the flower
 //! and it comes apart instead (dust.rs); pinch it a little too slowly and its petals
 //! only flinch in, and open again.
+//! On its own turn, after contact (mind/contact.rs), it may raise one bud by itself and wait
+//! (lean.rs): a pinch anywhere on it keeps that bud as the first of five; left alone, it sinks back.
 
+use super::lean::Lean;
 use super::Event;
 use crate::math::*;
 
@@ -41,6 +44,8 @@ pub struct Bud {
     /// Direction from the body center.
     pub dir: V3,
     pub age: f32,
+    /// Raised by itself, on its turn: its size is the lean's until a pinch keeps it.
+    pub offered: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -62,6 +67,8 @@ pub struct Bloom {
     pub angle: f32,
     /// Folding because it was let go of (spin.rs), not tapped: it says nothing when it is done.
     quiet: bool,
+    /// The bud it raised by itself, rising, waiting or sinking back.
+    pub lean: Lean,
     pub(super) events: Vec<Event>,
 }
 
@@ -74,6 +81,7 @@ impl Default for Bloom {
             flinched: None,
             angle: 0.0,
             quiet: false,
+            lean: Lean::default(),
             events: Vec::new(),
         }
     }
@@ -106,6 +114,9 @@ impl Bloom {
 
     /// How far each bud has grown, 0..1. They give themselves up to the petals as it opens.
     pub fn bud_size(&self, b: &Bud) -> f32 {
+        if b.offered {
+            return self.lean.value() * (1.0 - smoothstep(0.0, 0.3, self.open()));
+        }
         let grown = smoothstep(0.0, GROW_SECS, b.age) * (1.0 - smoothstep(BUD_LIFE_SECS - 3.0, BUD_LIFE_SECS, b.age));
         grown * (1.0 - smoothstep(0.0, 0.3, self.open()))
     }
@@ -121,7 +132,30 @@ impl Bloom {
         if self.phase != Phase::Buds || self.buds.len() >= PETALS || self.buds.iter().any(|b| b.dir.dot(dir) > 0.97) {
             return false;
         }
-        self.near = Some(Bud { dir, age: 0.0 });
+        self.near = Some(Bud { dir, age: 0.0, offered: false });
+        true
+    }
+
+    /// Raise one bud at `dir` by itself, to `to` of a bud, and wait (lean.rs). Only on the bare
+    /// liquid: no buds yet, no shadow of one.
+    pub fn offer(&mut self, dir: V3, to: f32) -> bool {
+        if self.phase != Phase::Buds || !self.buds.is_empty() || self.near.is_some() || self.lean.leaning() {
+            return false;
+        }
+        self.lean.begin(to);
+        self.angle = dir.z.atan2(dir.x);
+        self.buds.push(Bud { dir: dir.norm(), age: 0.0, offered: true });
+        true
+    }
+
+    /// The bud it raised is taken on as an ordinary bud, grown from exactly as far as it was.
+    /// Returns true if there was one.
+    fn keep_offered(&mut self) -> bool {
+        let Some(i) = self.buds.iter().position(|b| b.offered) else { return false };
+        let size = self.lean.take();
+        let b = &mut self.buds[i];
+        b.offered = false;
+        b.age = unsmoothstep(0.0, GROW_SECS, size);
         true
     }
 
@@ -137,15 +171,17 @@ impl Bloom {
             return false;
         }
         let dir = dir.norm();
+        // A bud it raised by itself is kept, from as far as it had risen, as one of the five.
+        let kept = self.keep_offered();
         // A pinch right next to an older bud only feeds it.
         if let Some(b) = self.buds.iter_mut().find(|b| b.dir.dot(dir) > 0.97) {
             b.age = b.age.min(GROW_SECS);
-            return false;
+            return kept;
         }
         if self.buds.is_empty() {
             self.angle = dir.z.atan2(dir.x);
         }
-        self.buds.push(Bud { dir, age: 0.0 });
+        self.buds.push(Bud { dir, age: 0.0, offered: false });
         self.near = None;
         self.events.push(Event::Budded);
         if self.buds.len() == PETALS {
@@ -185,6 +221,7 @@ impl Bloom {
 
     /// Gone to dust (dust.rs): there is no flower left to fold, and no buds.
     pub fn scatter(&mut self) {
+        self.lean = Lean::default();
         self.buds.clear();
         self.near = None;
         self.phase = Phase::Buds;
@@ -193,6 +230,11 @@ impl Bloom {
     pub fn step(&mut self, dt: f32) {
         for b in self.buds.iter_mut().chain(&mut self.near) {
             b.age += dt;
+        }
+        // The bud it raised, left alone, sinks back and is gone.
+        self.lean.step(dt);
+        if !self.lean.leaning() {
+            self.buds.retain(|b| !b.offered);
         }
         self.near = self.near.filter(|b| b.age < NEAR_SECS && self.phase == Phase::Buds);
         self.flinched = self.flinched.map(|t| t + dt).filter(|t| *t < FLINCH_SECS && self.phase == Phase::Flower);

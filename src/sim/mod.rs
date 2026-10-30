@@ -232,6 +232,10 @@ impl World {
         self.fusion.step(dt);
         self.burst.step(dt);
         self.forms.step(dt);
+        // a form it began by itself (forms/lean.rs) sinks back once it becomes anything else
+        if self.forms.leaning() && !self.ordinary() {
+            self.forms.sink_leans();
+        }
         // gone to dust, it is in the mound, and comes back up out of it (forms/dust.rs)
         if let Some(at) = self.forms.dust.body_at(home) {
             self.body.pos = at;
