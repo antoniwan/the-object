@@ -13,7 +13,10 @@ mod tests {
     #[test]
     fn page_says_the_same_version() {
         let page = include_str!("../web/index.html");
-        assert!(page.contains(&format!("<meta name=\"version\" content=\"{VERSION}\">")), "web/index.html meta version");
+        assert!(
+            page.contains(&format!("<meta name=\"version\" content=\"{VERSION}\">")),
+            "web/index.html meta version"
+        );
         assert!(page.contains(&format!("\"softwareVersion\": \"{VERSION}\"")), "web/index.html softwareVersion");
         assert!(include_str!("../web/llms.txt").contains(&format!("Version {VERSION}.")), "web/llms.txt");
     }
@@ -29,8 +32,20 @@ mod tests {
     /// From this day on the devlog is one post a day, `devlog/YYYY-MM-DD.md`; before it, one a version.
     const DAILY_FROM: &str = "2026-10-29";
     const DEVLOG: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/devlog");
-    const MONTHS: [&str; 12] =
-        ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    const MONTHS: [&str; 12] = [
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    ];
 
     /// Every version in the changelog with the day it was released, newest first.
     fn released() -> Vec<(&'static str, &'static str)> {
@@ -61,8 +76,13 @@ mod tests {
             }
             // Newest first, so this is the last version that day: the post has to reach it.
             days.push(day);
-            let line = post_line(day).unwrap_or_else(|| panic!("devlog/{day}.md: something was released that day and has no post (devlog/README.md)"));
-            assert!(line.ends_with(&format!(" {v}*")), "devlog/{day}.md ends at the wrong version, {v} was the last that day: {line}");
+            let line = post_line(day).unwrap_or_else(|| {
+                panic!("devlog/{day}.md: something was released that day and has no post (devlog/README.md)")
+            });
+            assert!(
+                line.ends_with(&format!(" {v}*")),
+                "devlog/{day}.md ends at the wrong version, {v} was the last that day: {line}"
+            );
         }
     }
 
@@ -71,13 +91,21 @@ mod tests {
         let all = released();
         for e in std::fs::read_dir(DEVLOG).unwrap().flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
-            let Some(day) = name.strip_suffix(".md").filter(|d| d.len() == 10 && d.as_bytes()[4] == b'-') else { continue };
+            let Some(day) = name.strip_suffix(".md").filter(|d| d.len() == 10 && d.as_bytes()[4] == b'-') else {
+                continue;
+            };
             let line = post_line(day).unwrap_or_else(|| panic!("devlog/{name} has no *day · versions* line"));
-            let rest = line.strip_prefix(&format!("*{} · ", spoken(day))).unwrap_or_else(|| panic!("devlog/{name} names another day: {line}"));
-            let named: Vec<&str> = rest.trim_end_matches('*').split(' ').filter(|w| w.starts_with(|c: char| c.is_ascii_digit())).collect();
+            let rest = line
+                .strip_prefix(&format!("*{} · ", spoken(day)))
+                .unwrap_or_else(|| panic!("devlog/{name} names another day: {line}"));
+            let named: Vec<&str> =
+                rest.trim_end_matches('*').split(' ').filter(|w| w.starts_with(|c: char| c.is_ascii_digit())).collect();
             assert!(!named.is_empty(), "devlog/{name} names no version: {line}");
             for v in named {
-                let r = all.iter().find(|r| r.0 == v).unwrap_or_else(|| panic!("devlog/{name}: {v} is not in CHANGELOG.md"));
+                let r = all
+                    .iter()
+                    .find(|r| r.0 == v)
+                    .unwrap_or_else(|| panic!("devlog/{name}: {v} is not in CHANGELOG.md"));
                 assert!(r.1 <= day, "devlog/{name}: {v} came out after that day");
             }
         }
@@ -95,7 +123,9 @@ mod tests {
             for line in post.lines() {
                 assert!(!line.starts_with("[gif:"), "devlog/{name}: a picture still to upload by hand: {line}");
                 let Some(url) = line.strip_prefix("![](").and_then(|l| l.strip_suffix(')')) else { continue };
-                let path = url.strip_prefix(RAW).unwrap_or_else(|| panic!("devlog/{name}: a picture not served from main: {url}"));
+                let path = url
+                    .strip_prefix(RAW)
+                    .unwrap_or_else(|| panic!("devlog/{name}: a picture not served from main: {url}"));
                 let file = format!("{}/{path}", env!("CARGO_MANIFEST_DIR"));
                 assert!(std::path::Path::new(&file).is_file(), "devlog/{name}: {path} is not in the repository");
             }

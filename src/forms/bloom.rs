@@ -67,7 +67,15 @@ pub struct Bloom {
 
 impl Default for Bloom {
     fn default() -> Self {
-        Bloom { phase: Phase::Buds, buds: Vec::new(), near: None, flinched: None, angle: 0.0, quiet: false, events: Vec::new() }
+        Bloom {
+            phase: Phase::Buds,
+            buds: Vec::new(),
+            near: None,
+            flinched: None,
+            angle: 0.0,
+            quiet: false,
+            events: Vec::new(),
+        }
     }
 }
 

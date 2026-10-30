@@ -4,20 +4,20 @@
 //! Shapes are signed distance fields joined with a smooth minimum, which is what
 //! makes everything read as one liquid. The shader in `src/shader.frag` mirrors `sdf()`.
 
-use crate::math::*;
 use crate::burst::Burst;
-use crate::forms::Forms;
-use crate::floor::fusion::Fusion;
 use crate::division::meiosis::Division;
+use crate::floor::fusion::Fusion;
+use crate::forms::Forms;
+use crate::math::*;
 use crate::other::Other;
 
 mod geometry;
 mod liquid;
 mod moods;
 mod parts;
-mod verbs;
 #[cfg(test)]
 mod tests;
+mod verbs;
 
 pub use parts::{Body, Drop, Event, Handle, Hit, Ripple, Target};
 
@@ -209,7 +209,8 @@ impl World {
         // It flattens as it melts into the floor.
         let melt = 1.0 - 0.5 * self.fusion.blend().sink;
         // Squeezed it flattens; pulled (fingers spread, the wheel turned up) it stands a little taller.
-        let squash_goal = if b.squeeze > 0.0 { (1.0 + b.squeeze * 0.3) * melt } else { (1.0 + b.squeeze * 0.55).max(0.45).min(melt) };
+        let squash_goal =
+            if b.squeeze > 0.0 { (1.0 + b.squeeze * 0.3) * melt } else { (1.0 + b.squeeze * 0.55).max(0.45).min(melt) };
         let squash_was = b.squash;
         b.squash_vel += ((squash_goal - b.squash) * 140.0 - b.squash_vel * 5.0) * dt;
         b.squash = (b.squash + b.squash_vel * dt).clamp(0.5, 1.9);

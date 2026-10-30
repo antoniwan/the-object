@@ -89,7 +89,10 @@ pub enum Event {
     Sank,
     Fountain,
     /// The fountain's drop fell back into the lake here.
-    Splash { x: f32, z: f32 },
+    Splash {
+        x: f32,
+        z: f32,
+    },
 }
 
 pub struct Mere {

@@ -256,10 +256,13 @@ fn a_whisper_at_arms_length_is_heard_and_a_steady_room_is_not() {
 fn wind(amp: f32) -> Vec<f32> {
     let k = 1.0 - (-std::f32::consts::TAU * 80.0 / RATE).exp();
     let mut y = 0.0;
-    hiss(1.0).into_iter().map(|x| {
-        y += (x - y) * k;
-        y * amp * 3.0
-    }).collect()
+    hiss(1.0)
+        .into_iter()
+        .map(|x| {
+            y += (x - y) * k;
+            y * amp * 3.0
+        })
+        .collect()
 }
 
 #[test]
@@ -269,7 +272,9 @@ fn wind_is_a_breath_not_a_voice() {
     assert!(hear(&tone(220.0, 0.1), RATE).clarity > BLOW_CLARITY);
     // A low voice, with its overtones, is still a voice, however low.
     let voice: Vec<f32> = (0..2048)
-        .map(|i| (1..8).map(|k| (i as f32 / RATE * 110.0 * k as f32 * std::f32::consts::TAU).sin() * 0.08 / k as f32).sum())
+        .map(|i| {
+            (1..8).map(|k| (i as f32 / RATE * 110.0 * k as f32 * std::f32::consts::TAU).sin() * 0.08 / k as f32).sum()
+        })
         .collect();
     let v = hear(&voice, RATE);
     assert!(v.pitch.is_some() && !(v.low > BLOW_LOW && v.clarity < BLOW_CLARITY), "{v:?}");

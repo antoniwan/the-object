@@ -101,7 +101,18 @@ const MERGE_RATE: f32 = 0.6;
 
 impl Default for Dust {
     fn default() -> Self {
-        Dust { phase: Phase::Whole, clumps: [Clump::default(); CLUMPS], idle: 0.0, swept: false, thud: 0.0, press: 0.0, pressing: 0.0, growth: Growth::default(), mound: Mound::default(), events: Vec::new() }
+        Dust {
+            phase: Phase::Whole,
+            clumps: [Clump::default(); CLUMPS],
+            idle: 0.0,
+            swept: false,
+            thud: 0.0,
+            press: 0.0,
+            pressing: 0.0,
+            growth: Growth::default(),
+            mound: Mound::default(),
+            events: Vec::new(),
+        }
     }
 }
 
@@ -294,7 +305,12 @@ impl Dust {
         for i in 0..CLUMPS {
             for j in 0..CLUMPS {
                 let (a, b) = (self.clumps[i], self.clumps[j]);
-                if i == j || a.amount <= 0.0 || b.amount <= 0.0 || a.amount < b.amount || (a.amount == b.amount && i > j) {
+                if i == j
+                    || a.amount <= 0.0
+                    || b.amount <= 0.0
+                    || a.amount < b.amount
+                    || (a.amount == b.amount && i > j)
+                {
                     continue;
                 }
                 let (ox, oz) = (a.x - b.x, a.z - b.z);
@@ -504,10 +520,14 @@ mod tests {
 
     /// The dust drawn at (x, z), summed the way the floor draws it.
     fn drawn(d: &Dust, x: f32, z: f32) -> f32 {
-        d.clumps.iter().filter(|c| c.amount > 0.0).map(|c| {
-            let (ox, oz) = (x - c.x, z - c.z);
-            3.0 * c.amount * (-(ox * ox + oz * oz) / (c.radius() * c.radius())).exp()
-        }).sum()
+        d.clumps
+            .iter()
+            .filter(|c| c.amount > 0.0)
+            .map(|c| {
+                let (ox, oz) = (x - c.x, z - c.z);
+                3.0 * c.amount * (-(ox * ox + oz * oz) / (c.radius() * c.radius())).exp()
+            })
+            .sum()
     }
 
     #[test]

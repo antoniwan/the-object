@@ -110,7 +110,9 @@ pub enum Event {
     Regarded,
     Flinched,
     /// One tap of a rhythm it is giving back (or giving first); `pitch` 0..1 as for a poke.
-    Tap { pitch: f32 },
+    Tap {
+        pitch: f32,
+    },
     Echoed,
     Mimicked,
     /// It took a turn.
@@ -516,7 +518,12 @@ impl Contact {
         }
         let dirs = self.spots();
         self.taps.clear();
-        if sense.stage < Stage::Echo || self.echo_wait > 0.0 || self.acting() || self.awaiting.is_some() || gaps.len() > 7 {
+        if sense.stage < Stage::Echo
+            || self.echo_wait > 0.0
+            || self.acting()
+            || self.awaiting.is_some()
+            || gaps.len() > 7
+        {
             return;
         }
         self.echo_wait = 8.0;
@@ -555,7 +562,8 @@ impl Contact {
                 self.play(&gaps, &dirs, 0.0);
             }
             Turn::Reach => {
-                let toward = sense.pointer.map(|p| p - world.body.pos).filter(|d| d.len() > 0.2 * r).unwrap_or(-sense.fwd);
+                let toward =
+                    sense.pointer.map(|p| p - world.body.pos).filter(|d| d.len() > 0.2 * r).unwrap_or(-sense.fwd);
                 self.reaches.push(Reach::new(toward, 1.0, 1.4, 3.0));
                 self.awaiting = Some((Await::Touch, ANSWER_WINDOW));
             }

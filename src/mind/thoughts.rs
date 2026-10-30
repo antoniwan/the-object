@@ -147,12 +147,24 @@ pub static THOUGHTS: [Thought; 68] = [
     t(P::Liquid, I, I, |m| m.world.other.inside() > 0.99 && !m.has(D::Give), "something is in it that is not it."),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Near), "it has not decided about the other one."),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Ring), "it wonders what the other one sounds like."),
-    t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Inside), "it wonders if the other one would fit inside it."),
+    t(
+        P::Liquid,
+        I,
+        I,
+        |m| m.world.other.here() && !m.has(D::Inside),
+        "it wonders if the other one would fit inside it.",
+    ),
     t(P::Liquid, I, I, |m| m.world.other.here() && !m.has(D::Distance), "neither of them will go first."),
     // ---- the liquid, about you, once it has started to learn you
     t(P::Liquid, I, I, |m| m.contact.contacted, "it thinks about you when you are not here."),
     t(P::Liquid, I, I, |m| m.contact.contacted && !m.has(D::Said), "it said one word. nobody has said it back."),
-    t(P::Liquid, I, I, |m| !m.contact.contacted && m.found.count() >= contact::CONTACT_AT, "it has almost decided something about you."),
+    t(
+        P::Liquid,
+        I,
+        I,
+        |m| !m.contact.contacted && m.found.count() >= contact::CONTACT_AT,
+        "it has almost decided something about you.",
+    ),
     t(P::Liquid, I, I, |m| !m.has(D::Initiate), "it is waiting for you to stop."),
     t(P::Liquid, I, I, |m| m.has(D::Initiate) && !m.has(D::Answer), "it did something. it is still waiting for yours."),
     t(P::Liquid, E, I, |m| !m.has(D::Echo), "it is learning your rhythm. it wants to hear it again."),
@@ -163,7 +175,13 @@ pub static THOUGHTS: [Thought; 68] = [
     t(P::Liquid, R, I, |m| !m.has(D::Stretch), "it wonders how far you would take it."),
     t(P::Liquid, M, M, |m| m.has(D::Stretch) && !m.has(D::Tear), "some of it would like to be somewhere else."),
     t(P::Liquid, R, I, |m| m.has(D::Stretch) && !m.has(D::Tear), "some of it would like to leave with you."),
-    t(P::Liquid, M, I, |m| !m.world.drops.is_empty() && !m.has(D::Merge), "the small one is still listening for the rest."),
+    t(
+        P::Liquid,
+        M,
+        I,
+        |m| !m.world.drops.is_empty() && !m.has(D::Merge),
+        "the small one is still listening for the rest.",
+    ),
     t(P::Liquid, M, M, |m| !m.has(D::Warm), "somewhere in it a color is waiting for stillness."),
     t(P::Liquid, R, I, |m| !m.has(D::Warm), "it has never been warm. it wonders if you are."),
     t(P::Liquid, M, I, |m| !m.has(D::LookAround), "it has a far side. nobody has seen it."),
@@ -171,9 +189,21 @@ pub static THOUGHTS: [Thought; 68] = [
     t(P::Liquid, R, I, |m| !m.has(D::Call), "if you asked from elsewhere, it would come."),
     t(P::Liquid, M, I, |m| !m.has(D::Squeeze), "it has never been made smaller. it would keep all of itself."),
     t(P::Liquid, M, I, |m| m.has(D::Tear) && !m.has(D::Open), "the more of it is elsewhere, the darker it is inside."),
-    t(P::Liquid, M, I, |m| !m.world.forms.bloom.buds.is_empty() && !m.has(D::Bloom), "a few small places in it want to open. not enough yet."),
+    t(
+        P::Liquid,
+        M,
+        I,
+        |m| !m.world.forms.bloom.buds.is_empty() && !m.has(D::Bloom),
+        "a few small places in it want to open. not enough yet.",
+    ),
     t(P::Liquid, M, I, |m| !m.has(D::Divide), "there is a seam in it nobody has found."),
-    t(P::Liquid, M, I, |m| m.has(D::Provoke) && !m.has(D::Burst), "it keeps every pressure. it is not sure how many fit."),
+    t(
+        P::Liquid,
+        M,
+        I,
+        |m| m.has(D::Provoke) && !m.has(D::Burst),
+        "it keeps every pressure. it is not sure how many fit.",
+    ),
     t(P::Liquid, M, I, |m| !m.has(D::Slam), "it has never met the floor. not properly."),
     t(P::Liquid, M, I, |m| !m.has(D::Pinch) && !m.has(D::Bloom), "it remembers being a flower. it was never a flower."),
     t(P::Liquid, M, I, |m| !m.has(D::Thread), "it wonders how long it could be, if nobody let go."),
@@ -203,7 +233,13 @@ pub static THOUGHTS: [Thought; 68] = [
     t(P::Fold, M, I, |m| !m.has(D::Backward), "its time only goes one way because nothing has stopped it."),
     t(P::Fold, M, I, |m| !m.has(D::Crease), "the room is still out there, folded small."),
     t(P::Box, M, I, |m| !m.has(D::Knock), "it is quiet in there. something is listening for the outside."),
-    t(P::Box, M, I, |m| m.world.forms.pandora.knocks > 0 && !m.has(D::Lid), "something answered. it wants to be asked again."),
+    t(
+        P::Box,
+        M,
+        I,
+        |m| m.world.forms.pandora.knocks > 0 && !m.has(D::Lid),
+        "something answered. it wants to be asked again.",
+    ),
     t(P::Two, M, I, |m| !m.has(D::Rejoin), "two of it, and both remember being one."),
     t(P::Two, M, I, |m| !m.has(D::Cleave), "each half has a seam of its own."),
     t(P::Many, M, I, |m| !m.has(D::Eye), "not enough of them yet to look out."),
@@ -291,8 +327,7 @@ mod tests {
     /// Words that would say how.
     const HOW: [&str; 26] = [
         "poke", "tap", "touch", "press", "hold", "drag", "pull", "stretch", "tear", "pinch", "slice", "cut", "swipe",
-        "stir", "squeeze", "knock", "throw", "fling", "slam", "click", "try", "key", "wheel", "swirl", "shake",
-        "tilt",
+        "stir", "squeeze", "knock", "throw", "fling", "slam", "click", "try", "key", "wheel", "swirl", "shake", "tilt",
     ];
 
     #[test]
@@ -305,7 +340,9 @@ mod tests {
             assert!(!l.chars().any(|c| c.is_ascii_digit()), "{l}");
             assert!(!l.split(|c: char| !c.is_alphabetic()).any(|w| w == "i"), "{l}");
             for w in l.split(|c: char| !c.is_alphabetic()) {
-                let says = |h: &&str| w.strip_prefix(*h).is_some_and(|rest| ["", "s", "es", "ed", "ing", "ped", "ping"].contains(&rest));
+                let says = |h: &&str| {
+                    w.strip_prefix(*h).is_some_and(|rest| ["", "s", "es", "ed", "ing", "ped", "ping"].contains(&rest))
+                };
                 assert!(!HOW.iter().any(says), "{l} says how ({w})");
             }
             assert!(t.from <= t.until, "{l}");

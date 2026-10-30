@@ -7,8 +7,8 @@
 //! Like meiosis.rs, `Phase` only decides which continuous values are moving;
 //! the shader blends those, so the melt and the spread never jump.
 
-use crate::math::*;
 use crate::floor::mere::Mere;
+use crate::math::*;
 
 /// Height of the floor plane. The shader uses the same value.
 pub const FLOOR_Y: f32 = -1.45;
@@ -50,7 +50,9 @@ pub enum Event {
     /// Hit the floor hard enough to fuse with it.
     Slammed,
     /// Hit the floor, but softly: it splatted and bounced.
-    Bounced { speed: f32 },
+    Bounced {
+        speed: f32,
+    },
     Rose,
 }
 
@@ -68,7 +70,14 @@ pub struct Fusion {
 
 impl Default for Fusion {
     fn default() -> Self {
-        Fusion { phase: Phase::Whole, since_impact: 0.0, impact: (0.0, 0.0), ripples: Vec::new(), mere: Mere::default(), events: Vec::new() }
+        Fusion {
+            phase: Phase::Whole,
+            since_impact: 0.0,
+            impact: (0.0, 0.0),
+            ripples: Vec::new(),
+            mere: Mere::default(),
+            events: Vec::new(),
+        }
     }
 }
 
@@ -80,12 +89,13 @@ impl Fusion {
     pub fn blend(&self) -> Blend {
         match self.phase {
             Phase::Whole => Blend::default(),
-            Phase::Fusing { t } => Blend { lake: smoothstep(0.0, SPREAD_SECS, t), sink: smoothstep(0.05, SINK_SECS, t) },
+            Phase::Fusing { t } => {
+                Blend { lake: smoothstep(0.0, SPREAD_SECS, t), sink: smoothstep(0.05, SINK_SECS, t) }
+            }
             Phase::Fused => Blend { lake: 1.0, sink: 1.0 },
-            Phase::Rising { t } => Blend {
-                lake: 1.0 - smoothstep(0.5, RISE_SECS, t),
-                sink: 1.0 - smoothstep(0.0, RISE_SECS * 0.6, t),
-            },
+            Phase::Rising { t } => {
+                Blend { lake: 1.0 - smoothstep(0.5, RISE_SECS, t), sink: 1.0 - smoothstep(0.0, RISE_SECS * 0.6, t) }
+            }
         }
     }
 

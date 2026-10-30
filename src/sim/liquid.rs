@@ -1,7 +1,9 @@
 //! The liquid's own motion each frame: tendrils springing and tearing into drops, drops
 //! drifting home, pushing apart, falling back into the body and running together.
 
-use super::{Drop, Event, World, MAX_DROPS, MAX_HANDLES, MERGE_COOLDOWN, MIN_BODY_RADIUS, STUMP_FADE, STUMP_GROW, TEAR_RATIO};
+use super::{
+    Drop, Event, World, MAX_DROPS, MAX_HANDLES, MERGE_COOLDOWN, MIN_BODY_RADIUS, STUMP_FADE, STUMP_GROW, TEAR_RATIO,
+};
 use crate::math::*;
 
 impl World {
@@ -83,7 +85,9 @@ impl World {
                 let to = body_pos - d.pos;
                 // At night they orbit instead, spiralling home slowly.
                 let tangent = V3::UP.cross(to).norm();
-                d.vel += (to.norm() * (0.22 * (1.0 - 0.85 * night)) + tangent * (0.05 * night) - d.vel * (1.2 - 1.0 * night)) * dt;
+                d.vel += (to.norm() * (0.22 * (1.0 - 0.85 * night)) + tangent * (0.05 * night)
+                    - d.vel * (1.2 - 1.0 * night))
+                    * dt;
                 // Soft wall so nothing floats out of view.
                 let out = d.pos.len() - 3.2;
                 if out > 0.0 {

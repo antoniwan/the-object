@@ -130,9 +130,11 @@ impl App {
                 Ok(stream) => {
                     let opened = match kind {
                         Kind::Hear => match self.ear_ctx.take() {
-                            Some(ctx) => Ears::new(ctx.clone(), stream.clone()).map(|e| self.ears = Some(e)).inspect_err(|_| {
-                                let _ = ctx.close();
-                            }),
+                            Some(ctx) => {
+                                Ears::new(ctx.clone(), stream.clone()).map(|e| self.ears = Some(e)).inspect_err(|_| {
+                                    let _ = ctx.close();
+                                })
+                            }
                             None => Err(JsValue::from_str("no audio context")),
                         },
                         Kind::See => Eyes::new(stream.clone()).map(|e| self.eyes = Some(e)),

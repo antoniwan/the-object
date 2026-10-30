@@ -31,7 +31,18 @@ pub struct Basis {
 
 impl Camera {
     pub fn new() -> Camera {
-        Camera { yaw: 0.35, pitch: 0.22, dist: 5.2, yaw_vel: 0.0, pitch_vel: 0.0, shake: 0.0, shake_t: 0.0, shock: (0.0, 9.0), last_shake: 0.0, still: false }
+        Camera {
+            yaw: 0.35,
+            pitch: 0.22,
+            dist: 5.2,
+            yaw_vel: 0.0,
+            pitch_vel: 0.0,
+            shake: 0.0,
+            shake_t: 0.0,
+            shock: (0.0, 9.0),
+            last_shake: 0.0,
+            still: false,
+        }
     }
 
     pub fn basis(&self) -> Basis {

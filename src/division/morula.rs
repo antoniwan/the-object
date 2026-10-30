@@ -18,8 +18,8 @@
 //! the body. Like `Phase` in meiosis.rs, `Stage` only decides which continuous
 //! values move, and the shader mixes them, so nothing jumps.
 
-use crate::math::*;
 use crate::division::meiosis::CELL_SCALE;
+use crate::math::*;
 
 /// More cells than this and they become grain instead.
 pub const MAX_CELLS: usize = 16;
@@ -55,11 +55,17 @@ fn slab_unit() -> f32 {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Stage {
     /// Every living cell (or every grain) dividing in two.
-    Cleaving { t: f32 },
+    Cleaving {
+        t: f32,
+    },
     Cluster,
-    Compacting { t: f32 },
+    Compacting {
+        t: f32,
+    },
     Stone,
-    Thawing { t: f32 },
+    Thawing {
+        t: f32,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -205,7 +211,12 @@ impl Morula {
     }
 
     pub fn look(&self) -> Look {
-        let mut l = Look { flash: (-self.since_cut * 5.0).exp(), grain: if self.grain > 0 { 1.0 } else { 0.0 }, fine: 1.0, ..Look::default() };
+        let mut l = Look {
+            flash: (-self.since_cut * 5.0).exp(),
+            grain: if self.grain > 0 { 1.0 } else { 0.0 },
+            fine: 1.0,
+            ..Look::default()
+        };
         match self.stage {
             Stage::Cleaving { t } => {
                 if self.grain > 0 && self.prev_grain == 0 {

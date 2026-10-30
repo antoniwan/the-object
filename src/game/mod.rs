@@ -68,27 +68,27 @@
 //! Stop finding things and let go, and now and then a line of what it is thinking
 //! surfaces under it (see thoughts.rs).
 
-use crate::camera::{Basis, Camera, FOCAL};
-use crate::math::*;
 use crate::burst;
-use crate::mind::contact::{self, Contact, Sense};
-use crate::forms::{self, bloom, filament, pandora};
-use crate::floor::fusion;
+use crate::camera::{Basis, Camera, FOCAL};
 use crate::division::meiosis::{self, Swipe};
-use crate::floor::mere;
 use crate::division::morula;
-use crate::progress::{Discovery, Progress};
+use crate::floor::fusion;
+use crate::floor::mere;
+use crate::forms::{self, bloom, filament, pandora};
 use crate::input::senses::{self, Senses};
-use crate::sim::{Event, Hit, Target, World};
+use crate::math::*;
+use crate::mind::contact::{self, Contact, Sense};
 use crate::mind::thoughts::{Mind, Thoughts};
+use crate::progress::{Discovery, Progress};
+use crate::sim::{Event, Hit, Target, World};
 
 mod gesture;
 mod learn;
 mod news;
 mod sound;
-mod view;
 #[cfg(test)]
 mod tests;
+mod view;
 
 use gesture::Gesture;
 pub use sound::Sound;
@@ -246,7 +246,9 @@ impl Game {
             if self.world.time - since > HOLD {
                 self.gesture = Gesture::Warming { start, hit, since: self.world.time };
                 // Held still, a thread winds back into a sphere instead of warming; in the fold, time turns round.
-                self.world.warming = !self.world.forms.filament.wind() && self.world.forms.filament.whole() && self.world.forms.fold.whole();
+                self.world.warming = !self.world.forms.filament.wind()
+                    && self.world.forms.filament.whole()
+                    && self.world.forms.fold.whole();
                 if self.world.warming {
                     self.contact.held();
                 }
@@ -255,7 +257,12 @@ impl Game {
         // Held taut, just short of tearing, it stops resisting and becomes a thread.
         if let Gesture::Stretching { handle, taut, .. } = &mut self.gesture {
             let handle = *handle;
-            let stretched = self.world.handles.iter().find(|h| h.id == handle).map(|h| (h.stretch(&self.world.body), h.tip, h.vel.len()));
+            let stretched = self
+                .world
+                .handles
+                .iter()
+                .find(|h| h.id == handle)
+                .map(|h| (h.stretch(&self.world.body), h.tip, h.vel.len()));
             // Held, not moving: a stir also keeps it taut, but never still.
             match stretched {
                 Some((s, _, speed)) if s > filament::TAUT && speed < 0.5 && self.world.ordinary() => *taut += dt,
@@ -346,7 +353,9 @@ impl Game {
         let blend = self.world.division.blend();
         let base = Camera::new().dist;
         let spread = self.world.burst.spread();
-        self.cam.dist = base + (self.cells_dist() - base) * blend.zoom + (burst::LANDSCAPE_DIST - base) * spread
+        self.cam.dist = base
+            + (self.cells_dist() - base) * blend.zoom
+            + (burst::LANDSCAPE_DIST - base) * spread
             + 1.8 * self.world.forms.filament.morph()
             + 1.4 * self.world.forms.fold.amount()
             + 3.6 * self.world.forms.dust.view();
@@ -389,7 +398,9 @@ impl Game {
         self.thoughts.step(dt, self.idle, &mind);
         // Lit while a finger holds the mound still; any other gesture lets the light fade.
         let held = match self.gesture {
-            Gesture::Dust { since, mound: true, moved: false, .. } => Some((self.clock - since) / forms::dust::RISE_HOLD_SECS),
+            Gesture::Dust { since, mound: true, moved: false, .. } => {
+                Some((self.clock - since) / forms::dust::RISE_HOLD_SECS)
+            }
             _ => None,
         };
         self.world.forms.dust.hold(held.map_or(0.0, |h| h.min(1.0)));

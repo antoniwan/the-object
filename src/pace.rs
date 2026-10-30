@@ -69,7 +69,17 @@ pub struct Pace {
 
 impl Default for Pace {
     fn default() -> Self {
-        Pace { quality: 1.0, fine: 1.0, ceiling: 1.0, slow: 0.0, fast: 0.0, rose_from: None, shown: 1.0, last: None, uneven: CAP_DOUBT }
+        Pace {
+            quality: 1.0,
+            fine: 1.0,
+            ceiling: 1.0,
+            slow: 0.0,
+            fast: 0.0,
+            rose_from: None,
+            shown: 1.0,
+            last: None,
+            uneven: CAP_DOUBT,
+        }
     }
 }
 

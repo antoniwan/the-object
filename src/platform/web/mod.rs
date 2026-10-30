@@ -236,10 +236,8 @@ pub fn start() -> Result<(), JsValue> {
     let window = web_sys::window().ok_or("no window")?;
     let doc = window.document().ok_or("no document")?;
     let canvas: HtmlCanvasElement = doc.get_element_by_id("stage").ok_or("#stage missing")?.dyn_into()?;
-    let gl: WebGl2RenderingContext = canvas
-        .get_context("webgl2")?
-        .ok_or("This browser doesn't support WebGL2.")?
-        .dyn_into()?;
+    let gl: WebGl2RenderingContext =
+        canvas.get_context("webgl2")?.ok_or("This browser doesn't support WebGL2.")?.dyn_into()?;
     let renderer = Renderer::new(gl)?;
 
     // It keeps count, across visits.

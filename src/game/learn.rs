@@ -57,7 +57,14 @@ impl Game {
 
     /// Hearing and sight, once the player has let it have them.
     pub(super) fn update_senses(&mut self, dt: f32, b: &Basis) {
-        let look = senses::Look { stage: self.stage(), still: self.still, busy: self.contact.acting(), fwd: b.fwd, right: b.right, up: b.up };
+        let look = senses::Look {
+            stage: self.stage(),
+            still: self.still,
+            busy: self.contact.acting(),
+            fwd: b.fwd,
+            right: b.right,
+            up: b.up,
+        };
         self.senses.step(dt, &mut self.world, &look);
         for d in self.senses.drain_found() {
             self.discover(d);

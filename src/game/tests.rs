@@ -267,7 +267,10 @@ fn two_fingers_pinched_together_on_it_and_let_go_leave_a_bud_between_them() {
     let buds = &g.world.forms.bloom.buds;
     assert_eq!(buds.len(), 1);
     let b = g.cam.basis();
-    assert!(buds[0].dir.dot(b.right) > 0.2 && buds[0].dir.dot(b.up) > 0.1, "it is up and to the right, where the fingers were");
+    assert!(
+        buds[0].dir.dot(b.right) > 0.2 && buds[0].dir.dot(b.up) > 0.1,
+        "it is up and to the right, where the fingers were"
+    );
     assert!(!g.progress.has(Discovery::Poke) && !g.progress.has(Discovery::Stretch));
 
     // held a while, it is only a squeeze
@@ -403,7 +406,11 @@ fn tearing_many_pieces_opens_it_and_they_all_come_home() {
     for _ in 0..(60 * 120) {
         g.update(1.0 / 60.0);
     }
-    assert!(g.world.drops.is_empty(), "{:?} drops left", g.world.drops.iter().map(|d| (d.pos.len(), d.vel.len(), d.target.is_some())).collect::<Vec<_>>());
+    assert!(
+        g.world.drops.is_empty(),
+        "{:?} drops left",
+        g.world.drops.iter().map(|d| (d.pos.len(), d.vel.len(), d.target.is_some())).collect::<Vec<_>>()
+    );
     assert!(g.progress.has(Discovery::Close));
 }
 
@@ -782,7 +789,10 @@ fn mounded() -> (Game, (f32, f32)) {
     wait(&mut g, 4.0);
     assert!(g.progress.has(Discovery::Dust));
     assert!(g.world.forms.bloom.whole() && !g.world.ordinary());
-    assert!(g.world.raycast(g.cam.basis().pos, (g.world.body.pos - g.cam.basis().pos).norm()).is_none(), "nothing left to touch");
+    assert!(
+        g.world.raycast(g.cam.basis().pos, (g.world.body.pos - g.cam.basis().pos).norm()).is_none(),
+        "nothing left to touch"
+    );
     // sweep each drift into the fullest one, with strokes across the floor
     let floor = |x: f32, z: f32| v3(x, crate::floor::fusion::FLOOR_Y, z);
     for _ in 0..12 {
@@ -841,7 +851,11 @@ fn held_taut_it_becomes_a_thread_that_plucks_and_winds_back() {
     }
     wait(&mut g, 1.5);
     assert!(g.world.drops.is_empty(), "it did not tear");
-    assert!(!g.world.forms.filament.whole(), "stretch {:?}", g.world.handles.iter().map(|h| h.stretch(&g.world.body)).collect::<Vec<_>>());
+    assert!(
+        !g.world.forms.filament.whole(),
+        "stretch {:?}",
+        g.world.handles.iter().map(|h| h.stretch(&g.world.body)).collect::<Vec<_>>()
+    );
     g.pointer_up(1);
     wait(&mut g, 3.0);
     assert!(g.progress.has(Discovery::Thread));
@@ -949,7 +963,11 @@ fn a_square_drawn_around_it_makes_a_box_that_opens_on_the_third_knock() {
     assert!(g.world.drops.len() >= crate::sim::OPEN_AT, "{} drops", g.world.drops.len());
     assert!(g.progress.has(Discovery::Open));
     wait(&mut g, 150.0);
-    assert!(g.progress.has(Discovery::Close), "{:?}", g.world.drops.iter().map(|d| (d.pos, d.vel.len())).collect::<Vec<_>>());
+    assert!(
+        g.progress.has(Discovery::Close),
+        "{:?}",
+        g.world.drops.iter().map(|d| (d.pos, d.vel.len())).collect::<Vec<_>>()
+    );
     assert!(g.progress.has(Discovery::Round));
     assert!(g.world.ordinary());
 }
@@ -986,7 +1004,12 @@ fn once_the_camera_has_drifted_back_from_the_box_it_lets_the_floor_tilt_it() {
     assert_eq!(g.world.fusion.phase, fusion::Phase::Fused);
     let mut h = slammed();
     wait(&mut h, 4.0);
-    assert!((g.cam.pitch - h.cam.pitch).abs() < 0.05, "pitch {} with the box first, {} without", g.cam.pitch, h.cam.pitch);
+    assert!(
+        (g.cam.pitch - h.cam.pitch).abs() < 0.05,
+        "pitch {} with the box first, {} without",
+        g.cam.pitch,
+        h.cam.pitch
+    );
 }
 
 fn burst_it(g: &mut Game) {
@@ -1070,7 +1093,11 @@ fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
     for _ in 0..300 {
         g.update(1.0 / 60.0);
     }
-    assert!(g.progress.has(Discovery::Mend), "{:?}", (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>());
+    assert!(
+        g.progress.has(Discovery::Mend),
+        "{:?}",
+        (0..12).map(|i| g.world.burst.land.returned(i)).collect::<Vec<_>>()
+    );
     assert!(g.world.burst.whole());
     assert!(g.world.body.color != crate::sim::PEARL);
 }
@@ -1123,7 +1150,14 @@ fn set_down_together_they_keep_together_in_as_many_groups_as_you_like_and_a_cut_
         let side = v3(-at.z, 0.0, at.x).norm();
         carry_to(&mut g, 70 + 2 * n as i32, a, at);
         carry_to(&mut g, 71 + 2 * n as i32, b, at + side * 3.6);
-        assert_eq!(g.world.burst.kin.group(a), (1 << a) | (1 << b), "{a} and {b} hold on, only to each other: {:?} {:?} {:?}", g.world.burst.shards[a].home, g.world.burst.shards[b].home, g.cam.basis().pos);
+        assert_eq!(
+            g.world.burst.kin.group(a),
+            (1 << a) | (1 << b),
+            "{a} and {b} hold on, only to each other: {:?} {:?} {:?}",
+            g.world.burst.shards[a].home,
+            g.world.burst.shards[b].home,
+            g.cam.basis().pos
+        );
     }
     assert!(g.progress.has(Discovery::Kin));
     assert!(g.progress.has(Discovery::Many));

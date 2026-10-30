@@ -18,8 +18,8 @@
 //! stand and folds the breathing into each piece's pose. Nothing new reaches
 //! the shader: a piece's place and its turn are all it needs.
 
-use crate::burst::{Shard, SHARDS};
 use crate::burst::landscape::{spacing, Land};
+use crate::burst::{Shard, SHARDS};
 use crate::math::*;
 
 /// Set down this much further apart than they shove each other to, two pieces hold on.
@@ -153,7 +153,13 @@ impl Kin {
 
     /// Piece `i` has been set down: it and its group hold on to every loose piece
     /// close enough. Returns true if anything new held on.
-    pub fn settle(&mut self, i: usize, homes: &[V3; SHARDS], sizes: &[f32; SHARDS], away: impl Fn(usize) -> bool) -> bool {
+    pub fn settle(
+        &mut self,
+        i: usize,
+        homes: &[V3; SHARDS],
+        sizes: &[f32; SHARDS],
+        away: impl Fn(usize) -> bool,
+    ) -> bool {
         self.let_go();
         if away(i) {
             return false;
@@ -252,7 +258,14 @@ impl Kin {
 
     /// `shards` is burst/mod.rs's; `fixed(j)` is true for a piece that cannot move
     /// (planted, or gone home).
-    pub fn step(&mut self, dt: f32, shards: &mut [Shard; SHARDS], sizes: &[f32; SHARDS], land: &Land, fixed: impl Fn(usize) -> bool) {
+    pub fn step(
+        &mut self,
+        dt: f32,
+        shards: &mut [Shard; SHARDS],
+        sizes: &[f32; SHARDS],
+        land: &Land,
+        fixed: impl Fn(usize) -> bool,
+    ) {
         self.clock += dt;
         let mut homes = shards.map(|s| s.home);
 

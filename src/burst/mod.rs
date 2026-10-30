@@ -15,9 +15,9 @@ pub mod kin;
 pub mod landscape;
 pub mod river;
 
+use crate::math::*;
 use kin::Kin;
 use landscape::Land;
-use crate::math::*;
 use river::River;
 
 pub const SHARDS: usize = 12;
@@ -41,13 +41,33 @@ const FLOOR_Y: f32 = crate::floor::fusion::FLOOR_Y;
 /// How each piece answers a poke. Index-matched with the materials in the shader.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Consistency {
-    Milk, Chrome, Glass, Jelly, Stone, Honey, Velvet, Wax, Ice, Rubber, Obsidian, Moss,
+    Milk,
+    Chrome,
+    Glass,
+    Jelly,
+    Stone,
+    Honey,
+    Velvet,
+    Wax,
+    Ice,
+    Rubber,
+    Obsidian,
+    Moss,
 }
 
 pub const CONSISTENCIES: [Consistency; SHARDS] = [
-    Consistency::Milk, Consistency::Chrome, Consistency::Glass, Consistency::Jelly,
-    Consistency::Stone, Consistency::Honey, Consistency::Velvet, Consistency::Wax,
-    Consistency::Ice, Consistency::Rubber, Consistency::Obsidian, Consistency::Moss,
+    Consistency::Milk,
+    Consistency::Chrome,
+    Consistency::Glass,
+    Consistency::Jelly,
+    Consistency::Stone,
+    Consistency::Honey,
+    Consistency::Velvet,
+    Consistency::Wax,
+    Consistency::Ice,
+    Consistency::Rubber,
+    Consistency::Obsidian,
+    Consistency::Moss,
 ];
 
 impl Consistency {
@@ -71,9 +91,13 @@ pub const SIZES: [f32; SHARDS] = [3.6, 4.8, 3.1, 2.5, 5.9, 2.8, 4.1, 2.2, 5.3, 2
 pub enum Phase {
     Whole,
     /// `t` seconds since the last poke burst it.
-    Bursting { t: f32 },
+    Bursting {
+        t: f32,
+    },
     Landscape,
-    Gathering { t: f32 },
+    Gathering {
+        t: f32,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -122,7 +146,16 @@ fn scatter() -> [Shard; SHARDS] {
 
 impl Default for Burst {
     fn default() -> Self {
-        Burst { phase: Phase::Whole, wounds: 0.0, since_wound: 0.0, shards: scatter(), land: Land::default(), river: River::default(), kin: Kin::default(), events: Vec::new() }
+        Burst {
+            phase: Phase::Whole,
+            wounds: 0.0,
+            since_wound: 0.0,
+            shards: scatter(),
+            land: Land::default(),
+            river: River::default(),
+            kin: Kin::default(),
+            events: Vec::new(),
+        }
     }
 }
 
