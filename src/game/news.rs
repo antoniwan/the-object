@@ -42,7 +42,7 @@ impl Game {
                     self.discover(Discovery::Stir);
                 }
                 F::Cosmos => {
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Cosmos });
                     self.discover(Discovery::Cosmos);
                 }
                 F::Settled => {
@@ -50,7 +50,7 @@ impl Game {
                     self.discover(Discovery::Settle);
                 }
                 F::Cornered => {
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Box });
                     self.discover(Discovery::Corners);
                 }
                 F::Knocked => {
@@ -67,7 +67,7 @@ impl Game {
                     self.discover(Discovery::Round);
                 }
                 F::Everywhere => {
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Fold });
                     self.cam.shake = 0.05;
                     self.discover(Discovery::Everywhere);
                 }
@@ -84,12 +84,12 @@ impl Game {
                     self.discover(Discovery::Crease);
                 }
                 F::Crumbled => {
-                    self.sounds.push(Sound::Become);
+                    self.sounds.push(Sound::Become { form: Form::Dust });
                     self.cam.shake = 0.05;
                     self.discover(Discovery::Dust);
                 }
                 F::Swept => {}
-                F::Heaped => self.sounds.push(Sound::Become),
+                F::Heaped => self.sounds.push(Sound::Become { form: Form::Mound }),
                 F::Grounded => {
                     self.cam.shake = 0.03;
                     self.discover(Discovery::Mound);
@@ -113,7 +113,8 @@ impl Game {
                     self.world.add_ripple(V3::UP, 0.5);
                     self.discover(if with { Discovery::InStep } else { Discovery::Braced });
                 }
-                F::Winding | F::Whirling => self.sounds.push(Sound::Become),
+                F::Winding => self.sounds.push(Sound::Become { form: Form::Ropes }),
+                F::Whirling => self.sounds.push(Sound::Become { form: Form::Whirl }),
                 F::Flung => {
                     self.sounds.push(Sound::Chord);
                     self.cam.shake = 0.06;
@@ -217,7 +218,7 @@ impl Game {
         use crate::burst::river::Event as R;
         match e {
             R::Bled => {
-                self.sounds.push(Sound::Become);
+                self.sounds.push(Sound::Become { form: Form::River });
                 self.discover(Discovery::River);
                 self.gesture = Gesture::Idle;
             }
