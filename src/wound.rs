@@ -80,6 +80,8 @@ struct Caltrop {
     flung: f32,
     last_pos: V3,
     last_hue: f32,
+    /// Out of an earlier wound: let go of, never held in a place again, and not one of the four.
+    old: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -142,7 +144,16 @@ impl Wound {
         }
         let out = v3(self.dir.x, 0.0, self.dir.z).norm();
         let out = if out.len() < 0.5 { v3(1.0, 0.0, 0.0) } else { out };
-        // Pieces of the last one may still be drifting home.
+        // Pieces of the last one may still be drifting home, or kept in a hand: they are let go
+        // of, and the four that fall out now are new.
+        for c in &mut self.caltrops {
+            c.old = true;
+            if !c.carried {
+                if let Some(d) = w.drop_mut(c.id) {
+                    d.target = None;
+                }
+            }
+        }
         let before = self.caltrops.len();
         for k in 0..CALTROPS {
             self.spill(w, out, k as f32 / CALTROPS as f32);
@@ -177,7 +188,7 @@ impl Wound {
             if let Some(d) = w.drop_mut(id) {
                 d.target = Some(rest);
             }
-            self.caltrops.push(Caltrop { id, rest, phase, free: 0.0, carried: false, flung: 0.0, last_pos: from, last_hue: phase });
+            self.caltrops.push(Caltrop { id, rest, phase, free: 0.0, carried: false, flung: 0.0, last_pos: from, last_hue: phase, old: false });
         }
     }
 }
@@ -225,8 +236,8 @@ pub fn step(g: &mut Game, dt: f32) {
             Some(d) => {
                 d.color = hue(h);
                 let held = carried == Some(c.id);
-                if !open_now {
-                    // Closed over: nothing holds it any more.
+                if !open_now || c.old {
+                    // Closed over, or out of an earlier wound: nothing holds it any more.
                     if c.carried && !held {
                         d.target = None;
                     }
@@ -267,6 +278,9 @@ pub fn step(g: &mut Game, dt: f32) {
             None => {
                 // It went into something.
                 wound.caltrops.remove(i);
+                if c.old {
+                    continue;
+                }
                 let into_body = (c.last_pos - body).len() < reach;
                 let at = (c.last_pos - body).norm();
                 if into_body && at.dot(wound.dir) > NEAR_WOUND && is_green(c.last_hue) && wound.phase == Phase::Open {
@@ -338,7 +352,7 @@ impl Wound {
             return false;
         }
         let id = w.drops.last().map_or(0, |d| d.id);
-        self.caltrops.push(Caltrop { id, free: 0.0, carried: false, flung: FLUNG_SECS, last_pos: from, ..c });
+        self.caltrops.push(Caltrop { id, free: 0.0, carried: false, flung: FLUNG_SECS, last_pos: from, old: false, ..c });
         w.add_ripple(self.dir, 0.7);
         w.body.vel -= out * 0.8;
         w.body.squash_vel -= 1.5;
@@ -632,5 +646,42 @@ mod tests {
         let n = g.world.wound.caltrops.iter().filter(|k| k.id == c.id).count();
         let flung = g.world.wound.caltrops.iter().any(|k| k.flung > 0.0);
         assert!(n == 1 && !flung, "piece left its place: still there {n}, one spat out {flung}");
+    }
+
+    #[test]
+    fn a_piece_kept_in_the_hand_is_not_a_fifth() {
+        let mut g = scarred();
+        hurt(&mut g);
+        run(&mut g, 4.0);
+        let time = g.world.wound.time;
+        let into = g.world.body.pos + g.world.wound.dir * (g.world.body.radius() * 0.8);
+        let ids: Vec<u32> = g.world.wound.caltrops.iter().map(|c| c.id).take(3).collect();
+        let last = g.world.wound.caltrops[3].id;
+        for c in &mut g.world.wound.caltrops {
+            c.phase = GREEN - time / CYCLE_SECS;
+        }
+        for &id in &ids {
+            if let Some(d) = g.world.drop_mut(id) {
+                d.target = Some(into);
+                d.age = 10.0;
+            }
+        }
+        run(&mut g, 3.0);
+        assert!(g.progress.has(Discovery::Heal));
+        // the last piece is picked up and kept through the rest, into the next wound
+        let p = g.world.drops.iter().find(|d| d.id == last).unwrap().pos;
+        let (x, y) = g.screen_of(p);
+        g.pointer_down(1, x, y);
+        run(&mut g, 24.2);
+        assert_eq!(g.carried_drop(), Some(last));
+        hurt(&mut g);
+        g.pointer_up(1);
+        run(&mut g, 4.0);
+        assert!(g.world.wound.is_open());
+        let held: Vec<u32> = g.world.wound.caltrops.iter().filter(|c| !c.old).map(|c| c.id).collect();
+        assert_eq!(held.len(), CALTROPS);
+        assert!(!held.contains(&last), "the kept piece is let go of, not held with the new ones");
+        let d = g.world.drops.iter().find(|d| d.id == last);
+        assert!(d.is_none_or(|d| d.target.is_none()), "nothing holds the kept piece in a place");
     }
 }

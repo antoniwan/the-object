@@ -274,10 +274,8 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
                 o.out = at.norm();
             }
         }
-        match o.phase {
-            Phase::Taking { t } => o.phase = Phase::Giving { t: GIVE_SECS * (1.0 - t / TAKE_SECS), asked: false },
-            Phase::Inside => o.phase = Phase::Giving { t: 0.0, asked: false },
-            _ => {}
+        if matches!(o.phase, Phase::Taking { .. } | Phase::Inside) {
+            o.phase = Phase::Giving { t: give_from((o.pos - c).len(), r), asked: false };
         }
         if let Phase::Giving { asked, .. } = &mut o.phase {
             *asked = false;
@@ -398,6 +396,12 @@ pub fn step(w: &mut World, dt: f32, look: &Look) {
 
     reach_for(&mut o, w, c, r, plain, dt);
     w.other = o;
+}
+
+/// The time into Giving at which it stands `dist` out from the middle, so giving back starts
+/// from where it is and does not jump.
+fn give_from(dist: f32, r: f32) -> f32 {
+    unsmoothstep(0.0, GIVE_SECS, dist / (r + SIZE * BOUND + 0.1))
 }
 
 /// Hard against the soft one: it never passes through on its own. Thrown in fast, it is a clash;
@@ -654,6 +658,25 @@ mod tests {
         g.update(1.0 / 60.0);
         let moved = (g.world.other.pos - before).len();
         assert!(moved < 0.3, "moved {moved} in a frame, {before:?} to {:?}", g.world.other.pos);
+    }
+
+    #[test]
+    fn given_back_from_most_of_the_way_in_it_comes_out_where_it_was() {
+        let mut g = arrived();
+        let c = g.world.body.pos;
+        let r = g.world.body.radius();
+        let side = -g.cam.basis().right;
+        g.world.other.pos = c + side * (r + SIZE * BOUND);
+        g.world.other.vel = V3::ZERO;
+        g.world.other.phase = Phase::Taking { t: 0.0 };
+        for _ in 0..78 {
+            g.update(1.0 / 60.0);
+        }
+        let before = g.world.other.pos;
+        g.world.forms.pandora.phase = crate::forms::pandora::Phase::Box;
+        g.update(1.0 / 60.0);
+        let moved = (g.world.other.pos - before).len();
+        assert!(moved < 0.3, "moved {moved} in a frame");
     }
 
     #[test]

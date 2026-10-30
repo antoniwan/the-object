@@ -81,9 +81,19 @@ impl Bloom {
         match self.phase {
             Phase::Buds => 0.0,
             Phase::Opening { t } => smoothstep(0.0, OPEN_SECS, t),
-            Phase::Flower => 1.0 - self.flinched.map_or(0.0, |t| FLINCH * smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.25, FLINCH_SECS, t))),
+            Phase::Flower => 1.0 - self.flinched.map_or(0.0, |t| self.drawn_in(t)),
             Phase::Folding { t } => 1.0 - smoothstep(0.0, FOLD_SECS, t),
         }
+    }
+
+    /// How far the petals have drawn in, `t` seconds into a flinch.
+    fn drawn_in(&self, t: f32) -> f32 {
+        FLINCH * smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.25, FLINCH_SECS, t))
+    }
+
+    /// Where to start folding so the petals close from as open as they are now.
+    fn fold_from(&self) -> f32 {
+        unsmoothstep(0.0, FOLD_SECS, 1.0 - self.open())
     }
 
     /// How far each bud has grown, 0..1. They give themselves up to the petals as it opens.
@@ -141,7 +151,9 @@ impl Bloom {
         if self.phase != Phase::Flower {
             return false;
         }
-        self.flinched = Some(0.0);
+        // Flinching again, it draws in further from where it is, never back open first.
+        let t = self.flinched.map_or(0.0, |t| unsmoothstep(0.0, 0.12, self.drawn_in(t) / FLINCH));
+        self.flinched = Some(t);
         true
     }
 
@@ -150,7 +162,7 @@ impl Bloom {
         if self.phase != Phase::Flower {
             return false;
         }
-        self.phase = Phase::Folding { t: 0.0 };
+        self.phase = Phase::Folding { t: self.fold_from() };
         self.quiet = false;
         true
     }
@@ -158,7 +170,7 @@ impl Bloom {
     /// Its petals are gone (spin.rs): what is left of the flower closes back into the body, quietly.
     pub fn let_go(&mut self) {
         if self.phase == Phase::Flower {
-            self.phase = Phase::Folding { t: 0.0 };
+            self.phase = Phase::Folding { t: self.fold_from() };
             self.quiet = true;
         }
     }
@@ -272,6 +284,27 @@ mod tests {
         assert_eq!(b.open(), 1.0);
         assert_eq!(b.phase, Phase::Flower);
         assert!(!Bloom::default().flinch(), "only a flower flinches");
+    }
+
+    #[test]
+    fn tapped_or_pinched_again_while_it_flinches_it_does_not_jump_open() {
+        let mut b = Bloom { phase: Phase::Flower, ..Bloom::default() };
+        b.flinch();
+        b.step(0.3);
+        let was = b.open();
+        assert!(b.fold());
+        b.step(1.0 / 60.0);
+        assert!((b.open() - was).abs() < 0.03, "folding: {was} -> {}", b.open());
+        for late in [0.05, 0.3, 0.9] {
+            let mut c = Bloom { phase: Phase::Flower, ..Bloom::default() };
+            c.flinch();
+            c.step(late);
+            let was = c.open();
+            assert!(c.flinch());
+            c.step(1.0 / 60.0);
+            // no faster than a flinch draws in by itself
+            assert!((c.open() - was).abs() < 0.04, "flinching again at {late}: {was} -> {}", c.open());
+        }
     }
 
     #[test]

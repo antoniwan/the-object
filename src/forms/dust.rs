@@ -94,6 +94,10 @@ struct Mound {
 
 /// How fast the mound can grow or sink, of its full height a second.
 const MOUND_RATE: f32 = 2.0;
+/// How fast a smaller drift lying over a larger is drawn onto it, in world units a second.
+const MERGE_PULL: f32 = 1.5;
+/// How much dust goes across from the smaller to the larger, of all of it a second, once they lie as one.
+const MERGE_RATE: f32 = 0.6;
 
 impl Default for Dust {
     fn default() -> Self {
@@ -277,7 +281,6 @@ impl Dust {
                 moved = true;
             }
         }
-        self.merge();
         if moved && !self.swept {
             self.swept = true;
             self.events.push(Event::Swept);
@@ -285,19 +288,32 @@ impl Dust {
         moved
     }
 
-    /// Drifts lying over each other become one, where their dust balances.
-    fn merge(&mut self) {
+    /// Drifts lying over each other run together over time: the smaller is drawn onto the
+    /// larger and its dust goes across, faster the closer they lie, so neither jumps.
+    fn merge(&mut self, dt: f32) {
         for i in 0..CLUMPS {
             for j in 0..CLUMPS {
                 let (a, b) = (self.clumps[i], self.clumps[j]);
-                if i == j || a.amount <= 0.0 || b.amount <= 0.0 || a.amount < b.amount {
+                if i == j || a.amount <= 0.0 || b.amount <= 0.0 || a.amount < b.amount || (a.amount == b.amount && i > j) {
                     continue;
                 }
-                if (a.x - b.x).hypot(a.z - b.z) < 0.45 * (a.radius() + b.radius()) {
-                    let m = a.amount + b.amount;
-                    self.clumps[i] = Clump { x: (a.x * a.amount + b.x * b.amount) / m, z: (a.z * a.amount + b.z * b.amount) / m, amount: m };
-                    self.clumps[j].amount = 0.0;
+                let (ox, oz) = (a.x - b.x, a.z - b.z);
+                let d = ox.hypot(oz);
+                let near = 0.45 * (a.radius() + b.radius());
+                if d >= near {
+                    continue;
                 }
+                let pull = (MERGE_PULL * dt / d.max(1e-4)).min(1.0);
+                let mut part = (MERGE_RATE * dt * (1.0 - d / near)).min(b.amount);
+                // the last crumb goes across with the rest; a drift at 0 is gone
+                if b.amount - part < 1e-3 {
+                    part = b.amount;
+                }
+                let c = &mut self.clumps[j];
+                c.x += ox * pull;
+                c.z += oz * pull;
+                c.amount -= part;
+                self.clumps[i].amount += part;
             }
         }
     }
@@ -374,8 +390,8 @@ impl Dust {
                         c.x += ox * step;
                         c.z += oz * step;
                     }
-                    self.merge();
                 }
+                self.merge(dt);
                 if self.clumps[self.biggest()].amount >= HEAP_AT {
                     self.events.push(Event::Heaped);
                     Phase::Heaping { t: 0.0 }
@@ -486,6 +502,42 @@ mod tests {
         assert!(d.events.contains(&Event::Unearthed));
     }
 
+    /// The dust drawn at (x, z), summed the way the floor draws it.
+    fn drawn(d: &Dust, x: f32, z: f32) -> f32 {
+        d.clumps.iter().filter(|c| c.amount > 0.0).map(|c| {
+            let (ox, oz) = (x - c.x, z - c.z);
+            3.0 * c.amount * (-(ox * ox + oz * oz) / (c.radius() * c.radius())).exp()
+        }).sum()
+    }
+
+    #[test]
+    fn drifts_left_alone_run_together_without_a_jump() {
+        let mut d = Dust { phase: Phase::Dust, idle: GATHER_SELF_AFTER + 1.0, ..Default::default() };
+        d.clumps[0] = Clump { x: 0.0, z: 0.0, amount: 0.5 };
+        d.clumps[1] = Clump { x: 2.5, z: 0.0, amount: 0.25 };
+        d.clumps[2] = Clump { x: -2.5, z: 1.0, amount: 0.25 };
+        let grid = |d: &Dust| {
+            let mut v = Vec::new();
+            for i in 0..60 {
+                for j in 0..60 {
+                    v.push(drawn(d, -4.0 + i as f32 * 0.14, -4.0 + j as f32 * 0.14));
+                }
+            }
+            v
+        };
+        let mut was = grid(&d);
+        let mut worst = 0.0f32;
+        for _ in 0..600 {
+            d.step(1.0 / 60.0);
+            let now = grid(&d);
+            worst = was.iter().zip(&now).map(|(a, b)| (a - b).abs()).fold(worst, f32::max);
+            was = now;
+        }
+        assert!(d.phase != Phase::Dust, "they ran together and heaped: {:?}", d.clumps);
+        assert!((total(&d) - 1.0).abs() < 1e-4);
+        assert!(worst < 0.05, "the drawn dust changed by {worst} in a frame");
+    }
+
     #[test]
     fn left_alone_the_dust_gathers_itself() {
         let mut d = Dust::default();
@@ -514,10 +566,9 @@ mod tests {
         run(&mut d, 1.0);
         let mut was = d.heap();
         assert!(was.0 < -1.9 && was.3 > 0.2, "on the fullest: {was:?}");
-        // the two smaller drifts swept into one, now the fullest
+        // the two smaller drifts swept together, they run into one, which becomes the fullest
         d.sweep((3.2, 0.0), (1.6, 0.0));
-        assert_eq!(d.biggest(), 1);
-        for _ in 0..120 {
+        for _ in 0..180 {
             d.step(1.0 / 60.0);
             let now = d.heap();
             assert!((now.3 - was.3).abs() < 0.05, "height jumped: {was:?} -> {now:?}");
@@ -526,6 +577,7 @@ mod tests {
             was = now;
         }
         let k = d.biggest();
+        assert_eq!(k, 1);
         assert!((was.0 - d.clumps[k].x).abs() < 1e-4 && was.3 > 0.3, "risen on the new one: {was:?}");
     }
 }

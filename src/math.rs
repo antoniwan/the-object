@@ -99,6 +99,14 @@ pub fn smooth01(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// The `x` in `a..b` at which `smoothstep(a, b, x)` is `y`: where an eased blend stands
+/// when it shows `y`, so another can start from there.
+pub fn unsmoothstep(a: f32, b: f32, y: f32) -> f32 {
+    let y = y.clamp(0.0, 1.0);
+    let t = 0.5 - ((1.0 - 2.0 * y).asin() / 3.0).sin();
+    a + (b - a) * t.clamp(0.0, 1.0)
+}
+
 /// An angle, or a difference of two, brought into -pi..pi: the short way round.
 pub fn wrap_angle(a: f32) -> f32 {
     let pi = std::f32::consts::PI;
@@ -145,5 +153,19 @@ pub fn ease(x: f32, goal: f32, by: f32) -> f32 {
         x + d
     } else {
         x + d * (1.0 - by.exp())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unsmoothstep_finds_where_an_eased_blend_stands() {
+        for i in 0..=20 {
+            let x = 1.0 + 2.0 * i as f32 / 20.0;
+            let y = smoothstep(1.0, 3.0, x);
+            assert!((unsmoothstep(1.0, 3.0, y) - x).abs() < 1e-3, "{x} {y}");
+        }
     }
 }
