@@ -9,7 +9,7 @@
 //!   bounces on the floor, and goes on turning
 //! - fill it: the wound closes over, and the scar is fainter than it was. Never gone.
 //!
-//! The pieces are drops (sim.rs) that it holds in place; a hand can still carry them. The seam
+//! The pieces are drops (sim/) that it holds in place; a hand can still carry them. The seam
 //! and the wound are drawn on the body's own surface (`surfaceDisp`, `sceneColor` in the
 //! shader); the pieces' spikes are drawn in the drops' loop, so nothing adds a call to `scene()`.
 
@@ -336,7 +336,6 @@ fn close(w: &mut World) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::Game;
 
     #[test]
     fn the_wheel_comes_round_to_green() {

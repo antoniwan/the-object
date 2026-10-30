@@ -180,7 +180,7 @@ fn main() {
     }
 }
 
-/// Hearing and sight open, a voice and a moving picture fed in every frame, as web.rs does.
+/// Hearing and sight open, a voice and a moving picture fed in every frame, as platform/web/ does.
 /// Returns the world's fingerprint and one of everything the analysis produced.
 fn senses_scene() -> (u64, u64) {
     let mut g = game();

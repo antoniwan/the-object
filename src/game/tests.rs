@@ -614,7 +614,7 @@ fn flower(g: &mut Game) {
 fn two_fingers_pinched_together_on_the_flower_bring_it_to_dust() {
     let mut g = game();
     flower(&mut g);
-    let (x, y) = g.screen(g.world.body.pos);
+    let (x, y) = g.screen_of(g.world.body.pos);
     two_fingers(&mut g, (x - 40.0, y), (x + 40.0, y), (x - 10.0, y), (x + 10.0, y), 0.0);
     assert!(!g.world.forms.dust.whole(), "it comes apart");
 }
@@ -670,8 +670,8 @@ fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
                 continue;
             }
             let (ox, oz) = (c.x - to.x, c.z - to.z);
-            let from = project(&g, floor(c.x + ox * 0.15, c.z + oz * 0.15));
-            let end = project(&g, floor(to.x, to.z));
+            let from = g.screen_of(floor(c.x + ox * 0.15, c.z + oz * 0.15));
+            let end = g.screen_of(floor(to.x, to.z));
             g.pointer_down(3, from.0, from.1);
             for s in 1..=8 {
                 let f = s as f32 / 8.0;
@@ -685,7 +685,7 @@ fn a_pinched_flower_goes_to_dust_that_sweeps_into_a_mound_and_held_it_rises() {
     wait(&mut g, 4.0);
     assert!(g.progress.has(Discovery::Mound), "{:?}", g.world.forms.dust.clumps);
     let (hx, hz, _, h) = g.world.forms.dust.heap();
-    let on = project(&g, floor(hx, hz) + V3::UP * (h * 0.5));
+    let on = g.screen_of(floor(hx, hz) + V3::UP * (h * 0.5));
     g.pointer_down(4, on.0, on.1);
     g.pointer_up(4);
     assert!(g.world.forms.dust.thud > 0.5, "it answers a tap");
@@ -821,14 +821,6 @@ fn a_square_drawn_around_it_makes_a_box_that_opens_on_the_third_knock() {
     assert!(g.world.ordinary());
 }
 
-/// Where a world point lands on the 800x600 canvas.
-fn project(g: &Game, p: V3) -> (f32, f32) {
-    let b = g.cam.basis();
-    let d = p - b.pos;
-    let z = d.dot(b.fwd);
-    (400.0 + d.dot(b.right) * FOCAL / z * 300.0, 300.0 - d.dot(b.up) * FOCAL / z * 300.0)
-}
-
 fn burst_it(g: &mut Game) {
     for i in 0..12 {
         g.pointer_down(i, 400.0, 300.0);
@@ -846,7 +838,7 @@ fn burst_it(g: &mut Game) {
 /// The screen point of piece `i`, partway up so the press lands on it.
 fn shard_at(g: &Game, i: usize) -> (f32, f32) {
     let (pos, _) = g.world.burst.shard_pose(i);
-    project(g, pos + V3::UP * (g.world.burst.shard_size(i) * 0.3))
+    g.screen_of(pos + V3::UP * (g.world.burst.shard_size(i) * 0.3))
 }
 
 #[test]
@@ -893,7 +885,7 @@ fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
     for _ in 0..60 {
         let Some(i) = (0..burst::SHARDS).find(|&i| !g.world.burst.land.returned(i)) else { break };
         let (x0, y0) = shard_at(&g, i);
-        let (x1, y1) = project(&g, middle);
+        let (x1, y1) = g.screen_of(middle);
         id += 1;
         g.pointer_down(id, x0, y0);
         for k in 1..=30 {
@@ -918,7 +910,7 @@ fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
 /// Drag piece `i` slowly over the ground to `to`, and let go.
 fn carry_to(g: &mut Game, id: i32, i: usize, to: V3) {
     let (x0, y0) = shard_at(g, i);
-    let (x1, y1) = project(g, to);
+    let (x1, y1) = g.screen_of(to);
     g.pointer_down(id, x0, y0);
     for k in 1..=60 {
         let f = k as f32 / 60.0;
@@ -996,7 +988,7 @@ fn a_group_carried_to_the_middle_goes_home_together() {
     assert!(group & 0b10 != 0, "they hold on");
     // slowly, so the others keep up
     let (x0, y0) = shard_at(&g, 0);
-    let (x1, y1) = project(&g, v3(0.0, fusion::FLOOR_Y, 0.6));
+    let (x1, y1) = g.screen_of(v3(0.0, fusion::FLOOR_Y, 0.6));
     g.pointer_down(91, x0, y0);
     for k in 1..=400 {
         let f = k as f32 / 400.0;
@@ -1030,7 +1022,7 @@ fn crowded_together_they_run_red_and_a_view_full_of_columns_gives_it_a_pulse() {
     let river = &g.world.burst.river;
     let slot = crate::burst::river::LANES * 12 + 1;
     let (x, z) = river.slot_pos(slot);
-    let (px, py) = project(&g, v3(x, fusion::FLOOR_Y, z));
+    let (px, py) = g.screen_of(v3(x, fusion::FLOOR_Y, z));
     g.pointer_down(60, px, py);
     g.pointer_up(60);
     assert!(g.sounds.contains(&Sound::Column { slot }));
@@ -1044,7 +1036,7 @@ fn crowded_together_they_run_red_and_a_view_full_of_columns_gives_it_a_pulse() {
         let id = 61 + lane as i32;
         let at = |g: &Game, row: usize| {
             let (x, z) = g.world.burst.river.slot_pos(row * crate::burst::river::LANES + lane);
-            project(g, v3(x, fusion::FLOOR_Y, z))
+            g.screen_of(v3(x, fusion::FLOOR_Y, z))
         };
         let (x0, y0) = at(&g, 0);
         g.pointer_down(id, x0, y0);
@@ -1113,7 +1105,7 @@ fn the_flower_spun_right_past_dizzy_rises_and_lands_a_flower() {
     assert!(g.progress.has(Discovery::Aloft));
     assert!(g.world.forms.spin.offset().y > 0.9, "off the floor");
     // a tap while it is up does not fold it
-    let (x, y) = g.screen(g.world.body.pos + g.world.forms.spin.offset() * g.world.body.radius());
+    let (x, y) = g.screen_of(g.world.body.pos + g.world.forms.spin.offset() * g.world.body.radius());
     g.pointer_down(1, x, y);
     g.pointer_up(1);
     wait(&mut g, 12.0);

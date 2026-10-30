@@ -2,7 +2,7 @@
 //! The page reads these as CSS variables; web/glyph.js decodes every line through them.
 
 use crate::burst::FATAL_WOUNDS;
-use crate::camera::{Camera, FOCAL};
+use crate::camera::Camera;
 use crate::math::*;
 use crate::sim::World;
 
@@ -28,11 +28,7 @@ pub fn aura(world: &World, cam: &Camera, w: f32, h: f32) -> Aura {
     // Upset, it flushes; so do its words.
     let tint = v3(ink(c.x), ink(c.y), ink(c.z)).lerp(FLUSH, unrest * 0.75);
 
-    let b = cam.basis();
-    let d = world.body.pos - b.pos;
-    let z = d.dot(b.fwd).max(0.1);
-    let ux = d.dot(b.right) * FOCAL / z;
-    let uy = d.dot(b.up) * FOCAL / z;
+    let (ux, uy) = cam.project(world.body.pos);
     let x = 0.5 + ux * h / (2.0 * w.max(1.0));
     let y = 0.5 - uy * 0.5;
 

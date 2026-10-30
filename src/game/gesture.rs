@@ -106,7 +106,7 @@ impl Game {
                 let trace = std::mem::take(&mut self.trace);
                 let path: f32 = trace.windows(2).map(|w| dist(w[0], w[1])).sum();
                 let moved = (dist(start, last) / self.h).max(path);
-                let (cx, cy) = self.screen(self.world.body.pos);
+                let (cx, cy) = self.screen_of(self.world.body.pos);
                 if moved >= TAP_SLOP && self.world.ordinary() && pandora::is_square(&trace, (cx / self.h, cy / self.h), 1.0) {
                     // The camera went round with the drawing; it drifts back to where it was.
                     self.cam.yaw_vel = 0.0;
@@ -163,7 +163,7 @@ impl Game {
 
     /// Where `(x, y)` is around the flower on screen, radians, counterclockwise.
     fn around_flower(&self, (x, y): (f32, f32)) -> f32 {
-        let (cx, cy) = self.screen(self.world.body.pos);
+        let (cx, cy) = self.screen_of(self.world.body.pos);
         (cy - y).atan2(x - cx)
     }
 
@@ -386,9 +386,7 @@ impl Game {
                 let now = (v.dot(b.up)).atan2(v.dot(b.right));
                 let stirrable = self.world.ordinary() || !self.world.forms.cosmos.whole();
                 if let (Some(last), true, true) = (angle, v.len() > 0.5 * r, stirrable) {
-                    let pi = std::f32::consts::PI;
-                    let turn = (now - last + pi).rem_euclid(2.0 * pi) - pi;
-                    self.world.forms.stir(turn / (2.0 * pi));
+                    self.world.forms.stir(wrap_angle(now - last) / (2.0 * std::f32::consts::PI));
                 }
                 let reach = reach.max((to - plane).len() / r);
                 self.gesture = Gesture::Stretching { handle, plane, since, reach, taut, angle: Some(now), hit, pressed };
@@ -434,8 +432,7 @@ impl Game {
             }
             Gesture::Spin { start, last, turned } => {
                 let now = self.around_flower((x, y));
-                let pi = std::f32::consts::PI;
-                let turn = ((now - last + pi).rem_euclid(2.0 * pi) - pi) / (2.0 * pi);
+                let turn = wrap_angle(now - last) / (2.0 * std::f32::consts::PI);
                 let turned = turned + turn;
                 if turned.abs() < 0.12 && dist(start, (x, y)) / self.h > 0.25 {
                     // a long pull that hardly went round it: looking around
@@ -558,7 +555,7 @@ impl Game {
         if bu.phase != burst::Phase::Landscape || bu.river.active {
             return;
         }
-        let at: Vec<(f32, f32)> = (0..burst::SHARDS).map(|i| self.screen(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3))).collect();
+        let at: Vec<(f32, f32)> = (0..burst::SHARDS).map(|i| self.screen_of(bu.shard_pose(i).0 + V3::UP * (bu.shard_size(i) * 0.3))).collect();
         let cuts: Vec<(usize, usize)> = (0..burst::SHARDS)
             .flat_map(|a| (a + 1..burst::SHARDS).map(move |b| (a, b)))
             .filter(|&(a, b)| bu.kin.bonded(a, b) && crate::burst::kin::crosses(from, to, at[a], at[b]))
