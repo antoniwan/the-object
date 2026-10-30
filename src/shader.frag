@@ -404,7 +404,11 @@ float clusterSurface(vec3 q) {
     }
   }
   float toBall = max(uMor.x, uStone.x * 0.8);
-  if (toBall > 0.001) d = mix(d, uMor.x > 0.001 ? grainSurface(q) : lq - uGrainR * r, toBall);
+  if (toBall > 0.001) {
+    float ball = uMor.x > 0.001 ? grainSurface(q) : lq - uGrainR * r;
+    // past 0.999 the cells were skipped and d is still the 1e3 it started at: take the ball whole
+    d = uMor.x < 0.999 ? mix(d, ball, toBall) : ball;
+  }
   return d;
 }
 
