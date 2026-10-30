@@ -1009,6 +1009,27 @@ fn in_the_landscape_pieces_sing_root_and_can_be_carried_home() {
     assert!(g.world.body.color != crate::sim::PEARL);
 }
 
+#[test]
+fn a_drop_out_when_it_bursts_waits_for_the_body_to_gather_before_falling_back_in() {
+    let mut g = game();
+    assert!(g.world.spill(v3(2.5, 0.5, 0.0), V3::ZERO, 0.2, crate::sim::PEARL));
+    for d in &mut g.world.drops {
+        d.age = 0.0;
+    }
+    burst_it(&mut g);
+    g.sounds.clear();
+    let before = g.world.drops.len();
+    assert!(before > 0);
+    let mut merged = 0;
+    for _ in 0..(60 * 30) {
+        g.update(1.0 / 60.0);
+        merged += g.sounds.drain(..).filter(|s| matches!(s, Sound::Merge)).count();
+    }
+    assert!(g.world.burst.body_gone());
+    assert_eq!(merged, 0, "a drop fell into a body that is not there");
+    assert_eq!(g.world.drops.len(), before);
+}
+
 /// Drag piece `i` slowly over the ground to `to`, and let go.
 fn carry_to(g: &mut Game, id: i32, i: usize, to: V3) {
     let (x0, y0) = shard_at(g, i);

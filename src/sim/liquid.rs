@@ -103,10 +103,11 @@ impl World {
             }
         }
 
-        // Drops falling back into the body.
+        // Drops falling back into the body; while there is no body to fall into, they keep circling.
         let r = self.body.radius();
+        let gone = self.burst.body_gone() || self.forms.dust.body_gone();
         let mut i = 0;
-        while i < self.drops.len() {
+        while !gone && i < self.drops.len() {
             let d = &self.drops[i];
             let (gap, _) = self.division.nearest_cell(d.pos, self.body.pos, r);
             if d.age > MERGE_COOLDOWN && gap < d.r * 0.2 {
