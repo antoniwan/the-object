@@ -83,7 +83,7 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 | `src/lib.rs` | The crate root: the families below, and `platform/` only in the wasm build. |
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 123 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
-| `src/camera.rs` | The orbit camera and screen shake. |
+| `src/camera.rs` | The orbit camera, screen shake, and the lens: its focal length, which the shader and the picker share, eased in while it is held still with no finger on it. |
 | `src/pace.rs` | How much of the screen is drawn: resolution follows the frame rate, down at a stall, back up after a long run of quick frames, never flickering between two, and left alone at a screen's steady thirty a second; the canvas follows in small steps, and the finest light fades with it. |
 | `src/math.rs` | Small vector math, so the simulation has no dependencies. |
 | `src/wake.rs` | Whether the screen is kept on: from the first press or key, let go after three minutes with nobody there (no hand, no key, the phone not moved, nothing heard or seen) and while the page is hidden. Plain Rust; `platform/web/keep.rs` asks the browser (the Screen Wake Lock). |

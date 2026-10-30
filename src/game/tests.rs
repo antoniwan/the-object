@@ -1526,3 +1526,78 @@ fn a_flick_not_quite_a_throw_only_lurches_it() {
     assert!(!g.progress.has(Discovery::Throw) && !g.progress.has(Discovery::Slam));
     assert!(g.world.fusion.whole());
 }
+
+/// Runs `secs` of frames with whatever hands are down, returning the largest change in the lens
+/// from one frame to the next.
+fn lens_for(g: &mut Game, secs: f32) -> f32 {
+    let mut most: f32 = 0.0;
+    for _ in 0..(secs * 60.0) as usize {
+        let before = g.cam.focal;
+        g.update(1.0 / 60.0);
+        most = most.max((g.cam.focal - before).abs());
+    }
+    most
+}
+
+#[test]
+fn left_to_watch_you_the_lens_leans_in_slowly() {
+    let mut g = game();
+    let jump = lens_for(&mut g, 10.0);
+    assert_eq!(g.cam.focal, FOCAL, "not before it watches");
+    let jump = jump.max(lens_for(&mut g, 14.0));
+    assert!(g.world.watching && g.cam.focal > 2.2, "{}", g.cam.focal);
+    assert!(jump < 0.005, "never in one frame: {jump}");
+    // where it is drawn and where a press lands stay one place
+    let (x, y) = g.screen_of(g.world.body.pos);
+    assert!((x - 400.0).abs() < 60.0 && (y - 300.0).abs() < 80.0, "{x} {y}");
+    assert!(g.pick(x, y).is_some_and(|h| (h.pos - g.world.body.pos).len() < g.world.body.radius() * 1.3));
+}
+
+#[test]
+fn a_finger_on_it_brings_the_lens_back_gently_and_keeps_it_there() {
+    let mut g = game();
+    lens_for(&mut g, 24.0);
+    let leaned = g.cam.focal;
+    assert!(leaned > 2.2);
+    g.pointer_down(1, 400.0, 300.0);
+    let mut last = g.cam.focal;
+    for _ in 0..360 {
+        g.update(1.0 / 60.0);
+        assert!(g.cam.focal <= last && last - g.cam.focal < 0.01, "back, gently: {last} to {}", g.cam.focal);
+        last = g.cam.focal;
+    }
+    assert!(g.world.warming, "held still, it warms, and the lens still does not lean");
+    assert!((g.cam.focal - FOCAL).abs() < 0.002, "{}", g.cam.focal);
+    // a finger down from the start: never anything but the resting lens
+    let mut g = game();
+    g.pointer_down(1, 400.0, 300.0);
+    lens_for(&mut g, 20.0);
+    assert_eq!(g.cam.focal, FOCAL);
+}
+
+#[test]
+fn warmed_with_no_finger_it_leans_in_but_only_where_it_rests() {
+    let mut g = game();
+    g.world.warming = true;
+    let rest = Camera::new().dist;
+    assert_eq!(g.lean_goal(rest), 1.0);
+    g.cam.dist = rest + 1.0;
+    assert_eq!(g.lean_goal(rest), 0.0, "not while something else frames it");
+    g.cam.dist = rest;
+    g.world.body.squeeze = 0.5;
+    assert_eq!(g.lean_goal(rest), 0.0, "not while it is squeezed out of round");
+    g.world.body.squeeze = 0.0;
+    g.world.warming = false;
+    // the swell into a held finger is not reaching toward you
+    g.world.gaze = PALM;
+    assert_eq!(g.lean_goal(rest), 0.0);
+}
+
+#[test]
+fn with_less_motion_the_lens_leans_a_fifth_as_far() {
+    let mut g = game();
+    g.cam.still = true;
+    lens_for(&mut g, 40.0);
+    let far = FOCAL + (crate::camera::LEAN - FOCAL) * 0.2;
+    assert!(g.cam.focal > FOCAL + 0.06 && g.cam.focal <= far + 1e-4, "{}", g.cam.focal);
+}
