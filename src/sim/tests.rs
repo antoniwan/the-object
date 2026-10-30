@@ -56,3 +56,14 @@ fn a_short_pull_springs_back() {
     run(&mut w, 4.0);
     assert!(w.handles.is_empty());
 }
+
+#[test]
+fn tearing_never_leaves_less_than_the_smallest_body() {
+    let mut w = World::new();
+    // just over the smallest it may be: one more drop would take it under
+    w.body.volume = (MIN_BODY_RADIUS + 0.002).powi(3);
+    let h = w.begin_stretch(w.body.pos + v3(w.body.radius(), 0.0, 0.0)).unwrap();
+    w.pull_handle(h, w.body.pos + v3(4.0, 0.0, 0.0));
+    run(&mut w, 1.0);
+    assert!(w.body.radius() >= MIN_BODY_RADIUS, "{}", w.body.radius());
+}

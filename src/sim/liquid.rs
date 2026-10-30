@@ -37,14 +37,17 @@ impl World {
     }
 
     fn tear(&mut self, handle_id: u32) {
-        if self.drops.len() >= MAX_DROPS || self.body.radius() < MIN_BODY_RADIUS {
+        let body = &self.body;
+        let Some(h) = self.handles.iter().find(|h| h.id == handle_id) else { return };
+        let (_, _, bulb) = h.radii(body);
+        let r = bulb * 1.05;
+        // what is left must still be at least the smallest body, the same rule as spill()
+        if self.drops.len() >= MAX_DROPS || (body.volume - r * r * r).cbrt() < MIN_BODY_RADIUS {
             return;
         }
         let drop_id = self.id();
         let body = &self.body;
         let Some(h) = self.handles.iter_mut().find(|h| h.id == handle_id) else { return };
-        let (_, _, bulb) = h.radii(body);
-        let r = bulb * 1.05;
         let rest = h.rest(body);
         let color = self.body.color;
         let drop = Drop { id: drop_id, pos: h.tip, vel: h.vel, r, target: h.target, age: 0.0, color };
