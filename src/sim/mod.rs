@@ -29,7 +29,7 @@ pub const MAX_DROPS: usize = 12;
 /// The body never gets smaller than this by tearing pieces off it.
 const MIN_BODY_RADIUS: f32 = 0.45;
 /// A tendril pinches off once it is this many body radii past its rest point.
-const TEAR_RATIO: f32 = 1.35;
+pub const TEAR_RATIO: f32 = 1.35;
 /// How fast a tendril grows out of the body once pulled, a second: most of it out in 0.13 s,
 /// all of it in 0.2 s (`step_handles`).
 const STUMP_GROW: f32 = 15.0;

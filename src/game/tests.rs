@@ -1555,3 +1555,66 @@ fn a_flick_not_quite_a_throw_only_lurches_it() {
     assert!(!g.progress.has(Discovery::Throw) && !g.progress.has(Discovery::Slam));
     assert!(g.world.fusion.whole());
 }
+
+#[test]
+fn a_pull_held_is_heard_rising_and_trembles_taut_and_falls_silent_let_go() {
+    let mut g = game();
+    assert!(g.strain().is_none());
+    g.pointer_down(1, 400.0, 300.0);
+    let mut last = 0.0;
+    for k in 1..=20 {
+        g.pointer_move(1, 400.0 + 7.5 * k as f32, 300.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+        last = g.strain().map_or(last, |s| s.freq.max(last));
+    }
+    let drawn = g.strain().expect("a pull is heard");
+    assert!(drawn.freq > sound::STRAIN_REST * 1.3 && drawn.gain > 0.0, "{drawn:?}");
+    wait(&mut g, 0.6);
+    let taut = g.strain().expect("still held");
+    assert!(taut.depth > 0.0 && taut.tremolo > sound::TREMOLO_FROM, "{taut:?}");
+    let (_, off) = g.tremble().expect("its tip trembles");
+    assert!(off.len() <= sound::TREMBLE * g.world.body.radius() + 1e-6);
+    g.cam.still = true;
+    assert!(g.tremble().is_none(), "not under reduced motion");
+    g.sounds.clear();
+    g.pointer_up(1);
+    assert!(g.strain().is_none() && g.tremble().is_none());
+    assert!(g.sounds.contains(&Sound::Almost), "nearly a thread");
+    assert!(!g.progress.has(Discovery::Thread));
+}
+
+#[test]
+fn a_pull_rests_on_the_note_it_knows_you_by() {
+    let heard = |note: Option<f32>| {
+        let mut g = game();
+        if let Some(f) = note {
+            g.remembrance.sung(f);
+        }
+        g.pointer_down(1, 400.0, 300.0);
+        for k in 1..=4 {
+            g.pointer_move(1, 400.0 + 7.5 * k as f32, 300.0, 1.0 / 60.0);
+            g.update(1.0 / 60.0);
+        }
+        g.strain().expect("held").freq
+    };
+    // 392 Hz sung, it rests on 196 instead of 220, the same pull moving it as far
+    let ratio = heard(Some(392.0)) / heard(None);
+    assert!((ratio - 196.0 / 220.0).abs() < 1e-3, "{ratio}");
+}
+
+#[test]
+fn becoming_a_thread_has_its_own_pitch() {
+    let mut g = game();
+    g.pointer_down(1, 400.0, 300.0);
+    for k in 1..=20 {
+        g.pointer_move(1, 400.0 + 7.5 * k as f32, 300.0, 1.0 / 60.0);
+        g.update(1.0 / 60.0);
+    }
+    let mut heard = false;
+    for _ in 0..90 {
+        g.update(1.0 / 60.0);
+        heard |= g.sounds.contains(&Sound::Become { form: Form::Thread });
+        g.sounds.clear();
+    }
+    assert!(heard && g.strain().is_none(), "the pull's tone gives way to the thread");
+}

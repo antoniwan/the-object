@@ -27,8 +27,11 @@ pub enum Sound {
     /// A knock on the box, and the knock that answers it.
     Knock,
     Lid,
-    /// It became something it wasn't.
-    Become,
+    /// It became something it wasn't: the same low sound for every form, each at its own step
+    /// of the scale (`become_tones`).
+    Become {
+        form: Form,
+    },
     /// One of the twelve, struck.
     Shard {
         i: usize,
@@ -52,6 +55,165 @@ pub enum Sound {
         delay: f32,
         first: bool,
     },
+}
+
+/// Major pentatonic steps, in semitones, across two octaves.
+pub const SCALE: [f32; 10] = [0.0, 2.0, 4.0, 7.0, 9.0, 12.0, 14.0, 16.0, 19.0, 21.0];
+
+/// What it became, for `Sound::Become`: each is the same sound at its own step of `SCALE`, so the
+/// forms are told apart by ear. `Itself` is the sound unmoved: back from a form, reaching out,
+/// another arriving or taken in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Form {
+    Itself,
+    River,
+    Box,
+    Thread,
+    Mound,
+    Cosmos,
+    Dust,
+    Ropes,
+    Whirl,
+    Fold,
+}
+
+impl Form {
+    pub const ALL: [Form; 10] = [
+        Form::Itself,
+        Form::River,
+        Form::Box,
+        Form::Thread,
+        Form::Mound,
+        Form::Cosmos,
+        Form::Dust,
+        Form::Ropes,
+        Form::Whirl,
+        Form::Fold,
+    ];
+
+    /// Its step of `SCALE`, in semitones: one fixed step for each.
+    pub fn step(self) -> f32 {
+        SCALE[Form::ALL.iter().position(|f| *f == self).unwrap_or(0)]
+    }
+}
+
+/// The sound of becoming: two low sines, 65.4 Hz and the fifth over it, raised by the form's step.
+pub fn become_tones(form: Form) -> [Tone; 2] {
+    let up = 2f32.powf(form.step() / 12.0);
+    let (a, b) = (65.4 * up, 98.0 * up);
+    [
+        Tone { wave: Wave::Sine, f0: a, f1: a, gain: 0.14, decay: 3.0, delay: 0.0 },
+        Tone { wave: Wave::Sine, f0: b, f1: b, gain: 0.08, decay: 3.0, delay: 0.1 },
+    ]
+}
+
+/// A pull as it is heard: `stretch` how far it is drawn out (body radii past its rest), `tear`
+/// how far it can go before it tears, `taut` how near held taut has come to a thread, 0..1.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Pull {
+    pub stretch: f32,
+    pub tear: f32,
+    pub taut: f32,
+}
+
+/// The one quiet tone of a pull, as the browser layer plays it: a sine at `freq` and `gain`,
+/// its loudness wavering `tremolo` times a second by `depth` (0..0.5 of it), and, past
+/// `ROUGH_FROM`, a second sine `beat` Hz above it at `rough` (0..1) of its level.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Strain {
+    pub freq: f32,
+    pub gain: f32,
+    pub tremolo: f32,
+    pub depth: f32,
+    pub rough: f32,
+    pub beat: f32,
+}
+
+/// The pull's tone at its loudest, under the warm hum's 0.05.
+pub const STRAIN_GAIN: f32 = 0.04;
+/// Where it rests with no note of the player's known (Hz): A3.
+pub const STRAIN_REST: f32 = 220.0;
+/// A known note is folded into the octave from here (Hz), so it rests where it can be heard softly.
+pub const STRAIN_LOW: f32 = 165.0;
+/// Drawn out to its tear, it has risen this many semitones.
+pub const STRAIN_RISE: f32 = 12.0;
+/// Its wavering once held taut, a second: slow as it begins, quick as the thread nears.
+pub const TREMOLO_FROM: f32 = 3.0;
+pub const TREMOLO_TO: f32 = 12.0;
+/// How deep the wavering goes, as a share of its loudness.
+pub const TREMOLO_DEPTH: f32 = 0.45;
+/// Past this stretch (body radii) it roughens: a second sine beating against it.
+pub const ROUGH_FROM: f32 = 1.2;
+/// Let go, it fades this fast (time constant, seconds); the pitch stays where it was.
+pub const STRAIN_RELEASE: f64 = 0.25;
+
+/// Where the pull's tone rests: the note it knows the player by, folded into one octave from
+/// `STRAIN_LOW`, or `STRAIN_REST`.
+pub fn strain_rest(note: Option<f32>) -> f32 {
+    let Some(mut f) = note.filter(|f| f.is_finite() && *f > 0.0) else { return STRAIN_REST };
+    while f >= STRAIN_LOW * 2.0 {
+        f *= 0.5;
+    }
+    while f < STRAIN_LOW {
+        f *= 2.0;
+    }
+    f
+}
+
+/// What a pull sounds like: rising and louder as it is drawn out, wavering faster the longer it
+/// is held taut, rough just before it tears.
+pub fn strain(p: Pull, note: Option<f32>) -> Strain {
+    let tear = p.tear.max(0.1);
+    let x = (p.stretch / tear).clamp(0.0, 1.0);
+    let taut = p.taut.clamp(0.0, 1.0);
+    let from = ROUGH_FROM.min(tear * 0.9);
+    let r = ((p.stretch - from) / (tear - from)).clamp(0.0, 1.0);
+    let rough = r * r * (3.0 - 2.0 * r);
+    Strain {
+        freq: strain_rest(note) * 2f32.powf(STRAIN_RISE * x / 12.0),
+        // the two sines together are never louder than one at its loudest
+        gain: STRAIN_GAIN * x / (1.0 + 0.7 * rough),
+        tremolo: TREMOLO_FROM + (TREMOLO_TO - TREMOLO_FROM) * taut,
+        depth: if taut > 0.0 { TREMOLO_DEPTH } else { 0.0 },
+        rough: 0.7 * rough,
+        beat: 4.0 + 5.0 * rough,
+    }
+}
+
+/// How far the held tip trembles once taut, in body radii at most.
+pub const TREMBLE: f32 = 0.012;
+
+impl super::Game {
+    /// The pull being held now, if any, as it is heard.
+    pub(super) fn pull(&self) -> Option<(u32, Pull)> {
+        let super::Gesture::Stretching { handle, taut, .. } = self.gesture else { return None };
+        let h = self.world.handles.iter().find(|h| h.id == handle && h.target.is_some())?;
+        let pull = Pull {
+            stretch: h.stretch(&self.world.body),
+            tear: crate::sim::TEAR_RATIO * h.give,
+            taut: taut / crate::forms::filament::TAUT_SECS,
+        };
+        Some((handle, pull))
+    }
+
+    /// The tone of the pull being held now, tuned to the note it knows the player by; `None`
+    /// when nothing is pulled, and the tone fades.
+    pub fn strain(&self) -> Option<Strain> {
+        self.pull().map(|(_, p)| strain(p, self.remembrance.pitch()))
+    }
+
+    /// The held tip trembling once taut, faster and wider the nearer the thread: which tendril,
+    /// and how far its tip is shown off where it is. Only shown, never moved; still under
+    /// reduced motion.
+    pub fn tremble(&self) -> Option<(u32, crate::math::V3)> {
+        let (id, p) = self.pull()?;
+        if self.cam.still || p.taut <= 0.0 {
+            return None;
+        }
+        let t = self.world.time;
+        let a = TREMBLE * self.world.body.radius() * p.taut.min(1.0);
+        Some((id, crate::math::v3((t * 53.0).sin(), (t * 61.0 + 1.0).sin(), (t * 47.0 + 2.0).sin()) * a))
+    }
 }
 
 /// Between one sign of a phrase and the next (seconds), and the more between two words.
@@ -201,6 +363,85 @@ mod tests {
                 && matches!(a[1], Sound::Sign { i: 3, first: false, .. })
         );
         assert_ne!(a, signs("⊕∴ ⊕", 0.35));
+    }
+
+    fn pull(stretch: f32, taut: f32) -> Pull {
+        Pull { stretch, tear: crate::sim::TEAR_RATIO, taut }
+    }
+
+    #[test]
+    fn a_pull_rises_as_it_is_drawn_out() {
+        let mut last = strain(pull(0.0, 0.0), None);
+        assert_eq!((last.freq, last.gain), (STRAIN_REST, 0.0), "at rest, silent, where it rests");
+        let loud = |s: Strain| s.gain * (1.0 + s.rough);
+        for k in 1..=38 {
+            let s = strain(pull(k as f32 * 0.035, 0.0), None);
+            assert!(s.freq > last.freq && loud(s) > loud(last), "{k}: {s:?} after {last:?}");
+            assert!(loud(s) <= STRAIN_GAIN + 1e-6, "under the warm hum: {s:?}");
+            last = s;
+        }
+        let torn = strain(pull(crate::sim::TEAR_RATIO, 0.0), None);
+        assert!((torn.freq / STRAIN_REST - 2.0).abs() < 1e-3, "an octave up at the tear");
+        // it roughens only near the tear
+        assert_eq!(strain(pull(1.1, 0.0), None).rough, 0.0);
+        assert!(strain(pull(1.3, 0.0), None).rough > 0.0);
+        // so wary a hand that it tears before 1.2, it still roughens first
+        let wary = strain(Pull { stretch: 1.15, tear: 1.2, taut: 0.0 }, None);
+        assert!(wary.rough > 0.0 && wary.rough <= 0.7);
+    }
+
+    #[test]
+    fn held_taut_it_wavers_faster_toward_the_thread() {
+        assert_eq!(strain(pull(1.0, 0.0), None).depth, 0.0, "not taut, steady");
+        let mut last = 0.0;
+        for k in 1..=10 {
+            let s = strain(pull(1.0, k as f32 / 10.0), None);
+            assert!(s.depth > 0.0 && s.depth <= 0.5 && s.tremolo > last, "{k}: {s:?}");
+            last = s.tremolo;
+        }
+        assert_eq!(last, TREMOLO_TO);
+    }
+
+    #[test]
+    fn let_go_it_fades_without_a_jump() {
+        // what the browser draws for `toward(0, STRAIN_RELEASE)`: a curve, from where it was
+        let g0 = strain(pull(1.3, 0.8), None).gain;
+        let at = |t: f64| g0 * (-t / STRAIN_RELEASE).exp() as f32;
+        let frame = 1.0 / 60.0;
+        assert!(at(frame) > g0 * 0.9, "the first frame keeps most of it");
+        assert!((1..120).all(|k| at(f64::from(k) * frame) - at(f64::from(k + 1) * frame) < g0 * 0.1));
+        assert!(at(1.5) < g0 * 0.01, "and it is gone in a moment");
+    }
+
+    #[test]
+    fn a_pull_rests_on_the_players_note() {
+        assert_eq!(strain_rest(None), STRAIN_REST);
+        for (sung, rest) in [(196.0, 196.0), (98.0, 196.0), (440.0, 220.0), (880.0, 220.0), (130.0, 260.0)] {
+            assert!((strain_rest(Some(sung)) - rest).abs() < 1e-3, "{sung} rests at {rest}");
+            assert!((strain(pull(0.0, 0.0), Some(sung)).freq - rest).abs() < 1e-3);
+        }
+        for f in [55.0, 100.0, 300.0, 1100.0] {
+            let r = strain_rest(Some(f));
+            assert!((STRAIN_LOW..STRAIN_LOW * 2.0).contains(&r), "{f} folds to {r}");
+            assert!(((r / f).log2().round() - (r / f).log2()).abs() < 1e-4, "an octave of it");
+        }
+    }
+
+    #[test]
+    fn each_form_becomes_at_its_own_step() {
+        let root = become_tones(Form::Itself);
+        assert_eq!((root[0].f0, root[1].f0), (65.4, 98.0), "unmoved, as it was");
+        let mut seen: Vec<f32> = Vec::new();
+        for f in Form::ALL {
+            let t = become_tones(f);
+            assert!(!seen.iter().any(|s| (s - t[0].f0).abs() < 0.5), "{f:?} shares a pitch");
+            seen.push(t[0].f0);
+            // the same sound: a fifth, the same loudness and length, only moved
+            assert!((t[1].f0 / t[0].f0 - 98.0 / 65.4).abs() < 1e-4);
+            assert!(t.iter().zip(root).all(|(a, b)| a.gain == b.gain && a.decay == b.decay && a.wave == Wave::Sine));
+            let semis = 12.0 * (t[0].f0 / 65.4).log2();
+            assert!(SCALE.iter().any(|s| (s - semis).abs() < 1e-3), "{f:?} is on the scale");
+        }
     }
 
     #[test]

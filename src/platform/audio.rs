@@ -1,14 +1,13 @@
 //! Every sound is synthesized: a few sine and triangle tones, no samples.
 
-use crate::game::{memory, memory_deaf, Sound, Tone, Wave, OWN_SOUND_DEAF};
+use crate::game::{
+    become_tones, memory, memory_deaf, Sound, Strain, Tone, Wave, OWN_SOUND_DEAF, SCALE, STRAIN_RELEASE,
+};
 use crate::sim::World;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use web_sys::{AudioContext, AudioParam, GainNode, OscillatorNode, OscillatorType};
-
-/// Major pentatonic steps, in semitones, across two octaves.
-const SCALE: [f32; 10] = [0.0, 2.0, 4.0, 7.0, 9.0, 12.0, 14.0, 16.0, 19.0, 21.0];
 
 /// The step of the scale nearest `pitch`, 0..1 low to high, in semitones.
 fn step(pitch: f32) -> f32 {
@@ -84,6 +83,17 @@ impl Glide {
     }
 }
 
+/// The pull's tone (`game::strain`): a sine and, close to tearing, a second one beating against
+/// it, both through one gain, wavering through another that a slow sine moves.
+struct Strained {
+    voice: Voice,
+    second: Voice,
+    /// Where the wavering rests (1 less its depth) and the slow sine that moves it: its rate and depth.
+    still: Glide,
+    rate: Glide,
+    depth: Glide,
+}
+
 pub struct Audio {
     ctx: AudioContext,
     master: GainNode,
@@ -94,6 +104,8 @@ pub struct Audio {
     hum: Voice,
     /// A note the player held, hummed back (senses/).
     echo: Voice,
+    /// A pull, held.
+    strain: Strained,
     /// The last sound it made: when it began, and its tones, to come back when something is found.
     last: RefCell<(f64, Vec<Tone>)>,
     pub muted: bool,
@@ -121,12 +133,14 @@ impl Audio {
             freq: Glide::new(osc.frequency()),
             gain: Glide::new(g.gain()),
         };
+        let strain = Self::strained(&ctx, &master)?;
         Ok(Audio {
             master,
             warm: glides(warm),
             drone: Glide::new(drone.1.gain()),
             hum: glides(hum),
             echo: glides(echo),
+            strain,
             ctx,
             last: RefCell::new((0.0, Vec::new())),
             muted: false,
@@ -150,6 +164,26 @@ impl Audio {
         g.connect_with_audio_node(out)?;
         osc.start()?;
         Ok((osc, g))
+    }
+
+    /// The pull's voice: two sines into one silent gain, through a gain a slow sine wavers.
+    fn strained(ctx: &AudioContext, out: &GainNode) -> Result<Strained, JsValue> {
+        let waver = ctx.create_gain()?;
+        waver.gain().set_value(1.0);
+        waver.connect_with_audio_node(out)?;
+        let (osc, g) = Self::voice(ctx, &waver, OscillatorType::Sine, 220.0)?;
+        // the second sine goes through its own level into the same gain
+        let (b, level) = Self::voice(ctx, &g, OscillatorType::Sine, 224.0)?;
+        let (lfo, depth) = Self::voice(ctx, &waver, OscillatorType::Sine, 3.0)?;
+        depth.disconnect()?;
+        depth.connect_with_audio_param(&waver.gain())?;
+        Ok(Strained {
+            voice: Voice { freq: Glide::new(osc.frequency()), gain: Glide::new(g.gain()) },
+            second: Voice { freq: Glide::new(b.frequency()), gain: Glide::new(level.gain()) },
+            still: Glide::new(waver.gain()),
+            rate: Glide::new(lfo.frequency()),
+            depth: Glide::new(depth.gain()),
+        })
     }
 
     fn level(&self) -> f32 {
@@ -299,8 +333,9 @@ impl Audio {
                 .and_then(|_| self.pluck(Sine, 293.7, 293.7, 0.06, 3.0, 0.25))
                 .and_then(|_| self.pluck(Sine, 392.0, 392.0, 0.05, 3.2, 0.5))
                 .and_then(|_| self.pluck(Sine, 587.3, 587.3, 0.04, 3.4, 0.75)),
-            Sound::Become => {
-                self.pluck(Sine, 65.4, 65.4, 0.14, 3.0, 0.0).and_then(|_| self.pluck(Sine, 98.0, 98.0, 0.08, 3.0, 0.1))
+            // the same low sound for every form, each at its own step of the scale
+            Sound::Become { form } => {
+                become_tones(form).into_iter().try_for_each(|t| self.pluck(Sine, t.f0, t.f1, t.gain, t.decay, t.delay))
             }
             // The other one: hard, so a triangle, with a bell's partial over it; high struck, low arriving.
             Sound::Ring { pitch } => {
@@ -354,6 +389,23 @@ impl Audio {
         self.warm.gain.toward(&self.ctx, hum, 0.25);
         self.warm.freq.toward(&self.ctx, 150.0 + 120.0 * (c.x - c.z + 0.5), 0.4);
         self.drone.toward(&self.ctx, 0.07 * world.night, 0.5);
+    }
+
+    /// A pull held: its one quiet tone follows it, rising, wavering, roughening (`game::strain`).
+    /// Let go (`None`), it fades where it is, its pitch left as it was.
+    pub fn strain(&self, s: Option<Strain>) {
+        let (ctx, v) = (&self.ctx, &self.strain);
+        let Some(s) = s else {
+            v.voice.gain.toward(ctx, 0.0, STRAIN_RELEASE);
+            return;
+        };
+        v.voice.freq.toward(ctx, s.freq, 0.06);
+        v.voice.gain.toward(ctx, s.gain, 0.12);
+        v.second.freq.toward(ctx, s.freq + s.beat, 0.06);
+        v.second.gain.toward(ctx, s.rough, 0.15);
+        v.rate.toward(ctx, s.tremolo, 0.1);
+        v.depth.toward(ctx, s.depth, 0.15);
+        v.still.toward(ctx, 1.0 - s.depth, 0.15);
     }
 
     /// Sings a note the player held back to them, `(pitch, 0..1)`, or falls silent.

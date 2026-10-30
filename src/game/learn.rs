@@ -47,7 +47,7 @@ impl Game {
                     self.world.ripple_both(0.6);
                     self.discover(Discovery::Answer);
                 }
-                C::Reaching => self.sounds.push(Sound::Become),
+                C::Reaching => self.sounds.push(Sound::Become { form: Form::Itself }),
                 C::Said => {
                     // What it says is heard too, a note for each sign, as the signs appear.
                     self.sounds.extend(signs(&self.contact.reply(), CONTACT_SIGNS_AFTER));
