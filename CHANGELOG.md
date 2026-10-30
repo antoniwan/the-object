@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.6] - 2026-10-30
+
+### Changed
+- The code for what reaches it (keys, the phone, words, the senses), what it learns, and the browser glue is tidier and behaves exactly as before: one way to read a browser property, sounds' pitches worked out in one place, paths in comments that point at the files as they are now. (#86)
+
 ## [1.22.5] - 2026-10-30
 
 ### Changed
@@ -464,7 +469,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.5...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.6...HEAD
+[1.22.6]: https://github.com/antoniwan/the-object/compare/v1.22.5...v1.22.6
 [1.22.5]: https://github.com/antoniwan/the-object/compare/v1.22.4...v1.22.5
 [1.22.4]: https://github.com/antoniwan/the-object/compare/v1.22.3...v1.22.4
 [1.22.3]: https://github.com/antoniwan/the-object/compare/v1.22.2...v1.22.3
