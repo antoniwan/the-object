@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.17] - 2026-10-30
+
+### Fixed
+- The other one comes back out from wherever it is when the soft one closes, not only from the start. Drifts of dust run together over time instead of in one frame. A second poke while the mirrors turn carries on from what is shown. The petals no longer spring open when touched while they flinch. The question waits for room instead of going unasked. Pieces from an earlier wound are let go, not held as a fifth. A thread plucked again while it rings carries on from its swing (#97)
+
 ## [1.22.16] - 2026-10-30
 
 ### Fixed
@@ -519,7 +524,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.16...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.17...HEAD
+[1.22.17]: https://github.com/antoniwan/the-object/compare/v1.22.16...v1.22.17
 [1.22.16]: https://github.com/antoniwan/the-object/compare/v1.22.15...v1.22.16
 [1.22.15]: https://github.com/antoniwan/the-object/compare/v1.22.14...v1.22.15
 [1.22.14]: https://github.com/antoniwan/the-object/compare/v1.22.13...v1.22.14
