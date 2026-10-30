@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [1.22.18] - 2026-10-30
+
+### Fixed
+- An answer the store could not count is counted when given again, and never takes away another visitor's; an answer the store took without replying is counted once (#98)
+
 ## [1.22.17] - 2026-10-30
 
 ### Fixed
@@ -524,7 +529,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.17...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v1.22.18...HEAD
+[1.22.18]: https://github.com/antoniwan/the-object/compare/v1.22.17...v1.22.18
 [1.22.17]: https://github.com/antoniwan/the-object/compare/v1.22.16...v1.22.17
 [1.22.16]: https://github.com/antoniwan/the-object/compare/v1.22.15...v1.22.16
 [1.22.15]: https://github.com/antoniwan/the-object/compare/v1.22.14...v1.22.15

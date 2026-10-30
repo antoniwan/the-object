@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Only for api/ (the serverless function that keeps the answers to the object's question) and the tests of the pages pasted into itch.io.",
   "scripts": {
-    "test": "node --test api/_rating.test.js scripts/itch-html.test.js"
+    "test": "node --test --experimental-test-module-mocks api/_rating.test.js api/rating.test.js scripts/itch-html.test.js"
   },
   "dependencies": {
     "@vercel/blob": "2.8.2"
