@@ -15,7 +15,8 @@ python3 -m http.server -d web      # open http://localhost:8000
 cargo test                         # runs natively
 cargo run --release --example frame_bench   # times a frame of each scene, natively
 cargo run --release --example frame_bench -- --check   # fails if a scene no longer ends where examples/fingerprints.txt says
-npm ci && npm test                 # the serverless function's helpers (api/)
+cargo clippy --all-targets -- -D warnings -A clippy::style -A clippy::complexity -A clippy::perf   # as CI runs it, also with --target wasm32-unknown-unknown
+npm ci && npm test                 # the serverless function's helpers (api/) and the itch.io pages' HTML
 ```
 
 Everything except the browser glue is plain Rust with no browser types, so the tests run on your machine without a browser. Gestures are tested by feeding pointer positions into `Game` and checking what was discovered.
@@ -49,16 +50,16 @@ The itch.io page's description is `itch/page.md`, with its pictures in `itch/pic
 
 ## Where it runs
 
-- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, `npm test`, then a full `./build.sh`. Both must pass before a PR merges. On pull requests it also checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
+- **GitHub** runs `.github/workflows/test.yml` on every push to `main` and every pull request: `cargo test`, clippy (native and wasm; warnings and the lints that catch mistakes fail it, style, complexity and speed lints do not), `frame_bench --check`, `npm test`, a full `./build.sh`, `./scripts/itch.sh`, and `scripts/load-check.mjs`. All must pass before a PR merges. On pull requests it first checks that the version went up. `.github/workflows/release.yml` tags each new version on `main` and publishes its release notes.
 - **Vercel** hosts the site at <https://the-object.antoniwan.online>. It runs `scripts/vercel-install.sh` (installs Rust and wasm-bindgen, which its build image lacks), then `./build.sh --hash`, and serves `web/`. Settings are in `vercel.json`.
-- **Only `main` deploys.** Preview deployments are turned off in the Vercel project settings, so branches and pull requests build nothing there. Merging is deploying.
-- **itch.io** gets the same object as a zip. `./scripts/itch.sh` packs `web/` into `dist/the-object-itch.zip` with `index.html` at its root; `scripts/itch-page.mjs` takes out of the page the Vercel analytics, Stats, the ratings script (`web/rating.js`) and the root-absolute links, which break when itch serves the game from a subfolder in an iframe. Every production deploy on Vercel then runs `scripts/itch-push.sh`, which pushes that build to <https://antoniwan.itch.io/the-object> with butler, using the `BUTLER_API_KEY` and `ITCH_TARGET` (`user/game`) environment variables of the Vercel project; so merging to main updates both. A failed push is logged and never fails the deploy. `.github/workflows/itch.yml` is the manual path: on a `v*` tag (or by hand from the Actions tab) it attaches the zip to a GitHub release.
+- **Only `main` deploys.** `vercel.json` turns deployments off for every other branch (`git.deploymentEnabled`), so branches and pull requests build nothing there. Merging is deploying.
+- **itch.io** gets the same object as a zip. `./scripts/itch.sh` packs `web/` into `dist/the-object-itch.zip` with `index.html` at its root; `scripts/itch-page.mjs` takes out of the page the Vercel analytics, Stats, the ratings script (`web/rating.js`), the manifest and touch icon links, and the root-absolute links, which break when itch serves the game from a subfolder in an iframe. Every production deploy on Vercel then runs `scripts/itch-push.sh`, which pushes that build to <https://antoniwan.itch.io/the-object> with butler, using the `BUTLER_API_KEY` and `ITCH_TARGET` (`user/game`) environment variables of the Vercel project; so merging to main updates both. A failed push is logged and never fails the deploy. `.github/workflows/itch.yml` is the manual path: on a `v*` tag (or by hand from the Actions tab) it attaches the zip to a GitHub release, and pushes it to itch too if the repository has an `ITCH_TARGET` variable and a `BUTLER_API_KEY` secret. Tags made by `release.yml` start no other workflow, so it does not run on those.
 - **One serverless function**, `api/rating.js`, keeps the answers to the question the object asks after contact (`contact.rs`, `Ask`): the player is handed a drop and the steps they kept it for, 1 to 5, are posted to `/api/rating`. They are stored in a private Vercel Blob store connected to the project (`BLOB_READ_WRITE_TOKEN`), as counts in `ratings/summary.json` and one small file per visitor under `ratings/visitors/`, named by a salted hash of their address (salt: `RATING_SALT` if set, else the store token), never the address itself. A visitor who answers again replaces their answer, and no sooner than a minute later. `GET /api/rating` returns the mean and count; `web/index.html` adds them to the page's JSON-LD as an `AggregateRating` once there is at least one. Nothing is invented: with no answers there is no rating.
 - Vercel Web Analytics is loaded by `web/index.html` and counts page views. Beside it, `web/index.html` loads Stats, Antonio's self-hosted Umami at `antoniwan-stats.vercel.app` (no cookies, Do Not Track respected, counted only on `the-object.antoniwan.online`), and counts a click on a link to another site as an `outbound` event. The itch.io page leaves both out. The object's own memory of a player stays in their browser (see Saved state).
 
 ## How a frame happens
 
-1. `platform/web/` turns browser events (pointer, wheel, the `m` key that mutes) into calls on `Game`, and every other key into calls on `keys.rs`.
+1. `platform/web/` turns browser events (pointer, wheel, a trackpad pinch through `pad.rs`, the `m` key that mutes, `Escape` that stops it hearing and seeing, `Enter` that takes its word) into calls on `Game`, and every other key into calls on `keys.rs`.
 2. `game/` turns raw pointer movement into verbs: poke, stretch, slice, stir, and so on. It owns the camera, the player's progress, and what the object has learned about them.
 3. The verbs act on `World` in `sim/`, which owns the body, its tendrils, ripples and free drops, plus one state machine per transformation.
 4. `platform/render.rs` copies the world into shader uniforms, and `shader.frag` raymarches the scene.
@@ -75,8 +76,9 @@ Pointer to verb, the liquid, and the small pieces everything shares.
 
 | File | What it holds |
 | --- | --- |
-| `src/game/` | Pointer input to verbs. `mod.rs` holds `Game`, its frame step and, in its header comment, every gesture; `gesture.rs` turns pointer movement into verbs, `news.rs` routes what each transformation reports back, `view.rs` projects between screen and room, `learn.rs` feeds contact and the senses, `sound.rs` names the sounds a frame asks for. |
-| `src/sim/` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `mod.rs` holds `World` and its frame step; `parts.rs` the pieces it is made of, `verbs.rs` what a hand does to it, `liquid.rs` tendrils and drops, `moods.rs` how it feels, `geometry.rs` its distance function (`World::sdf`, mirrored by the shader). |
+| `src/game/` | Pointer input to verbs. `mod.rs` holds `Game`, its frame step and, in its header comment, every gesture; `gesture.rs` turns pointer movement into verbs, `news.rs` routes what each transformation reports back, `view.rs` projects between screen and room, `learn.rs` feeds contact and the senses, `sound.rs` names the sounds a frame asks for, `tests.rs` drives gestures through `Game`. |
+| `src/sim/` | The liquid: one body, tendrils, ripples, drops, tearing, merging, color, night. `mod.rs` holds `World` and its frame step; `parts.rs` the pieces it is made of, `verbs.rs` what a hand does to it, `liquid.rs` tendrils and drops, `moods.rs` how it feels, `geometry.rs` its distance function (`World::sdf`, mirrored by the shader), `tests.rs` its own tests. |
+| `src/lib.rs` | The crate root: the families below, and `platform/` only in the wasm build. |
 | `src/progress.rs` | The discoveries: the enum, their names, and the line shown for each. 123 so far. |
 | `src/aura.rs` | The object's state as the page's words need it: color, unrest, screen position. |
 | `src/camera.rs` | The orbit camera and screen shake. |
@@ -113,7 +115,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `src/input/motion.rs` | A phone in the hand: tipped, it tips the room the way the arrows do; shaken, it sloshes, is upset, and comes loose. Plain Rust, tested natively; `devices.rs` feeds it two angles and one push a frame, turned to the screen, and asks iOS for them inside the player's tap. |
 | `src/input/pad.rs` | Two fingers pinched on a trackpad: told as a ctrl-held wheel or as Safari's gesture, it squeezes as far as two fingers on a screen do, held while they move. |
 | `src/input/words.rs` | Words, once it hears: a verb said is done by the same hand the pointer is, once for each time it is said; a greeting in any language is answered in signs, or not, by what it remembers (`remembrance.rs`). Plain Rust, tested natively. |
-| `src/input/senses/` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers (`hearing.rs`, `sight.rs`). Plain Rust, tested natively. |
+| `src/input/senses/` | Hearing and sight, once given: when it asks (`speak.`, `show yourself.`), what a voice, a note, a whisper, a breath, a shout, a movement or a covered lens does to it, and the analysis that reduces sound and picture to a few numbers (`hearing.rs`, `sight.rs`; tests in `tests.rs`). Plain Rust, tested natively. |
 
 ### What it learns (`src/mind/`)
 
@@ -127,7 +129,7 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 
 | File | What it holds |
 | --- | --- |
-| `src/platform/web/` | Browser glue: canvas, input, the frame loop (`mod.rs`), the hint, the toast, the count and its thoughts (`hud.rs`), the page's colors and marks (`page.rs`), asking for and feeding the senses (`sensing.rs`), canvas size (`frame.rs`), `localStorage` keys (`storage.rs`). |
+| `src/platform/web/` | Browser glue: canvas, input, the frame loop (`mod.rs`), the hint, the toast, the count and its thoughts (`hud.rs`), the page's colors and marks, failing quietly and sending the answer on (`page.rs`), asking for and feeding the senses (`sensing.rs`), canvas size, waiting behind the loader and how fast a pointer moved (`frame.rs`), the `localStorage` keys and reading and writing them (`storage.rs`). |
 | `src/platform/render.rs` | WebGL2 setup, compiling the shader in the background, uniforms. |
 | `src/platform/audio.rs` | Synthesized sounds, no samples. |
 | `src/platform/devices.rs` | Browser side of the same (wasm only): `getUserMedia` inside the player's tap, an `AnalyserNode` for the microphone, a 32 × 24 canvas for the camera, and stopping every track; and the phone's `deviceorientation` / `devicemotion`, asked for with `requestPermission` only where the browser has it and the screen is touched. |
@@ -143,12 +145,19 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 | `web/index.html` | The page: canvas, loader, the four lines of text, styles. |
 | `web/glyph.js` | Makes every word on the page decode letter by letter. |
 | `web/rating.js` | Sends the answer to the question asked after contact to `/api/rating`, and adds what all the answers come to to the page's structured data. Left out of the itch build. |
-| `scripts/itch-html.mjs` | Makes the HTML for the itch.io description (`itch/page.md`) and each daily post, to paste into itch's editors. |
+| `api/rating.js`, `api/_rating.js` | The one serverless function (see Where it runs) and its helpers, tested by `npm test`. |
+| `itch/` | The itch.io page's description (`page.md`, and `page.html` made from it) and its pictures. |
+| `scripts/itch-html.mjs` | Makes the HTML for the itch.io description (`itch/page.md`) and each daily post, to paste into itch's editors; `--check` says whether every one is up to date. |
+| `scripts/itch.sh`, `itch-page.mjs`, `itch-push.sh` | Pack `web/` for itch.io, take out of the page what breaks there, and push the build on a production deploy (see Where it runs). |
+| `scripts/version.sh`, `changelog-notes.sh` | Move the version everywhere it is written; print one version's changelog entry, for the release notes. |
+| `scripts/pkg-names.mjs`, `vercel-install.sh` | Name `web/pkg/` by content on a `--hash` build; install Rust and wasm-bindgen on Vercel. |
 | `scripts/gif.mjs`, `scripts/gif-scenes.mjs` | Films short looping GIFs of the built page for the daily devlog, from scripted scenes on a clock it moves itself (`devlog/README.md`). |
 | `scripts/shader-time.mjs` | Times how long the built page takes to be ready in headless Chromium at 48×32: the number to compare before and after a shader change. |
 | `scripts/load-check.mjs` | Loads the built page in headless Chromium dressed as Chromium, Safari and Firefox, a first visit and a return, and fails if any throws or never wakes. CI runs it. |
+| `scripts/web-server.mjs` | What those three share: a small server for `web/`, finding Playwright and its Chromium, and the software-GPU flags. |
 | `web/fonts/` | Self-hosted fonts and their licenses; see its README. |
 | `web/llms.txt`, `robots.txt`, `sitemap.xml`, `og.png` | For crawlers and link previews. |
+| `web/site.webmanifest`, `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` | The tab and home-screen icons. |
 
 ## Adding a verb or a transformation
 
@@ -164,9 +173,11 @@ Everything besides the pointer, as plain Rust tested natively. Their browser hal
 On 2026-10-28 the live site crashed a desktop browser. The shader had grown to take about 11 seconds to compile, and some GPU drivers hang on that. The cause was that the compiler copies `scene()` into every place it is called, and unrolls every loop it can; a 12-piece loop inside `scene()` multiplied across dozens of copies. It now compiles in under a second. To keep it that way:
 
 - **Every loop starts from `ZERO`**, not `0`. `ZERO` is a zero the compiler can't see through, so the loop stays a loop instead of being unrolled.
-- **Don't add new calls to `scene()`, `shadeLiquid()` or `calcNormal()`.** Add your shape inside `scene()` or your material inside the existing call instead.
+- **Don't add new calls to `scene()` or `shadeLiquid()`.** `scene()` is called from one place: the march loop in `main()`, which at the point it found also takes the normal (a tetrahedral gradient) and the ambient occlusion from the same call. Add your shape inside `scene()` or your material inside the existing call instead.
+- **Never blend a huge sentinel arithmetically.** Where a bound is "nothing" (`1e9`, `-1e9`) or a value, choose with `pick()`, which is a select. `a * (1 - m) + b * m` and `mix()` are free for a fast-math compiler to rewrite as `a + (b - a) * m`, which loses `b` entirely when `a` is `1e9`; Safari on the iPhone does that, and the body's span collapsed to nothing.
 - **Grow `marchSpan()` with the scene.** Rays are marched only between the bounds it builds (spheres around the body, its drops, tendrils and the other one, and a layer over the floor). A new shape that reaches past them is cut off; give it its own bound there. On real GPUs a branch on a uniform skips its code; SwiftShader runs it anyway, so fewer `scene()` calls is the only speedup that shows there.
 - **Measure before and after** any shader change: `./build.sh && node scripts/shader-time.mjs` loads the page in headless Chromium at a tiny viewport (48×32), a fresh browser each run, and times how long until it is ready. If it gets noticeably slower, find out why before merging.
+- **Uniform space is nearly full.** WebGL2 promises only 224 vectors of fragment uniforms. Counting each uniform and each array element as one vector, the shader declares 225 (they pack to about 192 rows, which is why it still links). Before adding a uniform, put the value in an unused `.w` (`uSplash[i].w`, `uMere.w`, `uIce.w`, `uWound.w`, `uFold2.w` are free) or pack it beside another; never add an array without counting.
 - On-screen effects that don't need the shader belong in the page (CSS, `glyph.js`), not in `shader.frag`.
 
 The page also guards against slow machines: the loader stays up while the shader compiles in the background (`KHR_parallel_shader_compile`), large screens render at most about 1.6 million pixels and scale up, slow frames lower the resolution until they keep up and quick ones raise it again (`pace.rs`), and a lost WebGL context is recovered.
