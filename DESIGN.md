@@ -251,11 +251,11 @@ Forms take between two and four seconds to arrive and a little less to leave. A 
 | thought | rises over 2.4 s, stays 7 s, sinks over 2.4 s; anything found or said sends it away. The first comes no sooner than 30 s into a visit, after 20 s without a discovery, 3.5 s with no hand on anything and 8 s in one place; then at most one every 45 s. On a first visit: 12 s, 10 s, 5 s in one place, then one every 25 s (`thoughts.rs` `FIRST_VISIT`) |
 | hint | breathes 0.35 – 0.85 opacity every 3.5 s; fades over 1.2 s once something is found |
 | night text | color eases over 3 s |
-| loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s; on waking the pearl grows ninefold and blurs out over 2 s while the veil fades over 1.8 s |
+| loader | pearl pulses every 4.2 s, rings every 2.1 s, film turns every 11 s. It grows with what has really arrived (`--g`, 0..1: the page, the letters, the body as its bytes come in, then .75 while its shape compiles), from 0.35 to 2.6 times the seed, easing at 5 / s and leaning toward the next arrival with a 1.4 s time constant, never past it; the rings quiet to 25% as it fills. Awake, it fills at 9 / s; full, the pearl draws in to 1.3 over 0.26 s and puffs out to 8 times, blurring 14px, over the rest of 1.2 s, while seven motes in the film's colors fly 24 – 38px out over 1.1 s and the veil fades over 1.5 s from 0.35 s |
 | resolution | a frame over 0.25 s drops it a quarter at once, a second under 35 fps a step of 0.15, down to 0.4; 8 s over 50 fps raises it 0.1, never back past a level that failed within 10 s; a gap over 1 s (a hidden tab) is not counted; frames steady at 30 fps (within 2.5 ms, changing under 1.5 ms frame to frame: a screen saving power) are let be; the canvas follows in steps of 0.025, down at 0.4 / s and up at 0.15 / s; the finest light follows at rate 1.2 / s (`pace.rs`) |
 | easing | `ease-in-out` for breathing, `cubic-bezier(.2, .7, 0, 1)` for arrivals, `cubic-bezier(.1, .6, .3, 1)` for rings |
 
-`prefers-reduced-motion` stops the loader's animation and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.
+`prefers-reduced-motion` stops the loader's animation (it grows only in opacity, 35% to 100%, and fades where it stands) and the hint's breathing (it rests at 70%), shows letters without decoding, lets the toast and the thought fade where they stand, and quiets the room: a shock shakes it a fifth as far, and its flash and ring come at 40% (`camera.rs` `still`). Anything new on the page must respect it too.
 
 ## 6. Sound
 

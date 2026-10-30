@@ -50,6 +50,7 @@ A new change to show gets a scene. Read the top of `scripts/gif-scenes.mjs`; in 
 - `t.wait(secs)` lets its time run; `t.drag(path, secs)`, `t.tap`, `t.hold`, `t.key` are a hand; `t.roll()` starts filming (`t.roll(8)` films eight times faster than it happens) and `t.cut()` stops.
 - `saved` sets its memory before the page opens (`NOW` is the time in seconds), to start somewhere a player would take visits to reach: what was found, how it remembers being treated, a scar.
 - `voice: true` gives it a quiet microphone and a stand-in for the browser's words: `t.asked('speak')` waits for it to ask, `t.click('toast')` takes its word, `t.say('hello')` is heard as if said aloud.
+- `arrival: true` films the page arriving instead, before it wakes, as it happens on a slow network, slowed and sped back up (`arrive` in `scripts/gif.mjs`); it takes no fingers.
 - `await t.snap('label')` saves a still to `<out>/<scene>-label.png` to see where things are while working one out.
 
 Look at every GIF before it goes in a post: a scene that drifted shows nothing, or the wrong thing.

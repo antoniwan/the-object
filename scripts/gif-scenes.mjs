@@ -51,6 +51,13 @@ async function twoFingers(t, a, b, a2, b2, secs) {
 }
 
 export default {
+  arrival: {
+    about: 'before it appears: the pearl grows as the page arrives, then comes apart, and it is there',
+    // Filmed as it happens (gif.mjs `arrive`): no fingers, only the page arriving.
+    arrival: true,
+    after: 2.5,
+    play() {},
+  },
   trackpad: {
     about: 'two fingers pinched on a trackpad squeeze it as far as two fingers on a screen; spread, it stands taller',
     async play(t) {
