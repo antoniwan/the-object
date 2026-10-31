@@ -15,7 +15,7 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 ## [2.4.1] - 2026-10-31
 
 ### Changed
-- The devlog post for 30 october reaches the end of that day, with pictures of what a player can see.
+- The devlog post for 30 october reaches the end of that day, with pictures of what a player can see (#118)
 
 ## [2.4.0] - 2026-10-30
 
