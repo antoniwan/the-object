@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-10-31
+
+### Changed
+- The devlog post for 30 october reaches the end of that day, with pictures of what a player can see.
+
 ## [2.4.0] - 2026-10-30
 
 ### Added
@@ -624,7 +629,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.1...HEAD
+[2.4.1]: https://github.com/antoniwan/the-object/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/antoniwan/the-object/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/antoniwan/the-object/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/antoniwan/the-object/compare/v2.1.0...v2.2.0

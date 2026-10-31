@@ -423,4 +423,51 @@ export default {
       await t.wait(3);
     },
   },
+  rise: {
+    about: 'pressed, it gives under the finger at once; held there, it rises toward it, and sinks back when let go',
+    async play(t) {
+      await t.wait(1.5);
+      t.roll();
+      await t.wait(0.5);
+      await t.hold(0, 0, 3.2);
+      await t.wait(2.3);
+    },
+  },
+  downhill: {
+    about: 'the twelve on the ground, the room tipped: they slide downhill, and groups that meet are one',
+    async play(t) {
+      await t.wait(1);
+      for (let i = 0; i < 12; i++) {
+        await t.tap(0, 0);
+        await t.wait(0.2);
+      }
+      await t.wait(7);
+      t.roll();
+      await t.wait(0.4);
+      await t.key('ArrowRight', 4);
+      await t.wait(1.5);
+    },
+  },
+  drifts: {
+    about: 'the flower let go into dust, then breathed on: the drifts move away over the floor',
+    async play(t) {
+      await t.wait(1);
+      await flower(t);
+      await t.drag(
+        [
+          [0, 0],
+          [0, 0.042],
+        ],
+        0.04,
+      );
+      await t.wait(5);
+      t.roll();
+      await t.wait(0.5);
+      for (let i = 0; i < 3; i++) {
+        await t.key('Space', 1.4);
+        await t.wait(1.2);
+      }
+      await t.wait(1);
+    },
+  },
 };
