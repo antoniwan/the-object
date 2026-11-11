@@ -12,6 +12,12 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-11-11
+
+### Added
+- The front page answers a request for Markdown (`Accept: text/markdown`) with `llms.txt` as `text/markdown`, and carries `Vary: Accept`; a browser still gets the page.
+- An agent that asks for Markdown (`Accept: text/markdown`) at an address with no page gets a short Markdown 404 that points to `/llms.txt`, the sitemap, and the front page. The status stays 404; a browser still gets the plain 404 it got before.
+
 ## [2.4.1] - 2026-10-31
 
 ### Changed
@@ -629,7 +635,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.1...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.2...HEAD
+[2.4.2]: https://github.com/antoniwan/the-object/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/antoniwan/the-object/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/antoniwan/the-object/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/antoniwan/the-object/compare/v2.2.0...v2.3.0
