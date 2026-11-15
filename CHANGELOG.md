@@ -12,6 +12,11 @@ Every merge to `main` is deployed, so every pull request is a release and carrie
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-11-15
+
+### Changed
+- The page reports its uncaught script errors to Stats (Umami 3.5.0), scrubbed of emails, tokens, and query strings
+
 ## [2.4.2] - 2026-11-11
 
 ### Added
@@ -635,7 +640,8 @@ The arc arrives: what it was always about.
 ### Added
 - A liquid in a white room, drawn by one raymarching shader from Rust compiled to WebAssembly. It can be poked, stretched, torn, merged, squeezed and flung, and looked around.
 
-[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.2...HEAD
+[Unreleased]: https://github.com/antoniwan/the-object/compare/v2.4.3...HEAD
+[2.4.3]: https://github.com/antoniwan/the-object/compare/v2.4.2...v2.4.3
 [2.4.2]: https://github.com/antoniwan/the-object/compare/v2.4.1...v2.4.2
 [2.4.1]: https://github.com/antoniwan/the-object/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/antoniwan/the-object/compare/v2.3.0...v2.4.0
